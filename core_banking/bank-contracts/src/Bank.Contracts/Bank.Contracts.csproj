@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Bank.Contracts</PackageId>
+    <Description>Money, integration event records and their JSON Schemas.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Schemas are the source of truth; they ship inside the package so consumers can read them. -->
+    <EmbeddedResource Include="..\..\schemas\**\*.json" LogicalName="schemas/%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>

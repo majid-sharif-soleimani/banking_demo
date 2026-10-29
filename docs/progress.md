@@ -5,7 +5,7 @@ Updated by `/close-stage`. One row per stage from section 10 of `phase1-design-p
 | Stage | Name | Status | Closed on | Notes |
 | --- | --- | --- | --- | --- |
 | 0 | Design and requirements | Done | 2026-10-29 | All assumptions in section 11 confirmed |
-| 1 | Foundation: contracts, messaging, platform | Not started | | Runs as slices 1.1 to 1.4 |
+| 1 | Foundation: contracts, messaging, platform | In progress | | Runs as slices 1.1 to 1.4; Claude writes all, Majid decides D1 |
 | 2 | Operations | Not started | | |
 | 3 | Lending pure logic (TDD) | Not started | | |
 | 4 | Customers and Accounts | Not started | | |

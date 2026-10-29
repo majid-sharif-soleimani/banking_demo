@@ -8,14 +8,14 @@ Read first: `docs/implementation-decisions.md`, design plan sections 3, 4 (ADRs 
 
 This stage is large, so it runs as four slices with a checkpoint after each (see "Learning mode" in `docs/implementation-decisions.md`).
 
-| Slice | Content | Concepts | Decisions for Majid (D1) | Majid writes |
+| Slice | Content | Concepts | Decisions for Majid (D1) | Majid writes (originally; reassigned, see below) |
 | --- | --- | --- | --- | --- |
 | 1.1 Contracts | `bank-contracts` folder, build props, `Money`, `IIntegrationEvent`, the five schemas, `Bank.Contracts.Tests` | Value objects, contract-first design, JSON Schema, SchemaVer, contract tests | How records and schemas stay in sync (reflection test, code generation from schema, or schema generation from records). ADR: schema/record sync | `Money` and its tests (arithmetic, currency mismatch, JSON shape); the ADR |
 | 1.2 Outbox and inbox | `Bank.Common`, `Bank.Messaging` (EF Core only, no Kafka), `Bank.Testing` fixtures | The dual-write problem, transactional outbox, at-least-once delivery, idempotent consumers, inbox | How the dispatcher finds new outbox rows (polling, PostgreSQL LISTEN/NOTIFY, CDC with Debezium); the inbox key. ADRs: outbox dispatcher, inbox key | Integration tests "rollback publishes nothing" and "duplicate message applied once"; both ADRs |
 | 1.3 Kafka transport | `Bank.Messaging.Kafka`: producer, consumer, headers, retry, DLT | Topics, partitions and keys, ordering, consumer groups, offset commits, poison messages, dead-letter topics | Retry strategy (in-consumer retry that blocks the partition, retry topics, or no retry). ADRs: message format and headers, retry and dead-letter | The backoff sequence function and its unit test; the retry and dead-letter ADR |
 | 1.4 Platform | `bank-platform`: Aspire AppHost, init SQL, docker-compose, platform tests | Infrastructure as code, least-privilege database roles, service defaults, OpenTelemetry basics | none new | `db/init/001-roles-and-schemas.sql` and the test "each service role cannot read another schema"; ADR: one role and schema per service |
 
-Claude writes everything else in this stage, and the remaining ADRs (package layout). Before slice 1.2, Claude draws the full path of one event (service A transaction, outbox, dispatcher, Kafka, consumer, inbox, handler, service B transaction) as a sequence diagram, and Majid explains back where a crash at each step would leave the system.
+Change on 2026-10-30 (Majid): in stage 1, Claude writes everything in the "Majid writes" column too, including all ADRs, and writes a learning document per slice in `docs/learning/stage-1/`. Majid still makes the D1 decisions. Originally: Claude writes everything else in this stage, and the remaining ADRs (package layout). Before slice 1.2, Claude draws the full path of one event (service A transaction, outbox, dispatcher, Kafka, consumer, inbox, handler, service B transaction) as a sequence diagram, and Majid explains back where a crash at each step would leave the system.
 
 ## Folders created in this stage
 
