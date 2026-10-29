@@ -1,0 +1,18 @@
+# .NET build output and local NuGet feed
+bin/
+obj/
+core_banking/.local-feed/
+
+# Personal Claude Code files
+CLAUDE.local.md
+.claude/settings.local.json
+
+# Secrets and personal data (see .claude/rules/secrets.md)
+.env
+.env.*
+!.env.example
+secrets/
+*.pem
+*.key
+*.pfx
+appsettings.*.local.json

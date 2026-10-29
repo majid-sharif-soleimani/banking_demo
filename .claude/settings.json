@@ -1,0 +1,59 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet build *)",
+      "Bash(dotnet test *)",
+      "Bash(dotnet restore *)",
+      "Bash(dotnet format *)",
+      "Bash(dotnet new *)",
+      "Bash(dotnet sln *)",
+      "Bash(dotnet add *)",
+      "Bash(dotnet list *)",
+      "Bash(dotnet ef *)",
+      "Bash(docker ps *)",
+      "Bash(docker compose ps *)",
+      "Bash(docker compose logs *)",
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git branch *)",
+      "Bash(git switch *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git init *)",
+      "Bash(git merge *)",
+      "Bash(git checkout *)",
+      "Bash(git -C *)",
+      "Bash(dotnet pack *)",
+      "Bash(dotnet run *)"
+    ],
+    "ask": [
+      "Bash(dotnet nuget push *)",
+      "Bash(cdk deploy *)",
+      "Bash(aws *)"
+    ],
+    "deny": [
+      "Bash(git push *)",
+      "Bash(git push)",
+      "Bash(git -C * push *)",
+      "Bash(git -C * push)",
+      "Bash(gh pr create *)",
+      "Bash(gh pr merge *)",
+      "Bash(gh repo sync *)",
+      "Read(**/.env)",
+      "Read(**/secrets/**)",
+      "Bash(gh repo create *)",
+      "Bash(git remote add *)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Read(**/*.pfx)",
+      "Read(**/usersecrets/**)",
+      "Read(**/appsettings.*.local.json)",
+      "Bash(dotnet user-secrets list *)",
+      "Bash(aws secretsmanager get-secret-value *)",
+      "Read(**/.env.local)",
+      "Read(**/.env.production)",
+      "Read(**/.env.development)"
+    ]
+  }
+}
