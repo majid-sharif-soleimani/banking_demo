@@ -31,6 +31,16 @@ This is a learning project. Majid builds it to learn solution and software engin
 - Business-rule gaps: ask; do not invent business rules.
 - Show evidence when you claim something works: the command you ran and its result.
 
+## Replying in Persian
+
+Majid often writes in Persian. Files on disk stay in English (see above); this section is only about chat replies.
+
+- When Majid writes in Persian, reply in Persian.
+- IMPORTANT: every new line of a Persian reply must start with a Persian word, never with an English word, a name like Claude, code, a file path or a command. Terminals and chat views pick the text direction of each line from its first word, so a line that starts in English flips to left-to-right.
+- This matters most for the FIRST item of every list, because it sets the direction of the whole list.
+- Example: write "اینجا Claude ..." not "Claude ...", and "فایل `Program.cs` ..." not "`Program.cs` ...".
+- Code blocks are the exception: they stay as normal fenced blocks in English. Put a Persian sentence on the line before the block to introduce it.
+
 ## Layout
 
 ```
