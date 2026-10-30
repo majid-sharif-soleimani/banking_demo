@@ -1,11 +1,11 @@
 using System.Data;
 using Npgsql;
 
-namespace Bank.Messaging.Data;
+namespace Bank.Toolkit.Data;
 
 /// <summary>
-/// The PostgreSQL connection factory: the only production type in the bank-contracts packages that names Npgsql.
-/// The connection string carries the service's role, and its schema as the search path.
+/// The PostgreSQL connection factory: the only production type in the bank-contracts packages that names Npgsql
+/// (bank-contracts ADR 0010). A service's connection string carries its own role, and its schema as the search path.
 /// </summary>
 public sealed class NpgsqlConnectionFactory(string connectionString) : IDbConnectionFactory, IAsyncDisposable
 {

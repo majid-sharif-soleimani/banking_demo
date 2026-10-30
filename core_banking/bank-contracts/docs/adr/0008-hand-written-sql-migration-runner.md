@@ -1,6 +1,6 @@
 # 0008. Apply SQL migrations with a small hand-written runner
 
-- Status: Accepted
+- Status: Accepted, amended by 0011 (the runner moved to `Bank.Toolkit.Data`; scripts are registered per source)
 - Date: 2026-10-30
 - Scope: bank-contracts (Bank.Messaging), used by every service
 - Design plan reference: section 4, ADR row 01 (Dapper and hand-written SQL); workspace ADR 0001; `docs/implementation-decisions.md`, Database
@@ -11,14 +11,14 @@ With Dapper instead of EF Core (workspace ADR 0001), there are no EF migrations.
 
 ## Decision
 
-1. `SqlMigrationRunner.RunAsync(scripts)` in `Bank.Messaging`:
+1. `SqlMigrationRunner.RunAsync(scripts)` in `Bank.Messaging` (in `Bank.Toolkit.Data` since ADR 0011):
    - runs in one transaction on the service's own connection (the schema comes from the role's search path)
    - takes `pg_advisory_xact_lock(hashtext(current_schema()))`, so only one instance of a service migrates at a time
    - creates `schema_migration (script_id, checksum, performed_by, created_at)` if it does not exist
    - applies each script that is not in it, in the given order, and records it
 2. An applied script whose SHA-256 checksum (with normalized line endings) has changed stops the run with an error. Applied scripts are never edited; a change is a new script.
 3. Scripts are `.sql` files embedded with `LogicalName="migrations/%(Filename)%(Extension)"` and ordered by name (`0001_...`). The script id is `<source>/<file name>`: `messaging/...` for the outbox and inbox, `<service>/...` for the service's own.
-4. `services.AddSqlMigrations(assembly, serviceName)` runs the messaging scripts and then the service's scripts in `IHostedLifecycleService.StartingAsync`, before any hosted service (such as the outbox dispatcher) starts.
+4. `services.AddSqlMigrations(assembly, serviceName)` runs the messaging scripts and then the service's scripts in `IHostedLifecycleService.StartingAsync`, before any hosted service (such as the outbox dispatcher) starts. Since ADR 0011, `AddSqlMigrations(assembly, source)` is called once per assembly with scripts: `AddBankMessaging` registers the messaging scripts and the service registers its own. All sources run in registration order.
 
 ## Rationale
 

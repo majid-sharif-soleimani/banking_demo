@@ -30,10 +30,14 @@ bank-contracts/
   schemas/se.bank/<event>/jsonschema/1-0-0.json
   src/Bank.Contracts/           Money, ContractJson; Events/ (IIntegrationEvent, all event records); Schema/ (SchemaKey, ContractSchemas); schemas as embedded resources
   src/Bank.Common/              interfaces and helpers listed in implementation-decisions.md
-  src/Bank.Messaging/           publisher, handler, outbox, inbox, dispatcher, consumer pipeline (Dapper on Npgsql)
+  src/Bank.Toolkit.Data/        connection factory, DbSession, async helpers, migration runner (added 2026-10-30, ADR 0011)
+  src/Bank.Messaging/           publisher, handler, outbox, inbox, dispatcher, consumer pipeline (Dapper through Bank.Toolkit.Data)
   src/Bank.Messaging.Kafka/     Kafka producer, consumer, DLT; only project referencing Confluent.Kafka
   src/Bank.Testing/             Testcontainers fixtures, FakeBusinessClock, Eventually helper, in-memory fakes
   tests/Bank.Contracts.Tests/
+  tests/Bank.Common.Tests/
+  tests/Bank.Toolkit.Data.UnitTests/
+  tests/Bank.Toolkit.Data.IntegrationTests/
   tests/Bank.Messaging.UnitTests/
   tests/Bank.Messaging.IntegrationTests/
 ```
@@ -62,7 +66,7 @@ Schemas created in this stage (Operations needs them in stage 2): `currency_acti
 
 Also a `test_event` schema used only by messaging integration tests (`Bank.Testing`, never consumed by services).
 
-Package versions: all four libraries plus `Bank.Testing` start at `0.1.0` and are packed to `../.local-feed`.
+Package versions: all five libraries (`Bank.Toolkit.Data` added by ADR 0011) plus `Bank.Testing` start at `0.1.0` and are packed to `../.local-feed`.
 
 ## bank-platform
 

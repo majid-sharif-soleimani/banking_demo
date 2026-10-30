@@ -1,12 +1,12 @@
 using System.Data;
 
-namespace Bank.Messaging.Data;
+namespace Bank.Toolkit.Data;
 
 /// <summary>
-/// The one connection and transaction of a unit of work (ADR 0009): an HTTP request or a handled message (scoped),
-/// and also one dispatcher poll or one migration run. Feature SQL, the outbox publisher and the inbox all use it,
-/// which is what makes the state change and its event atomic. It sees only <see cref="IDbConnection"/>; the
-/// provider is known only to the <see cref="IDbConnectionFactory"/> (ADR 0010).
+/// The one connection and transaction of a unit of work (bank-contracts ADR 0009): an HTTP request or a handled message (scoped),
+/// and also one dispatcher poll or one migration run. Everything in one unit of work uses it, which is what makes
+/// several statements atomic (in Bank.Messaging: the state change, its outbox row and the inbox row). It sees only <see cref="IDbConnection"/>; the
+/// provider is known only to the <see cref="IDbConnectionFactory"/> (bank-contracts ADR 0010).
 /// Disposing it without <see cref="CommitAsync"/> rolls back.
 /// </summary>
 public sealed class DbSession(IDbConnectionFactory connectionFactory) : IAsyncDisposable

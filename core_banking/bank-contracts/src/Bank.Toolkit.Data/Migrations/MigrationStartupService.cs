@@ -1,13 +1,16 @@
 using Microsoft.Extensions.Hosting;
 
-namespace Bank.Messaging.Migrations;
+namespace Bank.Toolkit.Data.Migrations;
 
 /// <summary>
-/// Runs the migrations in <see cref="IHostedLifecycleService.StartingAsync"/>, which the host calls before any hosted
-/// service starts, so the outbox dispatcher never polls a table that does not exist yet.
+/// Runs the scripts of every registered <see cref="MigrationSource"/> in <see cref="IHostedLifecycleService.StartingAsync"/>,
+/// which the host calls before any hosted service starts, so nothing polls a table that does not exist yet.
 /// </summary>
-internal sealed class MigrationStartupService(SqlMigrationRunner runner, IReadOnlyList<MigrationScript> scripts) : IHostedLifecycleService
+internal sealed class MigrationStartupService(SqlMigrationRunner runner, IEnumerable<MigrationSource> sources) : IHostedLifecycleService
 {
+    // A source registered twice must not run its scripts twice.
+    private readonly IReadOnlyList<MigrationScript> scripts = sources.SelectMany(s => s.Scripts).DistinctBy(s => s.Id).ToList();
+
     public Task StartingAsync(CancellationToken cancellationToken) => runner.RunAsync(scripts, cancellationToken);
 
     public Task StartAsync(CancellationToken cancellationToken) => Task.CompletedTask;

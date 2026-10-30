@@ -8,7 +8,7 @@ using Bank.Testing;
 using Dapper;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Bank.Messaging.Data;
+using Bank.Toolkit.Data;
 
 namespace Bank.Messaging.IntegrationTests.Support;
 

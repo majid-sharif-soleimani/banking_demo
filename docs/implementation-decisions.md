@@ -50,8 +50,9 @@ Claude always stops and asks when:
 | Package | Contains |
 | --- | --- |
 | `Bank.Contracts` | `Money`, `IIntegrationEvent`, all event records with `SchemaUri` constants, and the JSON Schemas generated from them as embedded resources |
-| `Bank.Common` | `IBusinessClock`, `MoneyRounding`, `IFileStorage`, `IEmailSender`, `IExchangeRateProvider`, `IAccountNumberGenerator` interfaces, `PerformedBy` helpers, a `Result<T>` type |
-| `Bank.Messaging` | `IEventPublisher`, `IEventHandler<T>`, outbox, inbox, dispatcher, consumer pipeline (Dapper on Npgsql, no Kafka) |
+| `Bank.Common` | The bank's shared business vocabulary: `IBusinessClock`, `MoneyRounding`, `IFileStorage`, `IEmailSender`, `IExchangeRateProvider`, `IAccountNumberGenerator` interfaces, `PerformedBy` helpers, a `Result<T>` type. No I/O, no external packages |
+| `Bank.Toolkit.<Area>` | Technical building blocks unrelated to banking, one package per area, no reference to any `Bank.*` package (bank-contracts ADR 0011). Today `Bank.Toolkit.Data`: connection factory, `DbSession`, async helpers, SQL migration runner |
+| `Bank.Messaging` | `IEventPublisher`, `IEventHandler<T>`, outbox, inbox, dispatcher, consumer pipeline (Dapper through `Bank.Toolkit.Data`, no Kafka) |
 | `Bank.Messaging.Kafka` | The only project that references Confluent.Kafka |
 | `Bank.Testing` | Test helpers: Testcontainers fixtures (PostgreSQL, Kafka), fake clock, polling `Eventually` helper, in-memory fakes for the interfaces in `Bank.Common` |
 
@@ -84,7 +85,7 @@ Claude always stops and asks when:
 
 - One PostgreSQL database `bank`. One schema and one login role per service (`operations`, `customers`, `accounts`, `cards`, `lending`, `ledger`). Each role can only use its own schema. The init script lives in `bank-platform`.
 - Data access is Dapper with hand-written SQL on Npgsql. No EF Core anywhere (changed by Majid on 2026-10-30, `docs/adr/0001-use-dapper-instead-of-ef-core.md`).
-- Schema changes are versioned SQL scripts per service, applied at startup in development and by the AppHost. They are applied by a small hand-written runner in `Bank.Messaging` (one transaction per run, advisory lock, checksum check; decided by Majid in slice 1.2, bank-contracts ADR 0008).
+- Schema changes are versioned SQL scripts per service, applied at startup in development and by the AppHost. They are applied by a small hand-written runner in `Bank.Toolkit.Data` (one transaction per run, advisory lock, checksum check; decided by Majid in slice 1.2, bank-contracts ADR 0008).
 - Snake-case table and column names, written by hand in SQL. Dapper maps them to PascalCase properties with `DefaultTypeMap.MatchNamesWithUnderscores = true`.
 - Optimistic concurrency on `Version`: PostgreSQL `xmin` read as `uint`; every update has `WHERE id = @Id AND xmin = @Version` and treats 0 affected rows as a concurrency conflict.
 - One `NpgsqlConnection` and one transaction per request or per handled message. Feature code, the outbox and the inbox all use that same transaction. They share it through a scoped `DbSession` (decided by Majid in slice 1.2, bank-contracts ADR 0009). Code depends on `IDbConnection` and `IDbTransaction`; only `NpgsqlConnectionFactory` knows Npgsql (bank-contracts ADR 0010).

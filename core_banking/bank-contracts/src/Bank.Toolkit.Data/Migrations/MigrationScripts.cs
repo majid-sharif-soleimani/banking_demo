@@ -1,6 +1,6 @@
 using System.Reflection;
 
-namespace Bank.Messaging.Migrations;
+namespace Bank.Toolkit.Data.Migrations;
 
 /// <summary>
 /// Loads SQL scripts embedded in an assembly with <c>LogicalName="migrations/%(Filename)%(Extension)"</c>,
@@ -9,9 +9,6 @@ namespace Bank.Messaging.Migrations;
 public static class MigrationScripts
 {
     private const string Prefix = "migrations/";
-
-    /// <summary>The outbox and inbox tables; run these before a service's own scripts.</summary>
-    public static IReadOnlyList<MigrationScript> Messaging { get; } = FromAssembly(typeof(MigrationScripts).Assembly, "messaging");
 
     /// <param name="source">Prefix of each script id, so that two assemblies can both have a 0001_ script.</param>
     public static IReadOnlyList<MigrationScript> FromAssembly(Assembly assembly, string source)

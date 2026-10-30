@@ -1,9 +1,9 @@
 using System.Data;
 
-namespace Bank.Messaging.Data;
+namespace Bank.Toolkit.Data;
 
 /// <summary>
-/// Opens connections to the service's own database schema (ADR 0010). The only place that knows the database
+/// Opens connections to the application's own database schema (bank-contracts ADR 0010). The only place that knows the database
 /// provider; everything else sees <see cref="IDbConnection"/>.
 /// </summary>
 public interface IDbConnectionFactory

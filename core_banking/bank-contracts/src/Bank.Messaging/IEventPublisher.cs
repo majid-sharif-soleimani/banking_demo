@@ -1,5 +1,5 @@
 using Bank.Contracts.Events;
-using Bank.Messaging.Data;
+using Bank.Toolkit.Data;
 
 namespace Bank.Messaging;
 

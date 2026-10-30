@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 
-namespace Bank.Messaging.Migrations;
+namespace Bank.Toolkit.Data.Migrations;
 
 /// <param name="Id">Unique and stable, such as "messaging/0001_outbox_and_inbox.sql"; never rename an applied script.</param>
 public sealed record MigrationScript(string Id, string Sql)

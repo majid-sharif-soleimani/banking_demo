@@ -1,10 +1,10 @@
 using System.Data;
 using System.Data.Common;
 
-namespace Bank.Messaging.Data;
+namespace Bank.Toolkit.Data;
 
 /// <summary>
-/// Async versions of the blocking members of <see cref="IDbConnection"/> and <see cref="IDbTransaction"/> (ADR 0010).
+/// Async versions of the blocking members of <see cref="IDbConnection"/> and <see cref="IDbTransaction"/> (bank-contracts ADR 0010).
 /// IDbConnection predates async and has only Open, BeginTransaction and Commit. Every ADO.NET provider's connection
 /// also derives from <see cref="DbConnection"/>, which has real async versions, so these call them when they exist
 /// and fall back to the blocking call only for a provider that has none. Dapper's async methods do the same.

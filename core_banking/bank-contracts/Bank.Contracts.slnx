@@ -4,6 +4,7 @@
     <Project Path="src/Bank.Contracts/Bank.Contracts.csproj" />
     <Project Path="src/Bank.Messaging/Bank.Messaging.csproj" />
     <Project Path="src/Bank.Testing/Bank.Testing.csproj" />
+    <Project Path="src/Bank.Toolkit.Data/Bank.Toolkit.Data.csproj" />
   </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/Bank.Contracts.SchemaTool/Bank.Contracts.SchemaTool.csproj" />
@@ -13,5 +14,7 @@
     <Project Path="tests/Bank.Contracts.Tests/Bank.Contracts.Tests.csproj" />
     <Project Path="tests/Bank.Messaging.IntegrationTests/Bank.Messaging.IntegrationTests.csproj" />
     <Project Path="tests/Bank.Messaging.UnitTests/Bank.Messaging.UnitTests.csproj" />
+    <Project Path="tests/Bank.Toolkit.Data.IntegrationTests/Bank.Toolkit.Data.IntegrationTests.csproj" />
+    <Project Path="tests/Bank.Toolkit.Data.UnitTests/Bank.Toolkit.Data.UnitTests.csproj" />
   </Folder>
 </Solution>

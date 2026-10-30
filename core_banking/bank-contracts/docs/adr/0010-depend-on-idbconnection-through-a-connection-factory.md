@@ -1,6 +1,6 @@
 # 0010. Depend on IDbConnection through a connection factory
 
-- Status: Accepted
+- Status: Accepted, amended by 0011 (the types moved to the package `Bank.Toolkit.Data`)
 - Date: 2026-10-30
 - Scope: bank-contracts (Bank.Messaging), used by every service
 - Amends: 0009 (the types of `DbSession.Connection` and `DbSession.Transaction`, and where connections come from)
@@ -39,6 +39,6 @@ The first version of `DbSession`, `OutboxDispatcher` and `SqlMigrationRunner` to
 ## Consequences
 
 - The SQL itself is still PostgreSQL (`FOR UPDATE SKIP LOCKED`, `ON CONFLICT`, `jsonb`, `pg_advisory_xact_lock`, `= ANY(@Ids)`). The factory hides the driver's types, not the database. Changing to another database would still mean rewriting the SQL.
-- `DbSession` and the factory are in the namespace `Bank.Messaging.Data`, so features add `using Bank.Messaging.Data;`.
+- `DbSession` and the factory are in the namespace `Bank.Messaging.Data`, so features add `using Bank.Messaging.Data;`. Since ADR 0011 they are in the package and namespace `Bank.Toolkit.Data`.
 - Tests prove that the extensions call the async methods when they exist and fall back otherwise (`DbAsyncExtensionsTests`).
 - Code that needs a provider-specific feature (for example binary `COPY` for bulk import) must get it through a new factory method, not by casting the connection.

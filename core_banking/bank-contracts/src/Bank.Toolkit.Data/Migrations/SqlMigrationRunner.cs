@@ -1,13 +1,13 @@
-using Bank.Messaging.Data;
+using Bank.Toolkit.Data;
 using Dapper;
 using Microsoft.Extensions.Logging;
 
-namespace Bank.Messaging.Migrations;
+namespace Bank.Toolkit.Data.Migrations;
 
 /// <summary>
-/// Applies the SQL scripts that are not yet in schema_migration (ADR 0008). The whole run is one transaction
+/// Applies the SQL scripts that are not yet in schema_migration (bank-contracts ADR 0008). The whole run is one transaction
 /// (PostgreSQL DDL is transactional), so a failing script leaves the schema as it was. An advisory lock lets only
-/// one instance of a service migrate at a time. A changed script that was already applied stops the run.
+/// one instance of an application migrate at a time. A changed script that was already applied stops the run.
 /// Scripts therefore must not use statements that cannot run in a transaction, such as CREATE INDEX CONCURRENTLY.
 /// </summary>
 public sealed class SqlMigrationRunner(IDbConnectionFactory connectionFactory, TimeProvider timeProvider, ILogger<SqlMigrationRunner> logger)
@@ -34,7 +34,7 @@ public sealed class SqlMigrationRunner(IDbConnectionFactory connectionFactory, T
         var connection = session.Connection;
         var transaction = session.Transaction;
 
-        // Released at commit or rollback. Keyed by schema, so services sharing the database do not wait for each other.
+        // Released at commit or rollback. Keyed by schema, so applications with their own schemas do not wait for each other.
         await connection.ExecuteAsync(new CommandDefinition(
             "SELECT pg_advisory_xact_lock(hashtext(current_schema()))", transaction: transaction, cancellationToken: ct));
         await connection.ExecuteAsync(new CommandDefinition(CreateJournal, transaction: transaction, cancellationToken: ct));

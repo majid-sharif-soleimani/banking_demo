@@ -1,6 +1,6 @@
 # bank-contracts
 
-Shared packages for every service: contracts (`Bank.Contracts`), and from slice 1.2 on `Bank.Common`, `Bank.Messaging`, `Bank.Messaging.Kafka`, `Bank.Testing`. `tools/Bank.Contracts.SchemaTool` is a developer tool and is never packed. Not a service: owns no tables and publishes no events.
+Shared packages for every service: contracts (`Bank.Contracts`), and from slice 1.2 on `Bank.Common`, `Bank.Toolkit.Data`, `Bank.Messaging`, `Bank.Messaging.Kafka`, `Bank.Testing`. `tools/Bank.Contracts.SchemaTool` is a developer tool and is never packed. Not a service: owns no tables and publishes no events.
 
 ## Contracts
 
@@ -11,14 +11,23 @@ Shared packages for every service: contracts (`Bank.Contracts`), and from slice 
 - Versions: only ADDITION (`1-0-0` → `1-0-1`, new optional fields) or MODEL (`2-0-0`, anything else). REVISION is not used. Never edit or regenerate a published snapshot; bump `SchemaUri` instead.
 - JSON for event payloads always uses `ContractJson.Options` (camelCase, strict numbers, required and non-nullable fields enforced on read). `Money` serializes as `{ "amount": "1234.50", "currency": "SEK" }`.
 
-## Messaging (Bank.Messaging, ADRs 0006–0010)
+## Where shared code goes (ADR 0011)
 
-- A service registers `AddNpgsqlConnectionFactory(connectionString)` for its own role and schema, an `IMessageTransport` (Kafka from slice 1.3), then `AddBankMessaging(o => o.ServiceName = "...")`, `AddSqlMigrations(typeof(Program).Assembly, "<service>")` and one `AddEventHandler<TEvent, THandler>()` per handler.
-- Only `NpgsqlConnectionFactory` names Npgsql (ADR 0010). Everything else uses `IDbConnectionFactory`, `IDbConnection` and `IDbTransaction`; for async begin, commit, rollback and dispose use `DbAsyncExtensions` (never `Task.Run`). Test code may use Npgsql where the test is about PostgreSQL itself.
-- `DbSession` (`Bank.Messaging.Data`, scoped) is the one connection and transaction of a request or a handled message. Features call `BeginAsync`, pass `session.Transaction` to every Dapper write, publish, then `CommitAsync`. `PublishAsync` without a transaction throws.
+- `Bank.Common`: the bank's shared business vocabulary that business code talks to directly (`IBusinessClock`, `MoneyRounding`, `Result<T>`, `PerformedBy`, external-service interfaces). No I/O, no external packages.
+- `Bank.Toolkit.<Area>`: technical building blocks unrelated to banking. No reference to any `Bank.*` package, no business rules. Only code that two real projects need. One package per area, created with its first real content. Today: `Bank.Toolkit.Data`.
+
+## Database access (Bank.Toolkit.Data, ADRs 0008–0011)
+
+- `AddNpgsqlConnectionFactory(connectionString)` registers `IDbConnectionFactory`, a scoped `DbSession` and Dapper's snake-case mapping. Only `NpgsqlConnectionFactory` names Npgsql (ADR 0010). Everything else uses `IDbConnectionFactory`, `IDbConnection` and `IDbTransaction`; for async begin, commit, rollback and dispose use `DbAsyncExtensions` (never `Task.Run`). Test code may use Npgsql where the test is about PostgreSQL itself.
+- `DbSession` (`Bank.Toolkit.Data`, scoped) is the one connection and transaction of a request or a handled message. Features call `BeginAsync`, pass `session.Transaction` to every Dapper write, publish, then `CommitAsync`.
+- SQL is unqualified; the schema comes from the role's search path. Tables are snake_case.
+- Migrations: `.sql` files embedded with `LogicalName="migrations/%(Filename)%(Extension)"`, named `0001_...`. `AddSqlMigrations(assembly, source)` once per assembly with scripts; all run in one transaction before hosted services start. Never edit an applied script (the checksum check stops startup); add a new one.
+
+## Messaging (Bank.Messaging, ADRs 0006–0009)
+
+- A service registers `AddNpgsqlConnectionFactory(connectionString)` for its own role and schema, an `IMessageTransport` (Kafka from slice 1.3), then `AddBankMessaging(o => o.ServiceName = "...")` (which also migrates the outbox and inbox tables), `AddSqlMigrations(typeof(Program).Assembly, "<service>")` for its own tables, and one `AddEventHandler<TEvent, THandler>()` per handler.
+- `PublishAsync` writes to the outbox through the scoped `DbSession` and throws without a transaction.
 - The pipeline gives each handler its own scope and transaction: inbox row `(message_id, handler_name)`, the handler's effect and its outgoing events commit together. Handlers never begin or commit.
-- SQL is unqualified; the schema comes from the role's search path. Tables are snake_case; `AddBankMessaging` sets Dapper's `MatchNamesWithUnderscores`.
-- Migrations: `.sql` files embedded with `LogicalName="migrations/%(Filename)%(Extension)"`, named `0001_...`, applied in one transaction before hosted services start. Never edit an applied script (the checksum check stops startup); add a new one.
 
 ## Gotchas
 
@@ -29,13 +38,14 @@ Shared packages for every service: contracts (`Bank.Contracts`), and from slice 
 - A field with a `pattern` needs a matching sample in `tests/.../Support/SampleFactory.cs`.
 - The handler class name is part of the inbox key: renaming a handler makes it treat old messages as new. Two handlers with the same class name in one service fail at startup.
 - Migration scripts must be able to run inside a transaction (no `CREATE INDEX CONCURRENTLY`).
-- `Bank.Messaging.IntegrationTests` needs Docker. Each test creates its own role and schema in one shared PostgreSQL container.
+- `Bank.Messaging.IntegrationTests` and `Bank.Toolkit.Data.IntegrationTests` need Docker. Each test creates its own role and schema in one shared PostgreSQL container.
 
 ## Commands
 
 ```bash
 dotnet build && dotnet test
-dotnet test tests/Bank.Messaging.IntegrationTests   # outbox, inbox and migrations against PostgreSQL (Docker)
+dotnet test tests/Bank.Messaging.IntegrationTests     # outbox and inbox against PostgreSQL (Docker)
+dotnet test tests/Bank.Toolkit.Data.IntegrationTests  # migration runner against PostgreSQL (Docker)
 dotnet run --project tools/Bank.Contracts.SchemaTool -- write   # writes missing schema snapshots
 dotnet pack -c Release -o ../.local-feed     # then bump the version in each consumer
 ```

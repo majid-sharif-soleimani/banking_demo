@@ -1,8 +1,8 @@
 using System.Data;
 using System.Data.Common;
-using Bank.Messaging.Data;
+using Bank.Toolkit.Data;
 
-namespace Bank.Messaging.UnitTests;
+namespace Bank.Toolkit.Data.UnitTests;
 
 public class DbAsyncExtensionsTests
 {

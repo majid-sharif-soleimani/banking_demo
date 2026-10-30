@@ -1,11 +1,11 @@
-using Bank.Messaging.Migrations;
+using Bank.Toolkit.Data.Migrations;
 using Bank.Testing;
 using Dapper;
 using Microsoft.Extensions.Logging.Abstractions;
 using Npgsql;
-using Bank.Messaging.Data;
+using Bank.Toolkit.Data;
 
-namespace Bank.Messaging.IntegrationTests;
+namespace Bank.Toolkit.Data.IntegrationTests;
 
 public class MigrationRunnerTests(PostgresFixture postgres)
 {

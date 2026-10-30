@@ -1,6 +1,6 @@
 using Bank.Contracts.Events;
 using Dapper;
-using Bank.Messaging.Data;
+using Bank.Toolkit.Data;
 
 namespace Bank.Messaging.IntegrationTests.Support;
 

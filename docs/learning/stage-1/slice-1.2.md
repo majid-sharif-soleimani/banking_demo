@@ -69,7 +69,10 @@ To build the above with Dapper and hand-written SQL, four more things were neede
 - **A way to create the tables** (outbox, inbox, and later every service's own tables) as versioned SQL scripts. This is the migration runner.
 - **Test helpers** to run two "services" against a real PostgreSQL without Kafka. This is `Bank.Testing`.
 
-It also provided `Bank.Common`, a small package of shared types that every service needs: money rounding, `PerformedBy`, `Result<T>` and the interfaces for external services.
+It also provided two kinds of shared package, with a clear rule for which code goes where (ADR 0011):
+
+- **`Bank.Common`** is the bank's shared business vocabulary, the things the services' business code talks to directly: money rounding, `PerformedBy`, `Result<T>` and the interfaces for external services.
+- **`Bank.Toolkit.<Area>`** packages hold technical building blocks that have nothing to do with banking. The first one is **`Bank.Toolkit.Data`**: the connection factory, `DbSession`, the async helpers and the migration runner.
 
 ---
 
@@ -82,21 +85,24 @@ All of them live in `core_banking/bank-contracts/` and are built by `Bank.Contra
 ```mermaid
 flowchart BT
     C["Bank.Contracts<br/>Money, events, schemas<br/>(slice 1.1)"]
-    CO["Bank.Common<br/>MoneyRounding, PerformedBy, Result,<br/>external service interfaces"]
-    M["Bank.Messaging<br/>connection factory, DbSession, outbox,<br/>dispatcher, inbox pipeline, migration runner<br/>(Dapper; Npgsql only in the factory)"]
+    CO["Bank.Common<br/>bank vocabulary: MoneyRounding,<br/>PerformedBy, Result, service interfaces"]
+    TD["Bank.Toolkit.Data<br/>connection factory, DbSession,<br/>async helpers, migration runner<br/>(Npgsql only in the factory)"]
+    M["Bank.Messaging<br/>outbox, dispatcher, inbox pipeline,<br/>outbox and inbox tables"]
     T["Bank.Testing<br/>PostgreSQL fixture, in-memory broker,<br/>Eventually, fakes"]
     CO --> C
     M --> C
+    M --> TD
     T --> CO
     T --> M
     K["Bank.Messaging.Kafka<br/>(slice 1.3)"] -.-> M
 ```
 
-An arrow means "references". `Bank.Messaging` does not reference `Bank.Common`, and neither of them references Kafka.
+An arrow means "references". `Bank.Toolkit.Data` references no `Bank.*` package: it knows nothing about money, events or business rules. `Bank.Messaging` does not reference `Bank.Common` or Npgsql, and nothing here references Kafka.
 
 | Project | Packed as NuGet | Tests |
 | --- | --- | --- |
 | `src/Bank.Common` | yes | `tests/Bank.Common.Tests` (unit) |
+| `src/Bank.Toolkit.Data` | yes | `tests/Bank.Toolkit.Data.UnitTests` (unit), `tests/Bank.Toolkit.Data.IntegrationTests` (PostgreSQL in Docker) |
 | `src/Bank.Messaging` | yes | `tests/Bank.Messaging.UnitTests` (unit), `tests/Bank.Messaging.IntegrationTests` (PostgreSQL in Docker) |
 | `src/Bank.Testing` | yes | used by the integration tests |
 
@@ -132,9 +138,9 @@ The runner adds a third table, `schema_migration`, described in 2.6.
 
 `Version`, required on every table, is PostgreSQL's hidden `xmin` column, so no table declares it.
 
-### 2.3 Database access: the connection factory and `DbSession`
+### 2.3 Database access (`Bank.Toolkit.Data`): the connection factory and `DbSession`
 
-Every part of `Bank.Messaging` that touches the database (the feature through `DbSession`, the publisher, the dispatcher, the inbox and the migration runner) goes through the same two types. Only one class knows that the database is PostgreSQL.
+Everything that touches the database (a feature through `DbSession`, the publisher, the dispatcher, the inbox and the migration runner) goes through the same two types, in the package `Bank.Toolkit.Data` (namespace `Bank.Toolkit.Data`). Only one class knows that the database is PostgreSQL.
 
 ```mermaid
 flowchart LR
@@ -145,13 +151,13 @@ flowchart LR
     DS -->|"BeginTransactionAsync / CommitAsync /<br/>RollbackAsync / DisposeAsyncIfPossible"| X["DbAsyncExtensions"]
 ```
 
-#### `IDbConnectionFactory` and `NpgsqlConnectionFactory` (`Data/`)
+#### `IDbConnectionFactory` and `NpgsqlConnectionFactory`
 
 `IDbConnectionFactory` has one method: `Task<IDbConnection> OpenAsync(CancellationToken ct)`, which returns a new open connection.
 
-`NpgsqlConnectionFactory(connectionString)` implements it over an `NpgsqlDataSource`, which owns the connection pool, and opens connections with Npgsql's real `OpenConnectionAsync`. It is the only production class in the bank-contracts packages that names Npgsql. The connection string carries the service's own role, with its schema as the search path. A service registers it with `services.AddNpgsqlConnectionFactory(connectionString)`, and the container disposes the pool when the host stops.
+`NpgsqlConnectionFactory(connectionString)` implements it over an `NpgsqlDataSource`, which owns the connection pool, and opens connections with Npgsql's real `OpenConnectionAsync`. It is the only production class in the bank-contracts packages that names Npgsql. The connection string carries the service's own role, with its schema as the search path. A service registers it with `services.AddNpgsqlConnectionFactory(connectionString)`, which also registers the scoped `DbSession` and turns on Dapper's snake-case mapping (`created_at` → `CreatedAt`). The container disposes the pool when the host stops.
 
-#### `DbAsyncExtensions` (`Data/DbAsyncExtensions.cs`)
+#### `DbAsyncExtensions`
 
 **The problem.** `IDbConnection` and `IDbTransaction` are older than async in .NET. They only have blocking `BeginTransaction`, `Commit` and `Rollback`. A blocking `Commit` holds a thread while PostgreSQL answers, and under load that starves the thread pool.
 
@@ -174,7 +180,7 @@ public static Task CommitAsync(this IDbTransaction transaction, CancellationToke
 
 `DbAsyncExtensionsTests` proves both paths. A transaction derived from `DbTransaction` gets `CommitAsync`, `RollbackAsync` and `DisposeAsync`. One that only implements `IDbTransaction` gets the blocking calls.
 
-#### `DbSession` (`Data/DbSession.cs`)
+#### `DbSession`
 
 The one connection and transaction of a unit of work. It is registered as **scoped** for an HTTP request, and the pipeline creates a scope per handler. The dispatcher (one poll) and the migration runner (one run) create their own `new DbSession(factory)`. So all connection and transaction handling is written once, here.
 
@@ -187,7 +193,7 @@ The one connection and transaction of a unit of work. It is registered as **scop
 | `Transaction` (`IDbTransaction`) | The active transaction; throws with "Call BeginAsync" if there is none |
 | `DisposeAsync` | Rolls back an uncommitted transaction and returns the connection to the pool |
 
-It lives in the namespace `Bank.Messaging.Data`, so a feature adds `using Bank.Messaging.Data;`. A feature uses it like this:
+A feature adds `using Bank.Toolkit.Data;` and uses it like this:
 
 ```csharp
 await session.BeginAsync(ct);
@@ -343,14 +349,18 @@ Two deliveries of the same message at the same moment are safe: the second `INSE
 
 `ProcessOutcome` (`Handled`, `Duplicate`, `NotSubscribed`) and `UnsupportedSchemaVersionException` are declared in the same file.
 
-### 2.6 Migrations
+### 2.6 Migrations (`Bank.Toolkit.Data.Migrations`)
+
+The runner is in `Bank.Toolkit.Data`, because creating tables is database access, not messaging. Each package or service that owns tables registers its own scripts as a **source**: `Bank.Messaging` registers the outbox and inbox, and the service registers its own tables.
 
 ```mermaid
 flowchart LR
-    REG["AddSqlMigrations(assembly, service)"] -->|"messaging scripts + service scripts"| MSS["MigrationStartupService<br/>(StartingAsync)"]
-    MSS --> R["SqlMigrationRunner.RunAsync"]
+    BM["AddBankMessaging"] -->|"AddSqlMigrations(messaging assembly, 'messaging')"| SRC1["MigrationSource<br/>messaging/0001_outbox_and_inbox.sql"]
+    SV["service Program.cs"] -->|"AddSqlMigrations(service assembly, 'lending')"| SRC2["MigrationSource<br/>lending/0001_..."]
+    SRC1 --> MSS["MigrationStartupService<br/>(StartingAsync)"]
+    SRC2 --> MSS
+    MSS -->|"all scripts, in registration order"| R["SqlMigrationRunner.RunAsync"]
     R -->|"one transaction"| DB[("schema of the service")]
-    MS["MigrationScripts<br/>(embedded .sql files)"] --> REG
 ```
 
 #### `MigrationScript` (`Migrations/MigrationScript.cs`)
@@ -365,7 +375,11 @@ Loads scripts from an assembly: every embedded resource named `migrations/*.sql`
 <EmbeddedResource Include="Migrations\*.sql" LogicalName="migrations/%(Filename)%(Extension)" />
 ```
 
-`MigrationScripts.Messaging` is the list of `Bank.Messaging`'s own scripts (outbox and inbox). `FromAssembly(assembly, source)` loads a service's scripts and prefixes their ids with the service name, so two assemblies can both have a `0001_` script.
+`FromAssembly(assembly, source)` loads an assembly's scripts and prefixes their ids with the source name (`messaging`, `lending`), so two assemblies can both have a `0001_` script.
+
+#### `MigrationSource`
+
+A record holding the scripts of one assembly. `AddSqlMigrations(assembly, source)` registers one; the method can be called any number of times.
 
 #### `SqlMigrationRunner` (`Migrations/SqlMigrationRunner.cs`)
 
@@ -382,7 +396,7 @@ Loads scripts from an assembly: every embedded resource named `migrations/*.sql`
 
 #### `MigrationStartupService` (`Migrations/MigrationStartupService.cs`)
 
-An `IHostedLifecycleService` that runs the runner in `StartingAsync`. The host calls `StartingAsync` of every lifecycle service **before** it starts any hosted service, so the outbox dispatcher never polls a table that does not exist yet.
+An `IHostedLifecycleService`, registered once however often `AddSqlMigrations` is called. It collects the scripts of every `MigrationSource` in registration order, drops a source registered twice, and runs them in `StartingAsync`. The host calls `StartingAsync` of every lifecycle service **before** it starts any hosted service, so the outbox dispatcher never polls a table that does not exist yet.
 
 ### 2.7 Wiring: `ServiceCollectionExtensions`
 
@@ -391,19 +405,19 @@ A service connects all of the above in `Program.cs` like this:
 ```csharp
 builder.Services.AddNpgsqlConnectionFactory(connectionString);                    // its own role and schema
 builder.Services.AddSingleton<IMessageTransport, ...>();                          // Kafka from slice 1.3
-builder.Services.AddBankMessaging(o => o.ServiceName = "lending");
-builder.Services.AddSqlMigrations(typeof(Program).Assembly, "lending");
+builder.Services.AddBankMessaging(o => o.ServiceName = "lending");                 // also migrates outbox and inbox
+builder.Services.AddSqlMigrations(typeof(Program).Assembly, "lending");          // the service's own tables
 builder.Services.AddEventHandler<DayClosed, RunEndOfDay>();
 ```
 
-| Call | Registers |
-| --- | --- |
-| `AddNpgsqlConnectionFactory` | the `IDbConnectionFactory` for the service's role and schema (singleton) |
-| `AddBankMessaging` | options (validated at startup), `TimeProvider.System`, `DbSession` (scoped), `IEventPublisher` (scoped), `OutboxDispatcher` and `MessagePipeline` (singletons), the hosted `OutboxDispatcherService`. It also sets Dapper's `MatchNamesWithUnderscores`, so `created_at` maps to `CreatedAt` |
-| `AddEventHandler<TEvent, THandler>` | the handler (scoped) and its `EventHandlerRegistration` (singleton) |
-| `AddSqlMigrations` | `SqlMigrationRunner` and a `MigrationStartupService` with the messaging scripts followed by the service's scripts |
+| Call | Package | Registers |
+| --- | --- | --- |
+| `AddNpgsqlConnectionFactory` | `Bank.Toolkit.Data` | the `IDbConnectionFactory` for the service's role and schema (singleton), `DbSession` (scoped), Dapper's snake-case mapping |
+| `AddSqlMigrations` | `Bank.Toolkit.Data` | a `MigrationSource` for the assembly, plus (once) `SqlMigrationRunner` and `MigrationStartupService` |
+| `AddBankMessaging` | `Bank.Messaging` | options (validated at startup), `TimeProvider.System`, `IEventPublisher` (scoped), `OutboxDispatcher` and `MessagePipeline` (singletons), the hosted `OutboxDispatcherService`, and `AddSqlMigrations` for the outbox and inbox tables |
+| `AddEventHandler<TEvent, THandler>` | `Bank.Messaging` | the handler (scoped) and its `EventHandlerRegistration` (singleton) |
 
-SQL in `Bank.Messaging` names no schema (`outbox_message`, not `lending.outbox_message`). The connection's search path picks the schema, so the same SQL works in all six services.
+SQL in `Bank.Messaging` and `Bank.Toolkit.Data` names no schema (`outbox_message`, not `lending.outbox_message`). The connection's search path picks the schema, so the same SQL works in all six services.
 
 ### 2.8 `Bank.Common`
 
@@ -505,6 +519,19 @@ flowchart LR
 
 **Price.** The SQL is still PostgreSQL (`SKIP LOCKED`, `ON CONFLICT`, `jsonb`, advisory locks). The factory hides the driver's types, not the database. A provider-specific feature, such as binary `COPY`, would need a new factory method instead of a cast.
 
+#### Technical building blocks in `Bank.Toolkit` packages (ADR 0011)
+
+**Why.** The factory, `DbSession` and the migration runner first lived in `Bank.Messaging`, but they are not about messaging: every feature uses `DbSession` for its own SQL, and the runner creates every service's own tables. The rule is now one question: *is this about the bank?*
+
+- **Yes:** `Bank.Common`, the shared business vocabulary. No I/O, no external packages.
+- **No:** a `Bank.Toolkit.<Area>` package, for technical building blocks. It references no `Bank.*` package and holds only code that two real projects need.
+
+One package per area keeps dependencies narrow. A project that later needs a special collection (`Bank.Toolkit.Collections`) will not get Npgsql with it. `Bank.Messaging` lost its Npgsql reference, and it now brings its own tables to the migration runner, so a service cannot forget them.
+
+**Rejected.** `Bank.Data` was too narrow for future tools. `Bank.Framework` is too general and would overlap with `Bank.Common`. `Bank.Infrastructure.*` usually means adapters to external systems and suggests the layered architecture rejected in design plan ADR 02. Moving the code into `Bank.Common` would bring a database driver into the package that business logic depends on. Keeping it in `Bank.Messaging` under another namespace would leave general database tools inside a messaging package.
+
+**Price.** Six packages instead of five. A new toolkit area means a new package, created only when its first real content exists.
+
 ### 3.2 Design choices I made (D2)
 
 | Choice | Why |
@@ -515,7 +542,10 @@ flowchart LR
 | `attempts` and `last_error` on the outbox row | A stuck message can be diagnosed with one query |
 | The dispatcher stops a batch at the first failed send | Later messages, possibly with the same key, must not overtake it |
 | The dispatcher and the runner create their own `DbSession`, not a scoped one | Neither is part of a request; one poll or one run is its own unit of work. Using `DbSession` keeps begin, commit and dispose in one class |
-| `DbSession` and the factory in the namespace `Bank.Messaging.Data` | Groups database access apart from the outbox and inbox logic |
+| `NpgsqlConnectionFactory` stays inside `Bank.Toolkit.Data` (no separate `.Npgsql` package) | All services use PostgreSQL, so a separate adapter package would cost a package and save nothing today |
+| `AddNpgsqlConnectionFactory` also registers `DbSession` and Dapper's snake-case mapping | Every service that has a database needs all three; Dapper's mapping is data access, not messaging |
+| `AddSqlMigrations` can be called per source; the startup service is registered once and drops duplicate sources | Each package brings its own tables; a source registered twice must not run twice |
+| Migration and `DbAsyncExtensions` tests moved to `Bank.Toolkit.Data.*Tests` | Tests sit next to the package they test |
 | `NpgsqlConnectionFactory` owns its `NpgsqlDataSource` and is disposed by the container | One pool per service, closed when the host stops |
 | The hosted loop polls again at once after a full batch | A backlog drains at full speed; an idle service still polls only every 200 ms |
 | One scope and one transaction per handler | Handlers are independent: one failing does not undo another |
@@ -524,7 +554,6 @@ flowchart LR
 | Older and newer ADDITIONs are read with the latest known record of their MODEL | Within a MODEL every version only adds optional fields (slice 1.1) |
 | `EventHandlerRegistration` uses a captured delegate | Calls the generic handler without reflection on every message |
 | SQL names no schema; the search path decides | The same SQL works in every service. The platform roles in slice 1.4 get the same default |
-| The migration runner lives in `Bank.Messaging` | It is the only shared database package. A separate `Bank.Data` package for about 100 lines is not worth it |
 | Migrations run in `IHostedLifecycleService.StartingAsync` | It runs before every hosted service, whatever the registration order |
 | `MigrationScript.Checksum` is computed on read | A stored value was copied unchanged by `with { Sql = ... }`. A test caught this bug |
 | Advisory lock keyed by schema name | Instances of one service wait for each other; different services do not |
@@ -546,6 +575,7 @@ flowchart LR
 - **Port and adapter (seam)**: `IMessageTransport` lets the whole messaging logic be built and tested before Kafka exists. Slice 1.3 adds an adapter, not a rewrite.
 - **Competing consumers on a table**: `SKIP LOCKED` lets several dispatchers share the work.
 - **Tolerant reader**: a consumer reads newer ADDITIONs with the record it knows and ignores unknown fields.
+- **Package by technical area** (`Bank.Toolkit.<Area>`): shared code is grouped by what it needs, so a consumer gets only the dependencies of the area it uses.
 - **Abstract factory** (`IDbConnectionFactory`): the one place that chooses the database provider.
 - **Runtime capability check** (`DbAsyncExtensions`): use the async members when the concrete type has them, without changing the public type.
 - **Type erasure through a delegate**: `EventHandlerRegistration` hides the generic handler behind a non-generic call.
@@ -558,8 +588,10 @@ flowchart LR
 | Project | Count | What |
 | --- | --- | --- |
 | `Bank.Common.Tests` | 16 | Rounding (midpoints away from zero, 0 and 3 minor units, range), `PerformedBy`, `Result` |
-| `Bank.Messaging.UnitTests` | 9 | `SchemaRouting`: exact, newer and older ADDITION, other MODEL, unknown MODEL, not subscribed. `DbAsyncExtensions`: async when the provider has it, blocking fallback otherwise |
-| `Bank.Messaging.IntegrationTests` | 19 | Outbox, inbox and migrations against PostgreSQL, listed below |
+| `Bank.Toolkit.Data.UnitTests` | 3 | `DbAsyncExtensions`: async when the provider has it, blocking fallback otherwise |
+| `Bank.Toolkit.Data.IntegrationTests` | 5 | The migration runner against PostgreSQL, listed below |
+| `Bank.Messaging.UnitTests` | 6 | `SchemaRouting`: exact, newer and older ADDITION, other MODEL, unknown MODEL, not subscribed |
+| `Bank.Messaging.IntegrationTests` | 14 | Outbox and inbox against PostgreSQL, listed below |
 
 The integration tests:
 
@@ -578,7 +610,7 @@ The integration tests:
   - A newer ADDITION is read with the known record.
   - An unknown MODEL is rejected without any change.
   - An event without a handler is skipped.
-- **Migrations** (`MigrationRunnerTests`)
+- **Migrations** (`MigrationRunnerTests`, in `Bank.Toolkit.Data.IntegrationTests`)
   - Scripts are applied once.
   - An edited script stops the run.
   - A failing script rolls back the whole run.
@@ -590,10 +622,12 @@ Command and result (run three times in a row, all green):
 ```
 cd core_banking/bank-contracts && dotnet build && dotnet test
 Build succeeded.  0 Warning(s)  0 Error(s)
+Passed!  - Failed: 0, Passed:   3 - Bank.Toolkit.Data.UnitTests
 Passed!  - Failed: 0, Passed:  16 - Bank.Common.Tests
-Passed!  - Failed: 0, Passed:   9 - Bank.Messaging.UnitTests
+Passed!  - Failed: 0, Passed:   6 - Bank.Messaging.UnitTests
 Passed!  - Failed: 0, Passed: 106 - Bank.Contracts.Tests
-Passed!  - Failed: 0, Passed:  19 - Bank.Messaging.IntegrationTests
+Passed!  - Failed: 0, Passed:   5 - Bank.Toolkit.Data.IntegrationTests
+Passed!  - Failed: 0, Passed:  14 - Bank.Messaging.IntegrationTests
 ```
 
 ## 5. What to watch later
