@@ -61,11 +61,11 @@ These are tests whose subject is the contract itself, not behaviour. They turn "
 flowchart LR
     subgraph bank-contracts
         R["C# records + attributes<br/>DayClosed, ... + SchemaUri const<br/>(source of truth)"]
-        G["ContractSchemaGenerator<br/>(JsonSchemaExporter)"]
+        G["tools/Bank.Contracts.SchemaTool<br/>ContractSchemaGenerator (JsonSchemaExporter)"]
         S["schemas/se.bank/*/jsonschema/1-0-0.json<br/>(committed snapshots)"]
         T["ContractTests<br/>(snapshot match, compatibility, validation)"]
         R --> G
-        G -- WRITE_SCHEMA_SNAPSHOTS=1 --> S
+        G -- "dotnet run ... -- write" --> S
         S -- embedded resource --> P[(Bank.Contracts.nupkg)]
         R --> P
         T -. generated equals snapshot? .-> S
@@ -99,8 +99,10 @@ Everything is under `core_banking/bank-contracts/`.
 | `tests/.../SchemaKeyTests.cs` | URI parsing, path, ordering |
 | `tests/.../ContractTests.cs` | **The snapshot test** and the schema checks (see below) |
 | `tests/.../ContractSchemaGeneratorTests.cs`, `SchemaCompatibilityTests.cs` | Tests of the generator and the compatibility checker themselves |
-| `tests/.../Support/*.cs` | `ContractCatalog` (finds the records), `ContractSchemaGenerator`, `SchemaSnapshots` (writes missing snapshots), `SchemaCompatibility`, `SampleFactory` |
-| `docs/adr/0001-package-layout.md`, `0002-...` (superseded), `0003-generate-event-schemas-from-records.md` | The ADRs of this slice |
+| `tools/Bank.Contracts.SchemaTool/*.cs` | The snapshot tool (ADR 0004): `ContractCatalog` (finds the records), `ContractSchemaGenerator`, `SchemaSnapshots` (compares, writes missing snapshots), `Program` (`write` and `check`) |
+| `tests/.../SchemaSnapshotsTests.cs` | The tool writes only missing files, never overwrites, and writes them exactly as committed |
+| `tests/.../Support/*.cs` | `SchemaCompatibility`, `SampleFactory` |
+| `docs/adr/0001-package-layout.md`, `0002-...` (superseded), `0003-generate-event-schemas-from-records.md`, `0004-write-schema-snapshots-with-a-separate-tool.md` | The ADRs of this slice |
 | `.github/workflows/bank-contracts.yml` (repo root) | CI: restore, build, test; runs only when this folder changes; publishes nothing |
 
 ### What `ContractTests` checks
@@ -145,11 +147,11 @@ Then I reverted all three.
 | Schemas do not set `additionalProperties: false` (except inside `Money`) | An older consumer that validates must accept messages from a newer ADDITION that has extra optional fields |
 | Schemas use draft 2020-12 with an extra `self` block | Standard tooling validates them; Iglu naming without an Iglu server |
 | `ContractJson.Options`: Web defaults + strict numbers | camelCase as in the schemas; `"2"` is not accepted as the number 2 |
-| JsonSchema.Net and the generator in the test project only | Generation and validation are test concerns; `Bank.Contracts` stays dependency-free |
+| JsonSchema.Net in the test project, the generator in the tool | `Bank.Contracts` stays dependency-free; the package never contains the generator |
 | Descriptions and constraints as attributes (`System.ComponentModel`, `DataAnnotations`) | In-box attributes the generator can read; the schema keeps its descriptions and patterns |
 | `ContractJson.Options` enforces required and non-nullable fields on read | A consumer rejects exactly what the schema rejects, instead of filling in `Guid.Empty` or null |
 | The generator applies `Money` and attributes in its own pass, not in `TransformSchemaNode` | The exporter skips that callback for a second `Money` field |
-| `WRITE_SCHEMA_SNAPSHOTS=1` writes only missing files | A published snapshot can never be overwritten by accident |
+| The tool's `write` writes only missing files | A published snapshot can never be overwritten by accident |
 | `SampleFactory` has per-name samples for `Code` and `Service` | Fields with a pattern need a matching value; the test says when one is missing |
 | No XML doc file generation | With warnings as errors it would force a comment on every public member; key types have summaries anyway |
 
@@ -161,3 +163,11 @@ Then I reverted all three.
 ## 7. Change on 2026-10-30: schemas generated from records
 
 The slice first used hand-written schemas as the source of truth, with a reflection test that compared each record with its schema (ADR 0002). The same day Majid changed this D1 decision (ADR 0003): every event was written twice, and the comparer existed only to keep the copies equal. Now the record is the only copy, the schema is generated from it and committed as a snapshot, and only ADDITION or MODEL bumps are allowed. The five generated snapshots are equal, as JSON, to the hand-written files, so no contract changed.
+
+## 8. Change on 2026-10-30: a separate tool writes the snapshots
+
+At first the contract test also wrote a missing snapshot when `WRITE_SCHEMA_SNAPSHOTS=1` was set, then failed on purpose so a second `dotnet test` would embed and check it. Majid decided that a test should only check (ADR 0004). Now `tools/Bank.Contracts.SchemaTool` holds the generator and has two commands: `write` writes missing snapshots, `check` only compares. Neither ever overwrites a published file. The tests reference the tool, use the same generator and only read.
+
+Adding an event is now: write the record, run `dotnet run --project tools/Bank.Contracts.SchemaTool -- write`, look at the new file in the diff, run `dotnet test` once. The build that `dotnet test` starts embeds the new file, so no second run is needed.
+
+**Pattern:** command-query separation at the tool level. The command that changes files (`write`) is separate from everything that only reads (`check`, the tests), so running the tests can never change the repository.

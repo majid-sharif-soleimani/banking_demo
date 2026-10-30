@@ -1,6 +1,6 @@
 # 0003. Generate event schemas from the C# records and keep them as snapshots
 
-- Status: Accepted
+- Status: Accepted; point 4 and the first consequence amended by 0004 (2026-10-30)
 - Date: 2026-10-30
 - Scope: bank-contracts
 - Supersedes: 0002
@@ -14,7 +14,7 @@ ADR 0002 made the JSON Schema files the source of truth and kept hand-written C#
 
 1. The C# records in `Bank.Contracts` are the source of truth. Descriptions and constraints are attributes on the record: `[Description]` on the type and on properties, and `[RegularExpression]`, `[MinLength]` and `[Range]` on properties. The common fields take theirs from `IIntegrationEvent`.
 2. Each record's `public const string SchemaUri` is its contract version (Iglu-style URI, for example `iglu:se.bank/day_closed/jsonschema/1-0-0`). On the wire it travels in the `schema-uri` header, so the payload has no separate version field.
-3. The schema is generated with .NET's `JsonSchemaExporter` and `ContractJson.Options` (`tests/Bank.Contracts.Tests/Support/ContractSchemaGenerator.cs`). `Money` gets its string-amount shape; a bare `decimal`, `double` or `float` and an unmapped validation attribute are rejected.
+3. The schema is generated with .NET's `JsonSchemaExporter` and `ContractJson.Options` (`tests/Bank.Contracts.Tests/Support/ContractSchemaGenerator.cs`; moved to `tools/Bank.Contracts.SchemaTool` by ADR 0004). `Money` gets its string-amount shape; a bare `decimal`, `double` or `float` and an unmapped validation attribute are rejected.
 4. The generated schema is committed as a snapshot at `schemas/se.bank/<event>/jsonschema/<version>.json` and embedded in the package, as before. `WRITE_SCHEMA_SNAPSHOTS=1 dotnet test` writes a missing snapshot and never overwrites an existing one.
 5. Contract tests in CI fail when:
    - a record no longer matches the snapshot of its current `SchemaUri`, or a snapshot is missing;

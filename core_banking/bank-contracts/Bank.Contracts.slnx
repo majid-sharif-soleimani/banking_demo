@@ -2,6 +2,9 @@
   <Folder Name="/src/">
     <Project Path="src/Bank.Contracts/Bank.Contracts.csproj" />
   </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/Bank.Contracts.SchemaTool/Bank.Contracts.SchemaTool.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Bank.Contracts.Tests/Bank.Contracts.Tests.csproj" />
   </Folder>

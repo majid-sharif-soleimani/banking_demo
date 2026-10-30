@@ -1,7 +1,7 @@
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Nodes;
-using Bank.Contracts.Tests.Support;
+using Bank.Contracts.SchemaTool;
 
 namespace Bank.Contracts.Tests;
 

@@ -1,6 +1,6 @@
 using System.Reflection;
 
-namespace Bank.Contracts.Tests.Support;
+namespace Bank.Contracts.SchemaTool;
 
 /// <summary>Finds every integration event record in Bank.Contracts by reflection.</summary>
 public static class ContractCatalog

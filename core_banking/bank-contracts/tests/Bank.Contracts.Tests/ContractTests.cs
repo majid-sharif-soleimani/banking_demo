@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Bank.Contracts.SchemaTool;
 using Bank.Contracts.Tests.Support;
 using Json.Schema;
 
@@ -9,9 +10,12 @@ namespace Bank.Contracts.Tests;
 /// <summary>
 /// The C# records are the source of truth; the schema files are snapshots generated from them (ADR 0003).
 /// These tests fail when a record no longer matches its published snapshot, and check the snapshots themselves.
+/// They only read; Bank.Contracts.SchemaTool writes the snapshots (ADR 0004).
 /// </summary>
 public class ContractTests
 {
+    private const string WriteCommand = "dotnet run --project tools/Bank.Contracts.SchemaTool -- write";
+
     public static TheoryData<string> EventTypes() =>
         new(ContractCatalog.EventTypes.Select(t => t.FullName!));
 
@@ -57,21 +61,13 @@ public class ContractTests
         var key = SchemaKey.Parse(ContractCatalog.SchemaUriOf(type)!);
         var generated = ContractSchemaGenerator.Generate(type, key);
 
-        if (!ContractSchemas.All.Contains(key))
-        {
-            if (SchemaSnapshots.WritingEnabled)
-            {
-                var path = SchemaSnapshots.WriteIfMissing(key, generated);
-                Assert.Fail($"Wrote the snapshot {path}. Run 'dotnet test' again, without {SchemaSnapshots.WriteVariable}, so the build embeds it.");
-            }
-
-            Assert.Fail($"No schema snapshot for {key}. Write it with '{SchemaSnapshots.WriteVariable}=1 dotnet test', then run 'dotnet test' again.");
-        }
+        ContractSchemas.All.ShouldContain(key,
+            $"No schema snapshot for {key}. Write it with '{WriteCommand}', then run 'dotnet test' again.");
 
         var published = ReadSchema(key);
         JsonNode.DeepEquals(published, generated).ShouldBeTrue(
             $"{type.Name} no longer matches the published schema {key}. A published version never changes: " +
-            $"bump SchemaUri (ADDITION if you only added optional fields, otherwise a new MODEL) and write the new snapshot." +
+            $"bump SchemaUri (ADDITION if you only added optional fields, otherwise a new MODEL) and run '{WriteCommand}'." +
             $"{Environment.NewLine}Published:{Environment.NewLine}{SchemaSnapshots.ToFileText(published)}" +
             $"Generated now:{Environment.NewLine}{SchemaSnapshots.ToFileText(generated)}");
     }

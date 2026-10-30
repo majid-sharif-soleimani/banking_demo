@@ -5,7 +5,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Schema;
 
-namespace Bank.Contracts.Tests.Support;
+namespace Bank.Contracts.SchemaTool;
 
 /// <summary>
 /// Generates the JSON Schema of an event record (ADR 0003). The record is the source of truth: the shape comes from

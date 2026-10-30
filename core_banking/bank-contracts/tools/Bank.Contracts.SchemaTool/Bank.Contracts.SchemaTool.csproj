@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- Generates the event schema snapshots (ADR 0004). A developer tool: never packed, never referenced by services. -->
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Bank.Contracts\Bank.Contracts.csproj" />
+  </ItemGroup>
+</Project>

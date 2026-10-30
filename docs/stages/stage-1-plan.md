@@ -105,6 +105,7 @@ Claude draws the sequence diagram of one event's full path, with a "crash at thi
 | Package layout | bank-contracts/docs/adr |
 | Schema/record sync by reflection test (0002, superseded by 0003) | bank-contracts/docs/adr |
 | Generate event schemas from records (0003) | bank-contracts/docs/adr |
+| Write schema snapshots with a separate tool (0004, amends 0003) | bank-contracts/docs/adr |
 | Outbox dispatcher | bank-contracts/docs/adr |
 | Inbox key | bank-contracts/docs/adr |
 | Kafka message format and headers | bank-contracts/docs/adr |
@@ -147,5 +148,6 @@ None. Non-blocking notes:
 ## Decisions made
 - 2026-10-30, slice 1.1 D1: schema/record sync by **reflection test**.
 - 2026-10-30, slice 1.1 D1 changed by Majid: the C# records are the source of truth; schemas are generated with `JsonSchemaExporter` and committed as snapshots; only ADDITION (optional fields) or MODEL bumps. ADR 0003 supersedes ADR 0002.
+- 2026-10-30, slice 1.1 D1 by Majid: snapshots are written by a separate console tool (`tools/Bank.Contracts.SchemaTool`, `write` and `check`), not from a test; the tests only check. ADR 0004 amends ADR 0003.
 - 2026-10-30 (Majid): use Dapper instead of EF Core for all data access. Workspace ADR 0001. No EF Core code existed yet, so only the docs changed.
 - 2026-10-30: in stage 1, Claude writes everything and a learning document per slice. Majid keeps the D1 decisions. Stages 2–8 are unchanged.

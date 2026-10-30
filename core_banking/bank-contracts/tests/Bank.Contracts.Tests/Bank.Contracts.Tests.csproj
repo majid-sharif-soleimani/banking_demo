@@ -12,6 +12,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Bank.Contracts\Bank.Contracts.csproj" />
+    <ProjectReference Include="..\..\tools\Bank.Contracts.SchemaTool\Bank.Contracts.SchemaTool.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Shouldly" />
