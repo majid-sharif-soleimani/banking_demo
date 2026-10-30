@@ -1,6 +1,6 @@
 # bank-platform
 
-The local platform and its infrastructure, not a service: owns no tables and publishes no events. `src/Bank.AppHost` (Aspire 13.6) starts PostgreSQL (database `bank`), Kafka in KRaft mode with Kafka UI, and Mailpit. `docker-compose.yml` runs the same infrastructure without Aspire (EC2 in stage 8). `src/Bank.ServiceDefaults` is what every service registers first (`AddServiceDefaults`, `MapDefaultEndpoints`). AWS CDK comes in stage 8.
+The local platform and its infrastructure, not a service: owns no tables and publishes no events. `src/Bank.AppHost` (Aspire 13.6) starts PostgreSQL (database `bank`), Kafka in KRaft mode with Kafka UI, Mailpit, and the services created so far (Operations since stage 2). `docker-compose.yml` runs the same infrastructure without Aspire (EC2 in stage 8). `src/Bank.ServiceDefaults` is what every service registers first (`AddServiceDefaults`, `MapDefaultEndpoints`). AWS CDK comes in stage 8.
 
 ## Database (ADR 0001)
 
@@ -12,6 +12,8 @@ The local platform and its infrastructure, not a service: owns no tables and pub
 ## Adding a service (in the stage that creates it)
 
 - In `AppHost.cs`: `builder.AddProject<Projects.Bank_X_Api>("x").WithReference(serviceDatabases["x"]).WithReference(kafka).WaitFor(...)`. The `<service>-db` connection strings already exist for all six services.
+- Add a `ProjectReference` to the service's API project in `Bank.AppHost.csproj` (it generates `Projects.Bank_X_Api`), `.WithHttpHealthCheck("/health")`, a case in `InfrastructureHealthTests` and a migration check in `ServiceStartupTests`, and the service's `src/**` path to `.github/workflows/bank-platform.yml`.
+- Services reference `Bank.ServiceDefaults` as a package from `../.local-feed` (`dotnet pack src/Bank.ServiceDefaults -c Release -o ../.local-feed`). The CI workflows pack it and `bank-contracts` from the same commit first.
 - A new service name (not one of the six) needs: a block in the init script, `BankDatabase.Services`, `.env.example`, `docker-compose.yml` and `ServiceRoleIsolationTests.Services`.
 
 ## Gotchas
