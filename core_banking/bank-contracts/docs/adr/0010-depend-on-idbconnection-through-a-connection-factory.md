@@ -1,6 +1,6 @@
 # 0010. Depend on IDbConnection through a connection factory
 
-- Status: Accepted, amended by 0011 (the types moved to the package `Bank.Toolkit.Data`)
+- Status: Superseded by 0012 (EF Core; the provider is named only in AddNpgsqlDbContext), 2026-10-30
 - Date: 2026-10-30
 - Scope: bank-contracts (Bank.Messaging), used by every service
 - Amends: 0009 (the types of `DbSession.Connection` and `DbSession.Transaction`, and where connections come from)

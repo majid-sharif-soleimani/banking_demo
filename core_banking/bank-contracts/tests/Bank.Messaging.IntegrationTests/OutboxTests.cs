@@ -4,9 +4,7 @@ using Bank.Contracts.Events;
 using Bank.Messaging.IntegrationTests.Support;
 using Bank.Messaging.Outbox;
 using Bank.Testing;
-using Dapper;
 using Microsoft.Extensions.DependencyInjection;
-using Bank.Toolkit.Data;
 
 namespace Bank.Messaging.IntegrationTests;
 
@@ -15,7 +13,7 @@ public class OutboxTests(PostgresFixture postgres)
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Fact]
-    public async Task Event_published_in_a_committed_transaction_reaches_the_other_service()
+    public async Task Event_saved_with_the_state_change_reaches_the_other_service()
     {
         await using var sender = await TestService.StartAsync(postgres, "sender");
         await using var receiver = await TestService.StartAsync(postgres, "receiver", s => s.AddEventHandler<TestEvent, RecordTestEvent>());
@@ -24,18 +22,19 @@ public class OutboxTests(PostgresFixture postgres)
 
         await using (var scope = sender.Services.CreateAsyncScope())
         {
-            var session = scope.ServiceProvider.GetRequiredService<DbSession>();
-            await session.BeginAsync(Ct);
-            await InsertItemAsync(session);
+            var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+            AddItem(context);
             await scope.ServiceProvider.GetRequiredService<IEventPublisher>().PublishAsync(@event, @event.Key, Ct);
 
-            // Not committed yet, so no dispatcher can see the row.
+            // Only tracked so far: nothing is in the database, so no dispatcher can see the row.
             (await sender.Dispatcher.DispatchBatchAsync(Ct)).ShouldBe(0);
+            (await sender.CountAsync("outbox_message")).ShouldBe(0);
 
-            await session.CommitAsync(Ct);
+            await context.SaveChangesAsync(Ct);
         }
 
         await Eventually.AssertAsync(async () => (await receiver.CountAsync("received_test_event")).ShouldBe(1));
+        (await sender.CountAsync("test_item")).ShouldBe(1);
 
         var sent = sender.Outbound.Sent.ShouldHaveSingleItem();
         sent.MessageId.ShouldBe(@event.EventId);
@@ -54,12 +53,14 @@ public class OutboxTests(PostgresFixture postgres)
 
         await using (var scope = sender.Services.CreateAsyncScope())
         {
-            var session = scope.ServiceProvider.GetRequiredService<DbSession>();
-            await session.BeginAsync(Ct);
-            await InsertItemAsync(session);
+            // A feature that needs several SaveChanges in one transaction, and then rolls it back.
+            var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+            await using var transaction = await context.Database.BeginTransactionAsync(Ct);
+            AddItem(context);
             var @event = TestEvents.New("loan-1");
             await scope.ServiceProvider.GetRequiredService<IEventPublisher>().PublishAsync(@event, @event.Key, Ct);
-            await session.RollbackAsync(Ct);
+            await context.SaveChangesAsync(Ct);
+            await transaction.RollbackAsync(Ct);
         }
 
         (await sender.Dispatcher.DispatchBatchAsync(Ct)).ShouldBe(0);
@@ -69,33 +70,20 @@ public class OutboxTests(PostgresFixture postgres)
     }
 
     [Fact]
-    public async Task Disposing_the_session_without_commit_publishes_nothing()
+    public async Task Event_without_SaveChanges_is_never_published()
     {
         await using var sender = await TestService.StartAsync(postgres, "sender");
 
         await using (var scope = sender.Services.CreateAsyncScope())
         {
-            var session = scope.ServiceProvider.GetRequiredService<DbSession>();
-            await session.BeginAsync(Ct);
+            AddItem(scope.ServiceProvider.GetRequiredService<TestDbContext>());
             var @event = TestEvents.New("loan-1");
             await scope.ServiceProvider.GetRequiredService<IEventPublisher>().PublishAsync(@event, @event.Key, Ct);
-            // A feature that throws before CommitAsync ends here: the scope disposes the session.
+            // A feature that throws before SaveChangesAsync ends here: the scope disposes the context.
         }
 
+        (await sender.CountAsync("test_item")).ShouldBe(0);
         (await sender.CountAsync("outbox_message")).ShouldBe(0);
-    }
-
-    [Fact]
-    public async Task Publishing_outside_a_transaction_fails()
-    {
-        await using var sender = await TestService.StartAsync(postgres, "sender");
-        await using var scope = sender.Services.CreateAsyncScope();
-        var publisher = scope.ServiceProvider.GetRequiredService<IEventPublisher>();
-        var @event = TestEvents.New("loan-1");
-
-        var error = await Should.ThrowAsync<InvalidOperationException>(() => publisher.PublishAsync(@event, @event.Key, Ct));
-
-        error.Message.ShouldContain("BeginAsync");
     }
 
     [Fact]
@@ -127,15 +115,13 @@ public class OutboxTests(PostgresFixture postgres)
 
         await using (var scope = sender.Services.CreateAsyncScope())
         {
-            var session = scope.ServiceProvider.GetRequiredService<DbSession>();
             var publisher = scope.ServiceProvider.GetRequiredService<IEventPublisher>();
-            await session.BeginAsync(Ct);
             for (var i = 0; i < count; i++)
             {
                 await publisher.PublishAsync(TestEvents.New($"key-{i % 7}", i), $"key-{i % 7}", Ct);
             }
 
-            await session.CommitAsync(Ct);
+            await scope.ServiceProvider.GetRequiredService<TestDbContext>().SaveChangesAsync(Ct);
         }
 
         var extra = Enumerable.Range(0, 2).Select(_ => ActivatorUtilities.CreateInstance<OutboxDispatcher>(sender.Services)).ToList();
@@ -154,14 +140,10 @@ public class OutboxTests(PostgresFixture postgres)
     private static async Task PublishCommittedAsync(TestService service, TestEvent @event)
     {
         await using var scope = service.Services.CreateAsyncScope();
-        var session = scope.ServiceProvider.GetRequiredService<DbSession>();
-        await session.BeginAsync(Ct);
         await scope.ServiceProvider.GetRequiredService<IEventPublisher>().PublishAsync(@event, @event.Key, Ct);
-        await session.CommitAsync(Ct);
+        await scope.ServiceProvider.GetRequiredService<TestDbContext>().SaveChangesAsync(Ct);
     }
 
-    private static Task InsertItemAsync(DbSession session) =>
-        session.Connection.ExecuteAsync(new CommandDefinition(
-            "INSERT INTO test_item (id, name, performed_by, created_at) VALUES (@Id, 'item', 'tester', now())",
-            new { Id = Guid.NewGuid() }, session.Transaction, cancellationToken: Ct));
+    private static void AddItem(TestDbContext context) =>
+        context.TestItems.Add(new TestItem { Id = Guid.NewGuid(), Name = "item", PerformedBy = "tester", CreatedAt = DateTimeOffset.UtcNow });
 }

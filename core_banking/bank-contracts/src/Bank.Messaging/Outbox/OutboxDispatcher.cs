@@ -1,6 +1,7 @@
-using Bank.Toolkit.Data;
+using Bank.Messaging.Model;
 using Bank.Messaging.Transport;
-using Dapper;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -12,66 +13,52 @@ namespace Bank.Messaging.Outbox;
 /// A crash between "sent" and "marked" sends the row again on the next poll; the consumer's inbox absorbs that.
 /// </summary>
 public sealed class OutboxDispatcher(
-    IDbConnectionFactory connectionFactory,
+    IServiceScopeFactory scopeFactory,
     IMessageTransport transport,
     IOptions<BankMessagingOptions> options,
     TimeProvider timeProvider,
     ILogger<OutboxDispatcher> logger)
 {
-    private const string LockBatch = """
-        SELECT id AS MessageId, schema_uri AS SchemaUri, message_key AS Key, payload::text AS Payload,
-               performed_by AS PerformedBy, occurred_on AS OccurredOn
-        FROM outbox_message
-        WHERE sent_at IS NULL
-        ORDER BY position
-        LIMIT @BatchSize
-        FOR UPDATE SKIP LOCKED
-        """;
-
-    private const string MarkSent = "UPDATE outbox_message SET sent_at = @SentAt WHERE id = ANY(@Ids)";
-
-    private const string RecordFailure = """
-        UPDATE outbox_message SET attempts = attempts + 1, last_error = @Error WHERE id = @Id
-        """;
-
     /// <summary>Runs one poll and returns how many messages it sent.</summary>
     public async Task<int> DispatchBatchAsync(CancellationToken ct)
     {
-        // Its own unit of work, not part of any request: one poll is one transaction.
-        await using var session = new DbSession(connectionFactory);
-        await session.BeginAsync(ct);
-        var connection = session.Connection;
-        var transaction = session.Transaction;
+        // Its own scope and context: one poll is its own unit of work, not part of any request.
+        await using var scope = scopeFactory.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<DbContext>();
+        context.EnsureBankMessaging();
+        await using var transaction = await context.Database.BeginTransactionAsync(ct);
 
-        var batch = (await connection.QueryAsync<TransportMessage>(
-            new CommandDefinition(LockBatch, new { options.Value.BatchSize }, transaction, cancellationToken: ct))).ToList();
+        // LINQ has no FOR UPDATE SKIP LOCKED; the rows come back tracked, so marking them is a normal SaveChanges.
+        var batchSize = options.Value.BatchSize;
+        var batch = await context.Set<OutboxMessage>()
+            .FromSql($"SELECT * FROM outbox_message WHERE sent_at IS NULL ORDER BY position LIMIT {batchSize} FOR UPDATE SKIP LOCKED")
+            .ToListAsync(ct);
 
-        var sent = new List<Guid>(batch.Count);
-        foreach (var message in batch)
+        var sent = 0;
+        foreach (var row in batch)
         {
             try
             {
-                await transport.SendAsync(message, ct);
-                sent.Add(message.MessageId);
+                await transport.SendAsync(ToTransportMessage(row), ct);
+                row.SentAt = timeProvider.GetUtcNow();
+                sent++;
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 // Stop at the first failure so that later messages, possibly with the same key, are not sent before it.
                 logger.LogWarning(ex, "Sending outbox message {MessageId} ({SchemaUri}) failed; it is retried on the next poll.",
-                    message.MessageId, message.SchemaUri);
-                await connection.ExecuteAsync(new CommandDefinition(
-                    RecordFailure, new { Id = message.MessageId, Error = ex.Message }, transaction, cancellationToken: ct));
+                    row.Id, row.SchemaUri);
+                row.Attempts++;
+                row.LastError = ex.Message;
                 break;
             }
         }
 
-        if (sent.Count > 0)
-        {
-            await connection.ExecuteAsync(new CommandDefinition(
-                MarkSent, new { SentAt = timeProvider.GetUtcNow(), Ids = sent.ToArray() }, transaction, cancellationToken: ct));
-        }
-
-        await session.CommitAsync(ct);
-        return sent.Count;
+        await context.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
+        return sent;
     }
+
+    private static TransportMessage ToTransportMessage(OutboxMessage row) =>
+        new(row.Id, row.SchemaUri, row.MessageKey, row.Payload, row.PerformedBy, row.OccurredOn);
 }

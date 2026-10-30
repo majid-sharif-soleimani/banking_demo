@@ -59,7 +59,7 @@ Claude draws the sequence diagram of one event's full path, with a "crash at thi
   - Rollback publishes nothing
   - A duplicate message is applied once
   - The handler effect, the inbox row and the outgoing outbox row commit together or not at all
-- **ADRs:** outbox dispatcher (0006); inbox key (0007); migration runner (0008); transaction sharing (0009); IDbConnection through a factory (0010); Bank.Toolkit packages (0011).
+- **ADRs:** outbox dispatcher (0006); inbox key (0007); migration runner (0008); transaction sharing (0009); IDbConnection through a factory (0010); Bank.Toolkit packages (0011); EF Core (0012).
 - **D1 (already decided, Majid reconfirms):**
   - How the dispatcher finds new rows: polling with `FOR UPDATE SKIP LOCKED` every 200 ms, LISTEN/NOTIFY, or Debezium CDC
   - Inbox key: `(MessageId, HandlerName)` or MessageId only
@@ -108,14 +108,16 @@ Claude draws the sequence diagram of one event's full path, with a "crash at thi
 | Write schema snapshots with a separate tool (0004, amends 0003) | bank-contracts/docs/adr |
 | Outbox dispatcher polls with SKIP LOCKED (0006) | bank-contracts/docs/adr |
 | Inbox keyed by message id and handler (0007) | bank-contracts/docs/adr |
-| Hand-written SQL migration runner (0008) | bank-contracts/docs/adr |
-| Share the transaction through a scoped DbSession (0009, amended by 0010) | bank-contracts/docs/adr |
-| Depend on IDbConnection through a connection factory (0010, amended by 0011) | bank-contracts/docs/adr |
-| Technical building blocks in Bank.Toolkit packages (0011) | bank-contracts/docs/adr |
+| Hand-written SQL migration runner (0008, superseded by 0012) | bank-contracts/docs/adr |
+| Share the transaction through a scoped DbSession (0009, superseded by 0012) | bank-contracts/docs/adr |
+| Depend on IDbConnection through a connection factory (0010, superseded by 0012) | bank-contracts/docs/adr |
+| Technical building blocks in Bank.Toolkit packages (0011, amended by 0012) | bank-contracts/docs/adr |
+| Outbox, inbox and data access on EF Core (0012) | bank-contracts/docs/adr |
 | Kafka message format and headers | bank-contracts/docs/adr |
 | Retry and dead-letter | bank-contracts/docs/adr |
 | One role and schema per service | bank-platform/docs/adr |
-| Use Dapper instead of EF Core (0001) | docs/adr |
+| Use Dapper instead of EF Core (0001, superseded by 0002) | docs/adr |
+| Use EF Core for data access (0002) | docs/adr |
 
 ## Done when
 
@@ -159,3 +161,4 @@ None. Non-blocking notes:
 - 2026-10-30, slice 1.2 D1 (new, Majid): a small **hand-written migration runner** (ADR 0008) and a **scoped `DbSession`** shared by features, the publisher and the inbox (ADR 0009).
 - 2026-10-30, slice 1.2 (Majid): `DbSession` and every other user depend on `IDbConnection`; only a connection factory knows Npgsql. Async kept through extension methods that call the provider's real async members, never `Task.Run` (ADR 0010, amends 0009).
 - 2026-10-30, slice 1.2 (Majid): `Bank.Common` stays the bank's shared business vocabulary; technical building blocks unrelated to banking go to `Bank.Toolkit.<Area>` packages. The data access code and the migration runner moved from `Bank.Messaging` to the new package `Bank.Toolkit.Data` (ADR 0011).
+- 2026-10-30, slice 1.2 (Majid): back to **EF Core** for all data access; Dapper removed (workspace ADR 0002 supersedes 0001). The service's `DbContext` is the unit of work, EF Core migrations replace the hand-written runner, and the messaging tables are part of each service's model (bank-contracts ADR 0012, superseding 0008, 0009 and 0010).

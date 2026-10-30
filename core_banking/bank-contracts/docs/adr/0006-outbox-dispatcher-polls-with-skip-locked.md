@@ -1,6 +1,6 @@
 # 0006. Find new outbox rows by polling with FOR UPDATE SKIP LOCKED
 
-- Status: Accepted
+- Status: Accepted (since 0012 implemented on EF Core with `FromSql`; behaviour unchanged)
 - Date: 2026-10-30
 - Scope: bank-contracts (Bank.Messaging), used by every service
 - Design plan reference: section 4, ADR row 07; `docs/implementation-decisions.md`, Messaging details

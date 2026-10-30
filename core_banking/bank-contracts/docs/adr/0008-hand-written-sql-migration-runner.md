@@ -1,6 +1,6 @@
 # 0008. Apply SQL migrations with a small hand-written runner
 
-- Status: Accepted, amended by 0011 (the runner moved to `Bank.Toolkit.Data`; scripts are registered per source)
+- Status: Superseded by 0012 (EF Core migrations), 2026-10-30
 - Date: 2026-10-30
 - Scope: bank-contracts (Bank.Messaging), used by every service
 - Design plan reference: section 4, ADR row 01 (Dapper and hand-written SQL); workspace ADR 0001; `docs/implementation-decisions.md`, Database

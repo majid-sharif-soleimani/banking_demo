@@ -1,6 +1,6 @@
 # 0009. Share one connection and transaction through a scoped DbSession
 
-- Status: Accepted, amended by 0010 (IDbConnection through a connection factory)
+- Status: Superseded by 0012 (the service's DbContext is the unit of work), 2026-10-30
 - Date: 2026-10-30
 - Scope: bank-contracts (Bank.Messaging), used by every service
 - Design plan reference: section 4, ADR row 07; `docs/implementation-decisions.md`, Database ("one NpgsqlConnection and one transaction per request or per handled message")

@@ -1,6 +1,6 @@
 # 0001. Use Dapper instead of EF Core for data access
 
-- Status: Accepted
+- Status: Superseded by 0002 (Use EF Core for data access), 2026-10-30
 - Date: 2026-10-30
 - Scope: workspace
 - Design plan reference: section 4, ADR row 01

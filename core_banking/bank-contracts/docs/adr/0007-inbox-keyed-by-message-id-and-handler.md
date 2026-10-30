@@ -1,6 +1,6 @@
 # 0007. Key the inbox on (message id, handler name)
 
-- Status: Accepted
+- Status: Accepted (since 0012 implemented on EF Core with `ExecuteSqlAsync`; behaviour unchanged)
 - Date: 2026-10-30
 - Scope: bank-contracts (Bank.Messaging), used by every service
 - Design plan reference: section 4, ADR rows 07 and 08; `docs/implementation-decisions.md`, Messaging details

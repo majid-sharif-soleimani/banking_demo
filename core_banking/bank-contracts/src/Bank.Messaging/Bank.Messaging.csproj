@@ -1,19 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <PackageId>Bank.Messaging</PackageId>
-    <Description>Transactional outbox, inbox, outbox dispatcher and consumer pipeline (Dapper through Bank.Toolkit.Data, no Kafka).</Description>
+    <Description>Transactional outbox, inbox, outbox dispatcher and consumer pipeline on EF Core (no Kafka, no database provider).</Description>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Dapper" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Options" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Bank.Contracts\Bank.Contracts.csproj" />
-    <ProjectReference Include="..\Bank.Toolkit.Data\Bank.Toolkit.Data.csproj" />
-  </ItemGroup>
-  <ItemGroup>
-    <!-- The outbox and inbox tables; AddBankMessaging registers them with AddSqlMigrations (Bank.Toolkit.Data). -->
-    <EmbeddedResource Include="Migrations\*.sql" LogicalName="migrations/%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>

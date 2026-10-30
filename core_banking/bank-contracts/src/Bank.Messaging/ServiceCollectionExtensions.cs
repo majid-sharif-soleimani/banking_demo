@@ -1,7 +1,6 @@
 using Bank.Contracts.Events;
 using Bank.Messaging.Inbox;
 using Bank.Messaging.Outbox;
-using Bank.Toolkit.Data;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -10,9 +9,10 @@ namespace Bank.Messaging;
 public static class ServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers IEventPublisher (outbox), the outbox dispatcher, the consumer pipeline and the migration of the
-    /// outbox and inbox tables. The service must also register its database with AddNpgsqlConnectionFactory
-    /// (Bank.Toolkit.Data) and an IMessageTransport (AddKafkaTransport from slice 1.3, or the in-memory one in tests).
+    /// Registers IEventPublisher (outbox), the outbox dispatcher and the consumer pipeline. The service must also
+    /// register its DbContext as <c>DbContext</c> (AddNpgsqlDbContext in Bank.Toolkit.Data), call
+    /// <c>modelBuilder.AddBankMessaging()</c> in it so its migrations create the outbox and inbox tables, and register
+    /// an IMessageTransport (AddKafkaTransport from slice 1.3, or the in-memory one in tests).
     /// </summary>
     public static IServiceCollection AddBankMessaging(this IServiceCollection services, Action<BankMessagingOptions> configure)
     {
@@ -21,9 +21,7 @@ public static class ServiceCollectionExtensions
             .Validate(o => o.BatchSize > 0 && o.PollingInterval > TimeSpan.Zero, "BankMessaging: BatchSize and PollingInterval must be positive.")
             .ValidateOnStart();
         services.TryAddSingleton(TimeProvider.System);
-        services.TryAddScoped<DbSession>();
         services.TryAddScoped<IEventPublisher, OutboxEventPublisher>();
-        services.AddSqlMigrations(typeof(ServiceCollectionExtensions).Assembly, "messaging");
         services.TryAddSingleton<OutboxDispatcher>();
         services.TryAddSingleton<MessagePipeline>();
         services.AddHostedService<OutboxDispatcherService>();

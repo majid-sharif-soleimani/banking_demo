@@ -72,7 +72,7 @@ bank-<service>/
   CLAUDE.md                    ← service-specific notes only (owned tables, events in/out, gotchas)
   docs/adr/
   src/Bank.<Service>.Api/
-    Data/                      ← Dapper row records and SQL migration scripts (schema "<service>")
+    Data/                      ← DbContext, entities and EF Core migrations (schema "<service>")
     Features/                  ← one file per use case: endpoint or event handler
     Logic/                     ← pure static functions, no I/O; main TDD target
     Program.cs
@@ -107,7 +107,7 @@ Integration tests need Docker running.
 
 ## Style
 
-- Vertical slices, not layers. No repositories, no unit-of-work wrappers, no aggregates. Data access is Dapper with hand-written SQL on Npgsql, called directly in features (no EF Core; `docs/adr/0001-use-dapper-instead-of-ef-core.md`).
+- Vertical slices, not layers. No repositories, no unit-of-work wrappers, no aggregates. Data access is EF Core on Npgsql, with the service's `DbContext` used directly in features (`docs/adr/0002-use-ef-core-for-data-access.md`). Raw SQL only where LINQ has no equivalent, through `FromSql`/`ExecuteSqlAsync` with interpolated parameters.
 - Minimal APIs. Records for requests, responses and events.
 - Write the failing test first for anything in `Logic/`.
 - Prefer small, explicit code over abstractions. Add an abstraction only when a second real use appears or the design plan requires it.

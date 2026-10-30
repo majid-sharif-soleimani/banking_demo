@@ -1,11 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <PackageId>Bank.Toolkit.Data</PackageId>
-    <Description>Database access building blocks: connection factory, DbSession, async helpers for IDbConnection and a SQL migration runner. Technical only; knows nothing about the bank.</Description>
+    <Description>EF Core building blocks: registering a DbContext on PostgreSQL and applying its migrations at startup. Technical only; knows nothing about the bank.</Description>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Npgsql" />
-    <PackageReference Include="Dapper" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="EFCore.NamingConventions" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
   </ItemGroup>
 </Project>

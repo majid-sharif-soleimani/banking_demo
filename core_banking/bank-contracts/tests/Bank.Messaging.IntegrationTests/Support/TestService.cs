@@ -5,26 +5,26 @@ using Bank.Messaging.Inbox;
 using Bank.Messaging.Outbox;
 using Bank.Messaging.Transport;
 using Bank.Testing;
-using Dapper;
+using Bank.Toolkit.Data;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Bank.Toolkit.Data;
+using Npgsql;
 
 namespace Bank.Messaging.IntegrationTests.Support;
 
 /// <summary>
-/// A stand-in for one service: its own role and schema, a real host with AddBankMessaging and AddSqlMigrations,
+/// A stand-in for one service: its own role and schema, a real host with its DbContext, migrations on startup and AddBankMessaging,
 /// and its own in-memory outbound broker. Wire two of them with <c>sender.Outbound.Subscribe(receiver.Pipeline.ProcessAsync)</c>.
 /// </summary>
 public sealed class TestService : IAsyncDisposable
 {
     private readonly IHost host;
-    private readonly IDbConnectionFactory connectionFactory;
+    private readonly string connectionString;
 
-    private TestService(IHost host)
+    private TestService(IHost host, string connectionString)
     {
         this.host = host;
-        connectionFactory = host.Services.GetRequiredService<IDbConnectionFactory>();
+        this.connectionString = connectionString;
     }
 
     public IServiceProvider Services => host.Services;
@@ -42,7 +42,8 @@ public sealed class TestService : IAsyncDisposable
         var connectionString = await postgres.CreateServiceSchemaAsync(name);
 
         var builder = Host.CreateEmptyApplicationBuilder(new HostApplicationBuilderSettings());
-        builder.Services.AddNpgsqlConnectionFactory(connectionString);
+        builder.Services.AddNpgsqlDbContext<TestDbContext>(connectionString);
+        builder.Services.AddMigrationsOnStartup<TestDbContext>();
         builder.Services.AddSingleton<IMessageTransport, InMemoryTransport>();
         builder.Services.AddSingleton<HandlerBehaviour>();
         builder.Services.AddBankMessaging(options =>
@@ -50,24 +51,23 @@ public sealed class TestService : IAsyncDisposable
             options.ServiceName = name;
             options.PollingInterval = TimeSpan.FromMilliseconds(50);
         });
-        builder.Services.AddSqlMigrations(typeof(TestService).Assembly, "test");
         configure?.Invoke(builder.Services);
 
         var host = builder.Build();
         await host.StartAsync(TestContext.Current.CancellationToken);
-        return new TestService(host);
+        return new TestService(host, connectionString);
     }
 
-    public async Task<long> CountAsync(string table, string where = "true")
-    {
-        using var connection = await connectionFactory.OpenAsync(TestContext.Current.CancellationToken);
-        return await connection.ExecuteScalarAsync<long>($"SELECT count(*) FROM {table} WHERE {where}");
-    }
+    /// <summary>Counts rows with plain SQL, outside EF, so the test sees what is really committed.</summary>
+    public Task<long> CountAsync(string table, string where = "true") =>
+        ScalarAsync<long>($"SELECT count(*) FROM {table} WHERE {where}");
 
-    public async Task<T> QuerySingleAsync<T>(string sql, object? parameters = null)
+    public async Task<T> ScalarAsync<T>(string sql)
     {
-        using var connection = await connectionFactory.OpenAsync(TestContext.Current.CancellationToken);
-        return await connection.QuerySingleAsync<T>(sql, parameters);
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync(TestContext.Current.CancellationToken);
+        await using var command = new NpgsqlCommand(sql, connection);
+        return (T)(await command.ExecuteScalarAsync(TestContext.Current.CancellationToken))!;
     }
 
     public async ValueTask DisposeAsync()

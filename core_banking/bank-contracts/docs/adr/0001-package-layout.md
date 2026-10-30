@@ -1,6 +1,6 @@
 # 0001. Ship shared code as small packages from one folder
 
-- Status: Accepted, amended by bank-contracts ADR 0011 (adds `Bank.Toolkit.Data`) and workspace ADR 0001 (Dapper instead of EF Core)
+- Status: Accepted, amended by bank-contracts ADRs 0011 (adds `Bank.Toolkit.Data`) and 0012 (EF Core)
 - Date: 2026-10-30
 - Scope: bank-contracts
 - Design plan reference: section 4, ADR rows 05, 10, 17; `docs/implementation-decisions.md` "Shared code" and "Repository and packages"
@@ -17,8 +17,8 @@ The `bank-contracts` folder builds these NuGet packages (five at first, six sinc
 | --- | --- | --- |
 | `Bank.Contracts` | nothing | `Money`, `IIntegrationEvent`, event records with `SchemaUri`, schemas as embedded resources, `SchemaKey`, `ContractJson` |
 | `Bank.Common` | `Bank.Contracts` | `IBusinessClock`, `MoneyRounding`, external-service interfaces, `PerformedBy`, `Result<T>` |
-| `Bank.Toolkit.Data` | Npgsql, Dapper (no `Bank.*` package) | Connection factory, `DbSession`, async helpers, SQL migration runner (added by ADR 0011) |
-| `Bank.Messaging` | `Bank.Contracts`, `Bank.Toolkit.Data`, Dapper | `IEventPublisher`, `IEventHandler<T>`, outbox, inbox, dispatcher, consumer pipeline |
+| `Bank.Toolkit.Data` | EF Core Npgsql provider, EFCore.NamingConventions (no `Bank.*` package) | `AddNpgsqlDbContext`, `AddMigrationsOnStartup` (added by ADR 0011, EF Core since ADR 0012) |
+| `Bank.Messaging` | `Bank.Contracts`, EF Core Relational | `IEventPublisher`, `IEventHandler<T>`, outbox and inbox entities, dispatcher, consumer pipeline |
 | `Bank.Messaging.Kafka` | `Bank.Messaging`, Confluent.Kafka | The Kafka transport; the only project that references Confluent.Kafka |
 | `Bank.Testing` | all of the above, Testcontainers | Test fixtures and fakes; referenced only from test projects |
 

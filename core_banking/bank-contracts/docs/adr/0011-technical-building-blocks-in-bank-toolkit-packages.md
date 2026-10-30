@@ -1,10 +1,12 @@
 # 0011. Keep technical building blocks in Bank.Toolkit packages, apart from Bank.Common
 
-- Status: Accepted
+- Status: Accepted, amended by 0012 (`Bank.Toolkit.Data` now holds the EF Core registrations)
 - Date: 2026-10-30
 - Scope: bank-contracts (package layout), used by every service
 - Amends: 0001 (adds the package `Bank.Toolkit.Data`), 0008 (where the runner lives and how scripts are registered), 0010 (where the factory and `DbSession` live)
 - Design plan reference: section 4, ADR row 17; `docs/implementation-decisions.md`, "Shared code"
+
+> Since ADR 0012, `Bank.Toolkit.Data` holds the EF Core registrations (`AddNpgsqlDbContext`, `AddMigrationsOnStartup`) instead of the Dapper-based types listed in point 3. The rules in points 1 and 2 are unchanged.
 
 ## Context
 

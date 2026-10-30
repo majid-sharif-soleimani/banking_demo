@@ -8,6 +8,9 @@
     <PackageReference Include="xunit.v3" />
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="Shouldly" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <!-- Only for dotnet ef migrations add. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Bank.Toolkit.Data\Bank.Toolkit.Data.csproj" />

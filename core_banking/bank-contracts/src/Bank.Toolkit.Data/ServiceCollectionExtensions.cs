@@ -1,6 +1,4 @@
-using System.Reflection;
-using Bank.Toolkit.Data.Migrations;
-using Dapper;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
@@ -10,31 +8,32 @@ namespace Bank.Toolkit.Data;
 public static class ServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers the PostgreSQL <see cref="IDbConnectionFactory"/> and a scoped <see cref="DbSession"/>.
-    /// The container owns the factory and disposes its connection pool when the host stops.
+    /// Registers <typeparamref name="TContext"/> (scoped) on PostgreSQL with snake_case names, and the same instance as
+    /// <see cref="DbContext"/>, so shared code (outbox, inbox) works on the service's context without knowing its type.
+    /// The only place that names the database provider (bank-contracts ADR 0012).
     /// </summary>
-    public static IServiceCollection AddNpgsqlConnectionFactory(this IServiceCollection services, string connectionString)
+    /// <param name="connectionString">The service's own role; its schema is the search path, so the model names no schema.</param>
+    public static IServiceCollection AddNpgsqlDbContext<TContext>(this IServiceCollection services, string connectionString)
+        where TContext : DbContext
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
 
-        // Snake-case columns map to PascalCase properties in every Dapper query of the process.
-        DefaultTypeMap.MatchNamesWithUnderscores = true;
-
-        services.TryAddSingleton<IDbConnectionFactory>(_ => new NpgsqlConnectionFactory(connectionString));
-        services.TryAddScoped<DbSession>();
+        services.AddDbContext<TContext>(options => options.UseNpgsqlWithBankConventions(connectionString));
+        services.TryAddScoped<DbContext>(sp => sp.GetRequiredService<TContext>());
         return services;
     }
 
     /// <summary>
-    /// Applies the scripts embedded under migrations/ in <paramref name="assembly"/> before any hosted service starts.
-    /// Call it once per assembly that ships scripts; <paramref name="source"/> prefixes their ids, such as "lending".
+    /// The provider settings every context uses; design-time factories call it too, so generated migrations match.
     /// </summary>
-    public static IServiceCollection AddSqlMigrations(this IServiceCollection services, Assembly assembly, string source)
+    public static DbContextOptionsBuilder UseNpgsqlWithBankConventions(this DbContextOptionsBuilder options, string connectionString) =>
+        options.UseNpgsql(connectionString).UseSnakeCaseNamingConvention();
+
+    /// <summary>Applies the pending EF Core migrations of <typeparamref name="TContext"/> before any hosted service starts.</summary>
+    public static IServiceCollection AddMigrationsOnStartup<TContext>(this IServiceCollection services)
+        where TContext : DbContext
     {
-        services.AddSingleton(new MigrationSource(MigrationScripts.FromAssembly(assembly, source)));
-        services.TryAddSingleton(TimeProvider.System);
-        services.TryAddSingleton<SqlMigrationRunner>();
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, MigrationStartupService>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, MigrationStartupService<TContext>>());
         return services;
     }
 }

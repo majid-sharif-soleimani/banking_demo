@@ -3,6 +3,7 @@ using Bank.Contracts.Events;
 using Bank.Messaging.Inbox;
 using Bank.Messaging.IntegrationTests.Support;
 using Bank.Testing;
+using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
 namespace Bank.Messaging.IntegrationTests;
@@ -54,9 +55,9 @@ public class InboxTests(PostgresFixture postgres)
         var again = first with { EventId = Guid.NewGuid() };   // the publisher sent the same fact twice
 
         await receiver.Pipeline.ProcessAsync(TestEvents.AsMessage(first), Ct);
-        var error = await Should.ThrowAsync<PostgresException>(() => receiver.Pipeline.ProcessAsync(TestEvents.AsMessage(again), Ct));
+        var error = await Should.ThrowAsync<DbUpdateException>(() => receiver.Pipeline.ProcessAsync(TestEvents.AsMessage(again), Ct));
 
-        error.ConstraintName.ShouldBe("uq_received_test_event_business_key");
+        error.InnerException.ShouldBeOfType<PostgresException>().ConstraintName.ShouldBe(TestDbContext.BusinessKeyIndex);
         (await receiver.CountAsync("received_test_event")).ShouldBe(1);
         (await receiver.CountAsync("inbox_message")).ShouldBe(1);
     }
@@ -120,8 +121,8 @@ public class InboxTests(PostgresFixture postgres)
 
         (await receiver.Pipeline.ProcessAsync(message, Ct)).ShouldBe(ProcessOutcome.Handled);
 
-        (await receiver.QuerySingleAsync<decimal>("SELECT amount FROM received_test_event")).ShouldBe(100.50m);
-        (await receiver.QuerySingleAsync<string>("SELECT schema_uri FROM inbox_message")).ShouldEndWith("1-0-1");
+        (await receiver.ScalarAsync<decimal>("SELECT amount FROM received_test_event")).ShouldBe(100.50m);
+        (await receiver.ScalarAsync<string>("SELECT schema_uri FROM inbox_message")).ShouldEndWith("1-0-1");
     }
 
     [Fact]

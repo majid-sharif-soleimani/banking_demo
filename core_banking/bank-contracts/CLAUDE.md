@@ -1,6 +1,6 @@
 # bank-contracts
 
-Shared packages for every service: contracts (`Bank.Contracts`), and from slice 1.2 on `Bank.Common`, `Bank.Toolkit.Data`, `Bank.Messaging`, `Bank.Messaging.Kafka`, `Bank.Testing`. `tools/Bank.Contracts.SchemaTool` is a developer tool and is never packed. Not a service: owns no tables and publishes no events.
+Shared packages for every service: contracts (`Bank.Contracts`), and from slice 1.2 on `Bank.Common`, `Bank.Toolkit.Data`, `Bank.Messaging`, `Bank.Messaging.Kafka`, `Bank.Testing`. Data access is EF Core (workspace ADR 0002). `tools/Bank.Contracts.SchemaTool` is a developer tool and is never packed. Not a service: owns no tables and publishes no events.
 
 ## Contracts
 
@@ -16,18 +16,19 @@ Shared packages for every service: contracts (`Bank.Contracts`), and from slice 
 - `Bank.Common`: the bank's shared business vocabulary that business code talks to directly (`IBusinessClock`, `MoneyRounding`, `Result<T>`, `PerformedBy`, external-service interfaces). No I/O, no external packages.
 - `Bank.Toolkit.<Area>`: technical building blocks unrelated to banking. No reference to any `Bank.*` package, no business rules. Only code that two real projects need. One package per area, created with its first real content. Today: `Bank.Toolkit.Data`.
 
-## Database access (Bank.Toolkit.Data, ADRs 0008–0011)
+## Database access (Bank.Toolkit.Data, EF Core, ADR 0012)
 
-- `AddNpgsqlConnectionFactory(connectionString)` registers `IDbConnectionFactory`, a scoped `DbSession` and Dapper's snake-case mapping. Only `NpgsqlConnectionFactory` names Npgsql (ADR 0010). Everything else uses `IDbConnectionFactory`, `IDbConnection` and `IDbTransaction`; for async begin, commit, rollback and dispose use `DbAsyncExtensions` (never `Task.Run`). Test code may use Npgsql where the test is about PostgreSQL itself.
-- `DbSession` (`Bank.Toolkit.Data`, scoped) is the one connection and transaction of a request or a handled message. Features call `BeginAsync`, pass `session.Transaction` to every Dapper write, publish, then `CommitAsync`.
-- SQL is unqualified; the schema comes from the role's search path. Tables are snake_case.
-- Migrations: `.sql` files embedded with `LogicalName="migrations/%(Filename)%(Extension)"`, named `0001_...`. `AddSqlMigrations(assembly, source)` once per assembly with scripts; all run in one transaction before hosted services start. Never edit an applied script (the checksum check stops startup); add a new one.
+- A service has one `DbContext`. `AddNpgsqlDbContext<TContext>(connectionString)` registers it (scoped) on Npgsql with snake_case names, and the same instance as `DbContext` for the shared code. It is the only place that names the provider; design-time factories call `UseNpgsqlWithBankConventions` so migrations match.
+- `AddMigrationsOnStartup<TContext>()` applies the EF Core migrations before any hosted service starts; EF Core's migration lock makes concurrent starts safe. Create migrations with `dotnet ef migrations add <Name> --output-dir Data/Migrations` (local tool, `dotnet tool restore`).
+- Table names are explicit and singular (`ToTable("loan")`). The schema comes from the role's search path; the model names no schema.
+- Raw SQL only where LINQ cannot express it, with `FromSql`/`ExecuteSqlAsync` and interpolated parameters (never concatenation).
 
-## Messaging (Bank.Messaging, ADRs 0006–0009)
+## Messaging (Bank.Messaging, ADRs 0006, 0007, 0012)
 
-- A service registers `AddNpgsqlConnectionFactory(connectionString)` for its own role and schema, an `IMessageTransport` (Kafka from slice 1.3), then `AddBankMessaging(o => o.ServiceName = "...")` (which also migrates the outbox and inbox tables), `AddSqlMigrations(typeof(Program).Assembly, "<service>")` for its own tables, and one `AddEventHandler<TEvent, THandler>()` per handler.
-- `PublishAsync` writes to the outbox through the scoped `DbSession` and throws without a transaction.
-- The pipeline gives each handler its own scope and transaction: inbox row `(message_id, handler_name)`, the handler's effect and its outgoing events commit together. Handlers never begin or commit.
+- A service registers `AddNpgsqlDbContext<TContext>`, `AddMigrationsOnStartup<TContext>`, an `IMessageTransport` (Kafka from slice 1.3), `AddBankMessaging(o => o.ServiceName = "...")` and one `AddEventHandler<TEvent, THandler>()` per handler. Its `OnModelCreating` calls `modelBuilder.AddBankMessaging()`, so its migrations create `outbox_message` and `inbox_message`.
+- A feature changes its entities, calls `PublishAsync` (which only tracks an outbox row), then `SaveChangesAsync` once: state change and event commit together, or neither is written.
+- The pipeline gives each handler its own scope, context and transaction: inbox row first (raw `ON CONFLICT DO NOTHING`), then the handler, then `SaveChangesAsync` and commit. Handlers change the context and publish, and never call `SaveChangesAsync`.
+- The dispatcher uses its own scope per poll and `FromSql(... FOR UPDATE SKIP LOCKED)`.
 
 ## Gotchas
 
@@ -37,7 +38,8 @@ Shared packages for every service: contracts (`Bank.Contracts`), and from slice 
 - A validation attribute or CLR type the generator does not map fails generation; add the mapping in `tools/.../ContractSchemaGenerator.cs`. Nested records are not supported.
 - A field with a `pattern` needs a matching sample in `tests/.../Support/SampleFactory.cs`.
 - The handler class name is part of the inbox key: renaming a handler makes it treat old messages as new. Two handlers with the same class name in one service fail at startup.
-- Migration scripts must be able to run inside a transaction (no `CREATE INDEX CONCURRENTLY`).
+- The messaging column names are set explicitly in `ModelBuilderExtensions` because the dispatcher and the inbox use them in raw SQL; keep both in sync.
+- A business-key violation surfaces as `DbUpdateException` with an inner `PostgresException`.
 - `Bank.Messaging.IntegrationTests` and `Bank.Toolkit.Data.IntegrationTests` need Docker. Each test creates its own role and schema in one shared PostgreSQL container.
 
 ## Commands
@@ -45,7 +47,7 @@ Shared packages for every service: contracts (`Bank.Contracts`), and from slice 
 ```bash
 dotnet build && dotnet test
 dotnet test tests/Bank.Messaging.IntegrationTests     # outbox and inbox against PostgreSQL (Docker)
-dotnet test tests/Bank.Toolkit.Data.IntegrationTests  # migration runner against PostgreSQL (Docker)
+dotnet test tests/Bank.Toolkit.Data.IntegrationTests  # DbContext registration and migrations on startup (Docker)
 dotnet run --project tools/Bank.Contracts.SchemaTool -- write   # writes missing schema snapshots
 dotnet pack -c Release -o ../.local-feed     # then bump the version in each consumer
 ```

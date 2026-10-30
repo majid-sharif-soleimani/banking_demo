@@ -4,6 +4,7 @@
     <Description>Test helpers: PostgreSQL Testcontainers fixture, fake business clock, Eventually, in-memory fakes and transport.</Description>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Npgsql" />
     <PackageReference Include="Testcontainers.PostgreSql" />
     <PackageReference Include="xunit.v3.extensibility.core" />
   </ItemGroup>

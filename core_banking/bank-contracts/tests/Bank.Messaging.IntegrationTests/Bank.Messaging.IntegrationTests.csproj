@@ -9,13 +9,12 @@
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="Shouldly" />
     <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <!-- Only for dotnet ef migrations add. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Bank.Testing\Bank.Testing.csproj" />
-  </ItemGroup>
-  <ItemGroup>
-    <!-- Tables of the two test services, applied after the messaging tables like a real service's scripts. -->
-    <EmbeddedResource Include="Migrations\*.sql" LogicalName="migrations/%(Filename)%(Extension)" />
+    <ProjectReference Include="..\..\src\Bank.Toolkit.Data\Bank.Toolkit.Data.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Shouldly" />

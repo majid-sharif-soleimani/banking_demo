@@ -1,6 +1,4 @@
 using Bank.Contracts.Events;
-using Dapper;
-using Bank.Toolkit.Data;
 
 namespace Bank.Messaging.IntegrationTests.Support;
 
@@ -14,22 +12,22 @@ public sealed class HandlerBehaviour
     public bool PublishReply { get; set; }
 }
 
-/// <summary>The receiver's main handler: writes the effect, optionally publishes a follow-up event, optionally fails after both.</summary>
-public sealed class RecordTestEvent(DbSession session, IEventPublisher publisher, HandlerBehaviour behaviour, TimeProvider time)
+/// <summary>The receiver's main handler: adds the effect, optionally publishes a follow-up event, optionally fails after both.</summary>
+public sealed class RecordTestEvent(TestDbContext context, IEventPublisher publisher, HandlerBehaviour behaviour, TimeProvider time)
     : IEventHandler<TestEvent>
 {
     public async Task HandleAsync(TestEvent @event, CancellationToken ct)
     {
-        await session.Connection.ExecuteAsync(new CommandDefinition("""
-            INSERT INTO received_test_event (event_id, message_key, sequence, amount, currency, performed_by, created_at)
-            VALUES (@EventId, @Key, @Sequence, @Amount, @Currency, @PerformedBy, @CreatedAt)
-            """,
-            new
-            {
-                @event.EventId, @event.Key, @event.Sequence, @event.Amount.Amount, @event.Amount.Currency,
-                @event.PerformedBy, CreatedAt = time.GetUtcNow(),
-            },
-            session.Transaction, cancellationToken: ct));
+        context.ReceivedTestEvents.Add(new ReceivedTestEvent
+        {
+            EventId = @event.EventId,
+            MessageKey = @event.Key,
+            Sequence = @event.Sequence,
+            Amount = @event.Amount.Amount,
+            Currency = @event.Amount.Currency,
+            PerformedBy = @event.PerformedBy,
+            CreatedAt = time.GetUtcNow(),
+        });
 
         if (behaviour.PublishReply)
         {
@@ -45,18 +43,21 @@ public sealed class RecordTestEvent(DbSession session, IEventPublisher publisher
 }
 
 /// <summary>A second handler of the same event, to show the inbox key includes the handler name.</summary>
-public sealed class AuditTestEvent(DbSession session, HandlerBehaviour behaviour, TimeProvider time) : IEventHandler<TestEvent>
+public sealed class AuditTestEvent(TestDbContext context, HandlerBehaviour behaviour, TimeProvider time) : IEventHandler<TestEvent>
 {
-    public async Task HandleAsync(TestEvent @event, CancellationToken ct)
+    public Task HandleAsync(TestEvent @event, CancellationToken ct)
     {
         if (behaviour.FailAudit)
         {
             throw new InvalidOperationException("AuditTestEvent failed on purpose.");
         }
 
-        await session.Connection.ExecuteAsync(new CommandDefinition(
-            "INSERT INTO audited_test_event (event_id, performed_by, created_at) VALUES (@EventId, @PerformedBy, @CreatedAt)",
-            new { @event.EventId, @event.PerformedBy, CreatedAt = time.GetUtcNow() },
-            session.Transaction, cancellationToken: ct));
+        context.AuditedTestEvents.Add(new AuditedTestEvent
+        {
+            EventId = @event.EventId,
+            PerformedBy = @event.PerformedBy,
+            CreatedAt = time.GetUtcNow(),
+        });
+        return Task.CompletedTask;
     }
 }

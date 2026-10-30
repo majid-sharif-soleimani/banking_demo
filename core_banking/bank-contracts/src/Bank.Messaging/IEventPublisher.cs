@@ -1,11 +1,10 @@
 using Bank.Contracts.Events;
-using Bank.Toolkit.Data;
 
 namespace Bank.Messaging;
 
 /// <summary>
-/// Publishes an integration event through the outbox: the event is written to outbox_message inside the
-/// current <see cref="DbSession"/> transaction, so it is sent only if the feature's own changes commit.
+/// Publishes an integration event through the outbox: the event is added to the service's DbContext as an outbox row,
+/// and written by the same <c>SaveChangesAsync</c> as the feature's own changes. So it is sent only if they are saved.
 /// </summary>
 public interface IEventPublisher
 {

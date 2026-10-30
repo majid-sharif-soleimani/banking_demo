@@ -15,6 +15,5 @@
     <Project Path="tests/Bank.Messaging.IntegrationTests/Bank.Messaging.IntegrationTests.csproj" />
     <Project Path="tests/Bank.Messaging.UnitTests/Bank.Messaging.UnitTests.csproj" />
     <Project Path="tests/Bank.Toolkit.Data.IntegrationTests/Bank.Toolkit.Data.IntegrationTests.csproj" />
-    <Project Path="tests/Bank.Toolkit.Data.UnitTests/Bank.Toolkit.Data.UnitTests.csproj" />
   </Folder>
 </Solution>

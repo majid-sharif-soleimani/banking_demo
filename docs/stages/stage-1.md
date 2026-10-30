@@ -11,7 +11,7 @@ This stage is large, so it runs as four slices with a checkpoint after each (see
 | Slice | Content | Concepts | Decisions for Majid (D1) | Majid writes (originally; reassigned, see below) |
 | --- | --- | --- | --- | --- |
 | 1.1 Contracts | `bank-contracts` folder, build props, `Money`, `IIntegrationEvent`, the five schemas, `Bank.Contracts.Tests` | Value objects, contract-first design, JSON Schema, SchemaVer, contract tests | How records and schemas stay in sync (reflection test, code generation from schema, or schema generation from records). ADR: schema/record sync | `Money` and its tests (arithmetic, currency mismatch, JSON shape); the ADR |
-| 1.2 Outbox and inbox | `Bank.Common`, `Bank.Messaging` (Dapper on Npgsql, no Kafka), `Bank.Testing` fixtures | The dual-write problem, transactional outbox, at-least-once delivery, idempotent consumers, inbox | How the dispatcher finds new outbox rows (polling, PostgreSQL LISTEN/NOTIFY, CDC with Debezium); the inbox key; the SQL migration runner; how `IEventPublisher` joins the feature's connection and transaction. ADRs: outbox dispatcher, inbox key, migration runner, transaction sharing | Integration tests "rollback publishes nothing" and "duplicate message applied once"; both ADRs |
+| 1.2 Outbox and inbox | `Bank.Common`, `Bank.Messaging` (EF Core, no Kafka; originally Dapper), `Bank.Testing` fixtures | The dual-write problem, transactional outbox, at-least-once delivery, idempotent consumers, inbox | How the dispatcher finds new outbox rows (polling, PostgreSQL LISTEN/NOTIFY, CDC with Debezium); the inbox key; the SQL migration runner; how `IEventPublisher` joins the feature's connection and transaction. ADRs: outbox dispatcher, inbox key, migration runner, transaction sharing | Integration tests "rollback publishes nothing" and "duplicate message applied once"; both ADRs |
 | 1.3 Kafka transport | `Bank.Messaging.Kafka`: producer, consumer, headers, retry, DLT | Topics, partitions and keys, ordering, consumer groups, offset commits, poison messages, dead-letter topics | Retry strategy (in-consumer retry that blocks the partition, retry topics, or no retry). ADRs: message format and headers, retry and dead-letter | The backoff sequence function and its unit test; the retry and dead-letter ADR |
 | 1.4 Platform | `bank-platform`: Aspire AppHost, init SQL, docker-compose, platform tests | Infrastructure as code, least-privilege database roles, service defaults, OpenTelemetry basics | none new | `db/init/001-roles-and-schemas.sql` and the test "each service role cannot read another schema"; ADR: one role and schema per service |
 
@@ -30,13 +30,12 @@ bank-contracts/
   schemas/se.bank/<event>/jsonschema/1-0-0.json
   src/Bank.Contracts/           Money, ContractJson; Events/ (IIntegrationEvent, all event records); Schema/ (SchemaKey, ContractSchemas); schemas as embedded resources
   src/Bank.Common/              interfaces and helpers listed in implementation-decisions.md
-  src/Bank.Toolkit.Data/        connection factory, DbSession, async helpers, migration runner (added 2026-10-30, ADR 0011)
-  src/Bank.Messaging/           publisher, handler, outbox, inbox, dispatcher, consumer pipeline (Dapper through Bank.Toolkit.Data)
+  src/Bank.Toolkit.Data/        AddNpgsqlDbContext, AddMigrationsOnStartup (added 2026-10-30, ADRs 0011 and 0012)
+  src/Bank.Messaging/           publisher, handler, outbox and inbox entities, dispatcher, consumer pipeline (EF Core)
   src/Bank.Messaging.Kafka/     Kafka producer, consumer, DLT; only project referencing Confluent.Kafka
   src/Bank.Testing/             Testcontainers fixtures, FakeBusinessClock, Eventually helper, in-memory fakes
   tests/Bank.Contracts.Tests/
   tests/Bank.Common.Tests/
-  tests/Bank.Toolkit.Data.UnitTests/
   tests/Bank.Toolkit.Data.IntegrationTests/
   tests/Bank.Messaging.UnitTests/
   tests/Bank.Messaging.IntegrationTests/
@@ -50,7 +49,7 @@ public interface IIntegrationEvent { Guid EventId { get; } DateOnly OccurredOn {
 public interface IBusinessClock { DateOnly Today { get; } }
 public interface IEventPublisher { Task PublishAsync<T>(T @event, string key, CancellationToken ct) where T : IIntegrationEvent; }
 public interface IEventHandler<in T> where T : IIntegrationEvent { Task HandleAsync(T @event, CancellationToken ct); }
-// Bank.Messaging ships the SQL that creates outbox_message and inbox_message in the service schema
+// Bank.Messaging ships the outbox_message and inbox_message entities; modelBuilder.AddBankMessaging() adds them to the service's model and migrations
 services.AddBankMessaging(options => ...);                // dispatcher + consumer pipeline; transaction sharing decided in slice 1.2
 services.AddKafkaTransport(configuration);                // topic bank.<service>.events
 ```
