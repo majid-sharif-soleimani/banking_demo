@@ -171,3 +171,5 @@ At first the contract test also wrote a missing snapshot when `WRITE_SCHEMA_SNAP
 Adding an event is now: write the record, run `dotnet run --project tools/Bank.Contracts.SchemaTool -- write`, look at the new file in the diff, run `dotnet test` once. The build that `dotnet test` starts embeds the new file, so no second run is needed.
 
 **Pattern:** command-query separation at the tool level. The command that changes files (`write`) is separate from everything that only reads (`check`, the tests), so running the tests can never change the repository.
+
+Later the same day, `Money`'s JSON knowledge moved into one file: `Money.cs` holds the type, `MoneyJsonConverter` and `Money.JsonSchema()` (a raw JSON string). The generator no longer knows `Money` by name. For every property type it looks for `public static JsonObject JsonSchema()` and uses it when present; otherwise it uses the shape `JsonSchemaExporter` produces. A type with a custom converter but no `JsonSchema()` fails generation, because the exporter cannot see what a converter writes and would describe it as "anything".

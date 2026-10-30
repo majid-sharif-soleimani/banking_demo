@@ -1,6 +1,8 @@
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using Bank.Contracts.SchemaTool;
 
 namespace Bank.Contracts.Tests;
@@ -87,6 +89,45 @@ public class ContractSchemaGeneratorTests
     {
         Property("eventId")["description"]!.GetValue<string>().ShouldContain("inbox key");
         Property("performedBy")["minLength"]!.GetValue<int>().ShouldBe(1);
+    }
+
+    private sealed record Tag(string Value)
+    {
+        public static JsonObject JsonSchema() => new() { ["type"] = "string", ["pattern"] = "^[a-z]+$" };
+    }
+
+    [Description("Has a type that describes its own schema.")]
+    private sealed record WithOwnSchema(Tag Label, Tag? Other = null);
+
+    [Fact]
+    public void A_type_with_its_own_JsonSchema_method_uses_it()
+    {
+        var properties = ContractSchemaGenerator.Generate(typeof(WithOwnSchema), Key)["properties"]!;
+
+        JsonNode.DeepEquals(properties["label"], Tag.JsonSchema()).ShouldBeTrue();
+        properties["other"]!["type"]!.AsArray().Select(n => n!.GetValue<string>()).ShouldBe(["string", "null"]);
+    }
+
+    private sealed class OpaqueConverter : JsonConverter<Opaque>
+    {
+        public override Opaque Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+            throw new NotSupportedException();
+
+        public override void Write(Utf8JsonWriter writer, Opaque value, JsonSerializerOptions options) =>
+            writer.WriteStringValue(value.Value);
+    }
+
+    [JsonConverter(typeof(OpaqueConverter))]
+    private sealed record Opaque(string Value);
+
+    [Description("Has a converter type without a schema.")]
+    private sealed record WithOpaque(Opaque Value);
+
+    [Fact]
+    public void Refuses_a_type_with_a_custom_converter_but_no_JsonSchema_method()
+    {
+        Should.Throw<NotSupportedException>(() => ContractSchemaGenerator.Generate(typeof(WithOpaque), Key))
+            .Message.ShouldContain("JsonSchema()");
     }
 
     [Description("Has a bare decimal.")]

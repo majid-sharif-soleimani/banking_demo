@@ -4,17 +4,21 @@ using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Schema;
+using System.Text.Json.Serialization;
 
 namespace Bank.Contracts.SchemaTool;
 
 /// <summary>
 /// Generates the JSON Schema of an event record (ADR 0003). The record is the source of truth: the shape comes from
 /// <see cref="JsonSchemaExporter"/> with <see cref="ContractJson.Options"/>, and descriptions and constraints come
-/// from attributes on the record, or on <see cref="IIntegrationEvent"/> for the common fields.
+/// from attributes on the record, or on <see cref="IIntegrationEvent"/> for the common fields. A property type that
+/// has <c>public static JsonObject JsonSchema()</c> (such as <see cref="Money"/>) describes its own shape.
 /// </summary>
 public static class ContractSchemaGenerator
 {
     private const string Draft = "https://json-schema.org/draft/2020-12/schema";
+
+    private const string SchemaMethodName = "JsonSchema";
 
     private static readonly Type[] FloatingTypes = [typeof(decimal), typeof(double), typeof(float)];
 
@@ -27,7 +31,7 @@ public static class ContractSchemaGenerator
         var generated = ContractJson.Options.GetJsonSchemaAsNode(recordType, exporterOptions).AsObject();
 
         // The exporter's TransformSchemaNode callback is skipped for some repeated types (a second Money field),
-        // so Money and the attributes are applied here, property by property, from the record itself.
+        // so own schemas and the attributes are applied here, property by property, from the record itself.
         var properties = generated["properties"]!.AsObject();
         var nullability = new NullabilityInfoContext();
         foreach (var property in recordType.GetProperties(BindingFlags.Public | BindingFlags.Instance))
@@ -70,30 +74,56 @@ public static class ContractSchemaGenerator
                 $"'{jsonName}' is a bare {type.Name}; amounts in contracts are Money, which carries its currency.");
         }
 
-        var schema = type == typeof(Money)
-            ? WithMoneyShape(exported, allowsNull: nullability.Create(property).ReadState == NullabilityState.Nullable)
+        var own = OwnSchema(type, jsonName);
+        var schema = own is not null
+            ? WithOwnSchema(own, exported, allowsNull: nullability.Create(property).ReadState == NullabilityState.Nullable)
             : exported as JsonObject ?? throw new NotSupportedException(
-                $"'{jsonName}' of type {type.Name} has no JSON shape the generator understands; contracts hold flat fields and Money.");
+                $"'{jsonName}' of type {type.Name} has no JSON shape the generator understands; " +
+                $"contracts hold flat fields and types with their own {SchemaMethodName}().");
 
         ApplyAttributes(schema, jsonName, property);
         return schema;
     }
 
-    private static JsonObject WithMoneyShape(JsonNode? exported, bool allowsNull)
+    /// <summary>
+    /// The schema a type gives of itself through <c>public static JsonObject JsonSchema()</c>, or null when it has none
+    /// and the exporter's shape is used. A type with a custom converter must have one: the exporter cannot see what
+    /// the converter writes and would describe it as "anything".
+    /// </summary>
+    private static JsonObject? OwnSchema(Type type, string jsonName)
     {
-        // Money has its own converter, so the exporter cannot see its shape; Money describes it itself.
-        var money = Money.JsonSchema();
+        var method = type.GetMethod(SchemaMethodName, BindingFlags.Public | BindingFlags.Static, Type.EmptyTypes);
+        if (method is not null)
+        {
+            return method.ReturnType == typeof(JsonObject)
+                ? (JsonObject)method.Invoke(null, null)!
+                : throw new NotSupportedException(
+                    $"{type.Name}.{SchemaMethodName}() must return {nameof(JsonObject)}, not {method.ReturnType.Name}.");
+        }
+
+        if (type.GetCustomAttribute<JsonConverterAttribute>() is not null)
+        {
+            throw new NotSupportedException(
+                $"'{jsonName}' of type {type.Name} has a custom JsonConverter, so its shape cannot be generated; " +
+                $"add 'public static JsonObject {SchemaMethodName}()' to {type.Name} describing what the converter writes.");
+        }
+
+        return null;
+    }
+
+    private static JsonObject WithOwnSchema(JsonObject own, JsonNode? exported, bool allowsNull)
+    {
         if (allowsNull)
         {
-            money["type"] = new JsonArray("object", "null");
+            own["type"] = new JsonArray(own["type"]!.GetValue<string>(), "null");
         }
 
         if (exported is JsonObject original && original.TryGetPropertyValue("default", out var defaultValue))
         {
-            money["default"] = defaultValue?.DeepClone();
+            own["default"] = defaultValue?.DeepClone();
         }
 
-        return money;
+        return own;
     }
 
     private static void ApplyAttributes(JsonObject schema, string jsonName, ICustomAttributeProvider? provider)
