@@ -18,7 +18,7 @@ Slices: (1) Logic and data model, (2) currency endpoints and events, (3) close-d
 
 ## Data (schema `operations`)
 
-- `currency`: code, minor_units, is_active. Seeded SEK, EUR, USD.
+- `currency`: code, minor_units, is_active. Seeded SEK, EUR, USD, all inactive (bank-operations ADR 0002).
 - `business_day`: date, status (Open, Closing, Closed), opened_at, closed_at.
 - `business_day_completion`: date, service, completed_at. Unique (date, service).
 - Configuration: `Operations:EndOfDayParticipants` = `["accounts", "lending"]` (list, not hard-coded).

@@ -6,7 +6,7 @@ Updated by `/close-stage`. One row per stage from section 10 of `phase1-design-p
 | --- | --- | --- | --- | --- |
 | 0 | Design and requirements | Done | 2026-10-29 | All assumptions in section 11 confirmed |
 | 1 | Foundation: contracts, messaging, platform | Done | 2026-10-30 | Slices 1.1 to 1.4 done; 179 + 27 tests green; review fixes in, accepted demo limits in implementation-decisions |
-| 2 | Operations | Not started | | |
+| 2 | Operations | In progress | | Slices 2.1, 2.2, 2.3a, 2.3b, 2.4; Claude writes all, learning doc per slice |
 | 3 | Lending pure logic (TDD) | Not started | | |
 | 4 | Customers and Accounts | Not started | | |
 | 5 | Lending service | Not started | | |

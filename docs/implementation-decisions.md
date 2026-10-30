@@ -102,7 +102,7 @@ Claude always stops and asks when:
 
 Seeded by each service's EF Core migrations (`HasData`, or SQL inside a migration) so every environment starts the same. Values are demo values and can be changed in the seed files.
 
-**Currencies** (Operations): SEK (2 minor units, active), EUR (2, active), USD (2, active).
+**Currencies** (Operations): SEK (2 minor units), EUR (2), USD (2), all seeded **inactive** (Majid, 2026-10-30, stage 2; bank-operations ADR 0002). A currency becomes active only through `POST /currencies/{code}/activate`, which publishes `CurrencyActivated`, so every service's local copy is filled by the same event path. The import tool activates SEK, EUR and USD first (stage 7); tests activate what they need.
 
 **Loan products** (Lending):
 
