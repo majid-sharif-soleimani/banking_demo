@@ -1,6 +1,6 @@
 using System.ComponentModel;
 
-namespace Bank.Contracts.Operations;
+namespace Bank.Contracts.Events;
 
 [Description("Operations opened a new business date.")]
 public sealed record BusinessDayOpened(

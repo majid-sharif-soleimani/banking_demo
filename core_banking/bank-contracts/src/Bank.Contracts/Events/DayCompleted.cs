@@ -1,7 +1,7 @@
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 
-namespace Bank.Contracts.Operations;
+namespace Bank.Contracts.Events;
 
 [Description("A service finished its end-of-day work for the date; Operations opens the next day when all have replied.")]
 public sealed record DayCompleted(

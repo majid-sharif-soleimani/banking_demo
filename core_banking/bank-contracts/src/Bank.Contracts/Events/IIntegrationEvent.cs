@@ -1,7 +1,7 @@
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 
-namespace Bank.Contracts;
+namespace Bank.Contracts.Events;
 
 /// <summary>
 /// An event that crosses a service boundary. Every implementing record also declares

@@ -1,6 +1,6 @@
 using System.ComponentModel;
 
-namespace Bank.Contracts.Operations;
+namespace Bank.Contracts.Events;
 
 [Description("Operations closed the business date; Accounts and Lending run their end-of-day work for it.")]
 public sealed record DayClosed(

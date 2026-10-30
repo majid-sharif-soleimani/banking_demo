@@ -1,4 +1,5 @@
 using System.Reflection;
+using Bank.Contracts.Events;
 
 namespace Bank.Contracts.SchemaTool;
 

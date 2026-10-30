@@ -1,7 +1,7 @@
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 
-namespace Bank.Contracts.Operations;
+namespace Bank.Contracts.Events;
 
 [Description("Operations activated a currency; every service keeps a local copy of active currencies.")]
 public sealed record CurrencyActivated(

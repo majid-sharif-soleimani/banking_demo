@@ -89,9 +89,9 @@ Everything is under `core_banking/bank-contracts/`.
 | `src/Bank.Contracts/Money.cs` | The value object and its operators; it validates that the currency is a three-letter upper-case code |
 | `src/Bank.Contracts/CurrencyMismatchException.cs` | Thrown when two currencies are combined; carries `Left` and `Right` |
 | `src/Bank.Contracts/Money.cs` (`MoneyJsonConverter`, `Money.JsonSchema()`) | The converter reads and writes the string-amount JSON shape and rejects numbers, exponents, commas and bad codes; `JsonSchema()` describes that shape for the schema tool, next to the converter |
-| `src/Bank.Contracts/IIntegrationEvent.cs` | `EventId`, `OccurredOn` (business date), `PerformedBy`, with the descriptions and constraints every schema uses for them |
-| `src/Bank.Contracts/Operations/*.cs` | `CurrencyActivated`, `BusinessDayOpened`, `DayClosed`, `DayCompleted`, each with `[Description]` and field attributes |
-| `src/Bank.Contracts/Testing/TestEvent.cs` | For messaging tests only: `Key` (ordering), `Sequence`, `Amount` (exercises `Money` in a schema) |
+| `src/Bank.Contracts/Events/IIntegrationEvent.cs` | `EventId`, `OccurredOn` (business date), `PerformedBy`, with the descriptions and constraints every schema uses for them |
+| `src/Bank.Contracts/Events/*.cs` | `CurrencyActivated`, `BusinessDayOpened`, `DayClosed`, `DayCompleted`, each with `[Description]` and field attributes |
+| `src/Bank.Contracts/Events/TestEvent.cs` | For messaging tests only: `Key` (ordering), `Sequence`, `Amount` (exercises `Money` in a schema) |
 | `src/Bank.Contracts/Schema/SchemaKey.cs` | Parses and formats `iglu:` URIs, orders versions, maps a key to its file path |
 | `src/Bank.Contracts/Schema/ContractSchemas.cs` | Lists and reads the embedded schemas |
 | `src/Bank.Contracts/ContractJson.cs` | The one `JsonSerializerOptions` for events: camelCase, strict numbers, required and non-nullable fields enforced on read |
@@ -142,7 +142,7 @@ Then I reverted all three.
 | `Money` validates the currency as three upper-case ASCII letters | ISO 4217 format; catches `"sek"` and typos early. It does *not* check that the currency is active; that is Operations' business rule. |
 | `Money.Zero(currency)` helper | Starting point for sums, so `Money.Zero("SEK") + ...` replaces `new Money(0, ...)` everywhere |
 | Comparing different currencies throws; equality does not | `<` across currencies has no answer. `==` does: they are simply not equal |
-| Records in `Bank.Contracts.Operations`; `TestEvent` in `Bank.Contracts.Testing` | Namespaces by publishing service; the test event lives next to the other records so the contract tests cover it too |
+| All event records, `IIntegrationEvent` and `TestEvent` in one flat `Bank.Contracts.Events` | First grouped by publishing service (`Bank.Contracts.Operations`, `Bank.Contracts.Testing`); Majid later chose one flat folder so everything about events sits together, like `Bank.Contracts.Schema`. The publisher is in each record's `[Description]` and in section 6 of the design plan. The test event stays in this assembly so the contract tests cover it too |
 | `SchemaUri` as a `const`, not a static abstract interface member | Static abstract members would forbid `List<IIntegrationEvent>`; the contract test checks that the const exists |
 | Schemas do not set `additionalProperties: false` (except inside `Money`) | An older consumer that validates must accept messages from a newer ADDITION that has extra optional fields |
 | Schemas use draft 2020-12 with an extra `self` block | Standard tooling validates them; Iglu naming without an Iglu server |

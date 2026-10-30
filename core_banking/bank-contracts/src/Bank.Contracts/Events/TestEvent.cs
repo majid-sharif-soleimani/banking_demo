@@ -1,7 +1,7 @@
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 
-namespace Bank.Contracts.Testing;
+namespace Bank.Contracts.Events;
 
 /// <summary>Messaging integration tests use it for ordering by Key, duplicates and retries.</summary>
 [Description("Used only by the messaging integration tests. No service publishes or consumes it.")]
