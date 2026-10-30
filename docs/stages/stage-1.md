@@ -28,7 +28,7 @@ bank-contracts/
   Directory.Build.props  Directory.Packages.props  nuget.config  CLAUDE.md
   docs/adr/
   schemas/se.bank/<event>/jsonschema/1-0-0.json
-  src/Bank.Contracts/           Money, IIntegrationEvent, event records, schemas as embedded resources
+  src/Bank.Contracts/           Money, ContractJson; Events/ (IIntegrationEvent, all event records); Schema/ (SchemaKey, ContractSchemas); schemas as embedded resources
   src/Bank.Common/              interfaces and helpers listed in implementation-decisions.md
   src/Bank.Messaging/           publisher, handler, outbox, inbox, dispatcher, consumer pipeline (Dapper on Npgsql)
   src/Bank.Messaging.Kafka/     Kafka producer, consumer, DLT; only project referencing Confluent.Kafka
