@@ -62,9 +62,10 @@ At least once on the wire, plus "a duplicate changes nothing" at the receiver, g
 
 ### 1.4 What else this slice had to provide
 
-To build the above with Dapper and hand-written SQL, three more things were needed:
+To build the above with Dapper and hand-written SQL, four more things were needed:
 
 - **A way to share one connection and transaction** between the feature's SQL, the outbox publisher and the inbox. This is the `DbSession`.
+- **A single place that knows the database driver.** Everything else sees only `System.Data.IDbConnection`. This is the `IDbConnectionFactory`.
 - **A way to create the tables** (outbox, inbox, and later every service's own tables) as versioned SQL scripts. This is the migration runner.
 - **Test helpers** to run two "services" against a real PostgreSQL without Kafka. This is `Bank.Testing`.
 
@@ -82,7 +83,7 @@ All of them live in `core_banking/bank-contracts/` and are built by `Bank.Contra
 flowchart BT
     C["Bank.Contracts<br/>Money, events, schemas<br/>(slice 1.1)"]
     CO["Bank.Common<br/>MoneyRounding, PerformedBy, Result,<br/>external service interfaces"]
-    M["Bank.Messaging<br/>DbSession, outbox, dispatcher,<br/>inbox pipeline, migration runner<br/>(Npgsql + Dapper)"]
+    M["Bank.Messaging<br/>connection factory, DbSession, outbox,<br/>dispatcher, inbox pipeline, migration runner<br/>(Dapper; Npgsql only in the factory)"]
     T["Bank.Testing<br/>PostgreSQL fixture, in-memory broker,<br/>Eventually, fakes"]
     CO --> C
     M --> C
@@ -127,11 +128,75 @@ A partial index `ix_outbox_message_unsent` on `position WHERE sent_at IS NULL` k
 | `schema_uri` | The version that arrived |
 | `performed_by`, `created_at` | Audit columns, as on every table |
 
-The runner adds a third table, `schema_migration`, described in 2.5.
+The runner adds a third table, `schema_migration`, described in 2.6.
 
 `Version`, required on every table, is PostgreSQL's hidden `xmin` column, so no table declares it.
 
-### 2.3 The sending side
+### 2.3 Database access: the connection factory and `DbSession`
+
+Every part of `Bank.Messaging` that touches the database (the feature through `DbSession`, the publisher, the dispatcher, the inbox and the migration runner) goes through the same two types. Only one class knows that the database is PostgreSQL.
+
+```mermaid
+flowchart LR
+    U["DbSession users<br/>features, handlers, publisher,<br/>pipeline, dispatcher, runner"] -->|"IDbConnection<br/>IDbTransaction"| DS["DbSession"]
+    DS -->|"OpenAsync"| F["IDbConnectionFactory"]
+    F -.implemented by.-> NF["NpgsqlConnectionFactory<br/>(only place that names Npgsql)"]
+    NF --> SRC["NpgsqlDataSource<br/>(connection pool)"]
+    DS -->|"BeginTransactionAsync / CommitAsync /<br/>RollbackAsync / DisposeAsyncIfPossible"| X["DbAsyncExtensions"]
+```
+
+#### `IDbConnectionFactory` and `NpgsqlConnectionFactory` (`Data/`)
+
+`IDbConnectionFactory` has one method: `Task<IDbConnection> OpenAsync(CancellationToken ct)`, which returns a new open connection.
+
+`NpgsqlConnectionFactory(connectionString)` implements it over an `NpgsqlDataSource`, which owns the connection pool, and opens connections with Npgsql's real `OpenConnectionAsync`. It is the only production class in the bank-contracts packages that names Npgsql. The connection string carries the service's own role, with its schema as the search path. A service registers it with `services.AddNpgsqlConnectionFactory(connectionString)`, and the container disposes the pool when the host stops.
+
+#### `DbAsyncExtensions` (`Data/DbAsyncExtensions.cs`)
+
+**The problem.** `IDbConnection` and `IDbTransaction` are older than async in .NET. They only have blocking `BeginTransaction`, `Commit` and `Rollback`. A blocking `Commit` holds a thread while PostgreSQL answers, and under load that starves the thread pool.
+
+**The solution.** Every real ADO.NET provider's connection also derives from the abstract class `DbConnection`, and its transaction from `DbTransaction`. These classes do have real async methods. At run time our `IDbConnection` is an `NpgsqlConnection`, so the extension methods check the real type:
+
+```csharp
+public static Task CommitAsync(this IDbTransaction transaction, CancellationToken ct)
+{
+    if (transaction is DbTransaction db)
+    {
+        return db.CommitAsync(ct);   // Npgsql's real async commit
+    }
+
+    transaction.Commit();             // only for a provider without async
+    return Task.CompletedTask;
+}
+```
+
+`BeginTransactionAsync`, `RollbackAsync` and `DisposeAsyncIfPossible` work the same way. Dapper's async methods (`ExecuteAsync`, `QueryAsync`) use exactly the same check internally. They never use `Task.Run`: wrapping a blocking call in `Task.Run` only moves the blocked thread somewhere else ("async over sync").
+
+`DbAsyncExtensionsTests` proves both paths. A transaction derived from `DbTransaction` gets `CommitAsync`, `RollbackAsync` and `DisposeAsync`. One that only implements `IDbTransaction` gets the blocking calls.
+
+#### `DbSession` (`Data/DbSession.cs`)
+
+The one connection and transaction of a unit of work. It is registered as **scoped** for an HTTP request, and the pipeline creates a scope per handler. The dispatcher (one poll) and the migration runner (one run) create their own `new DbSession(factory)`. So all connection and transaction handling is written once, here.
+
+| Member | What it does |
+| --- | --- |
+| `OpenAsync` | Gets an open connection from the factory, without a transaction, for read-only work |
+| `BeginAsync` | Opens the connection if needed and starts a transaction. Calling it twice throws |
+| `CommitAsync`, `RollbackAsync` | End the transaction (async, through `DbAsyncExtensions`) |
+| `Connection` (`IDbConnection`) | The open connection; throws if neither `OpenAsync` nor `BeginAsync` was called |
+| `Transaction` (`IDbTransaction`) | The active transaction; throws with "Call BeginAsync" if there is none |
+| `DisposeAsync` | Rolls back an uncommitted transaction and returns the connection to the pool |
+
+It lives in the namespace `Bank.Messaging.Data`, so a feature adds `using Bank.Messaging.Data;`. A feature uses it like this:
+
+```csharp
+await session.BeginAsync(ct);
+await session.Connection.ExecuteAsync(new CommandDefinition(sql, args, session.Transaction, cancellationToken: ct));
+await publisher.PublishAsync(new DayClosed(...), key: "bank", ct);
+await session.CommitAsync(ct);
+```
+
+### 2.4 The sending side
 
 ```mermaid
 flowchart LR
@@ -144,30 +209,6 @@ flowchart LR
     SVC["OutboxDispatcherService<br/>(hosted loop)"] -->|"every 200 ms"| D["OutboxDispatcher"]
     D -->|"SELECT ... FOR UPDATE SKIP LOCKED"| DB
     D -->|"SendAsync(TransportMessage)"| TR{{"IMessageTransport"}}
-```
-
-#### `DbSession` (`DbSession.cs`)
-
-The one connection and transaction of a unit of work: one HTTP request, or one handler processing one message. It is registered as **scoped**, so everyone who asks for it inside the same scope gets the same instance.
-
-| Member | What it does |
-| --- | --- |
-| `OpenAsync` | Opens the connection without a transaction, for read-only work |
-| `BeginAsync` | Opens the connection if needed and starts a transaction. Calling it twice throws |
-| `CommitAsync`, `RollbackAsync` | End the transaction |
-| `Connection` | The open connection; throws if neither `OpenAsync` nor `BeginAsync` was called |
-| `Transaction` | The active transaction; throws with "Call BeginAsync" if there is none |
-| `DisposeAsync` | Rolls back an uncommitted transaction and closes the connection |
-
-It gets its connections from the `NpgsqlDataSource` that the service registers for its own role and schema.
-
-A feature uses it like this:
-
-```csharp
-await session.BeginAsync(ct);
-await session.Connection.ExecuteAsync(new CommandDefinition(sql, args, session.Transaction, cancellationToken: ct));
-await publisher.PublishAsync(new DayClosed(...), key: "bank", ct);
-await session.CommitAsync(ct);
 ```
 
 #### `IEventPublisher` and `OutboxEventPublisher` (`IEventPublisher.cs`, `Outbox/OutboxEventPublisher.cs`)
@@ -199,7 +240,7 @@ The **seam** between our messaging code and a broker.
 
 One call to `DispatchBatchAsync` is one poll:
 
-1. Open its own connection and begin a transaction. The dispatcher does not use `DbSession`; it is not part of a request.
+1. Create its own `DbSession` from the factory and begin a transaction. One poll is its own unit of work, not part of any request.
 2. `SELECT ... FROM outbox_message WHERE sent_at IS NULL ORDER BY position LIMIT @BatchSize FOR UPDATE SKIP LOCKED`. This locks up to 100 unsent rows. Rows locked by another dispatcher are skipped, not waited for.
 3. Send each row through `IMessageTransport`, in order.
 4. At the first failed send: store `attempts + 1` and `last_error` on that row, and stop. The rest of the batch waits for the next poll.
@@ -227,7 +268,7 @@ The hosted background loop around the dispatcher, registered with `AddHostedServ
 
 They are validated when the host starts, so a missing `ServiceName` stops the service immediately.
 
-### 2.4 The receiving side
+### 2.5 The receiving side
 
 ```mermaid
 flowchart LR
@@ -302,7 +343,7 @@ Two deliveries of the same message at the same moment are safe: the second `INSE
 
 `ProcessOutcome` (`Handled`, `Duplicate`, `NotSubscribed`) and `UnsupportedSchemaVersionException` are declared in the same file.
 
-### 2.5 Migrations
+### 2.6 Migrations
 
 ```mermaid
 flowchart LR
@@ -328,7 +369,7 @@ Loads scripts from an assembly: every embedded resource named `migrations/*.sql`
 
 #### `SqlMigrationRunner` (`Migrations/SqlMigrationRunner.cs`)
 
-`RunAsync(scripts)` does this in **one transaction**:
+`RunAsync(scripts)` takes the connection factory and does this in **one transaction**, through its own `DbSession`:
 
 1. `pg_advisory_xact_lock(hashtext(current_schema()))`. A second instance of the same service waits here; other services, with other schemas, do not.
 2. `CREATE TABLE IF NOT EXISTS schema_migration (script_id, checksum, performed_by, created_at)`.
@@ -343,12 +384,12 @@ Loads scripts from an assembly: every embedded resource named `migrations/*.sql`
 
 An `IHostedLifecycleService` that runs the runner in `StartingAsync`. The host calls `StartingAsync` of every lifecycle service **before** it starts any hosted service, so the outbox dispatcher never polls a table that does not exist yet.
 
-### 2.6 Wiring: `ServiceCollectionExtensions`
+### 2.7 Wiring: `ServiceCollectionExtensions`
 
-A service connects all of the above in `Program.cs` with three calls. It also registers two things of its own:
+A service connects all of the above in `Program.cs` like this:
 
 ```csharp
-builder.Services.AddSingleton(_ => NpgsqlDataSource.Create(connectionString));   // its own role and schema
+builder.Services.AddNpgsqlConnectionFactory(connectionString);                    // its own role and schema
 builder.Services.AddSingleton<IMessageTransport, ...>();                          // Kafka from slice 1.3
 builder.Services.AddBankMessaging(o => o.ServiceName = "lending");
 builder.Services.AddSqlMigrations(typeof(Program).Assembly, "lending");
@@ -357,13 +398,14 @@ builder.Services.AddEventHandler<DayClosed, RunEndOfDay>();
 
 | Call | Registers |
 | --- | --- |
+| `AddNpgsqlConnectionFactory` | the `IDbConnectionFactory` for the service's role and schema (singleton) |
 | `AddBankMessaging` | options (validated at startup), `TimeProvider.System`, `DbSession` (scoped), `IEventPublisher` (scoped), `OutboxDispatcher` and `MessagePipeline` (singletons), the hosted `OutboxDispatcherService`. It also sets Dapper's `MatchNamesWithUnderscores`, so `created_at` maps to `CreatedAt` |
 | `AddEventHandler<TEvent, THandler>` | the handler (scoped) and its `EventHandlerRegistration` (singleton) |
 | `AddSqlMigrations` | `SqlMigrationRunner` and a `MigrationStartupService` with the messaging scripts followed by the service's scripts |
 
 SQL in `Bank.Messaging` names no schema (`outbox_message`, not `lending.outbox_message`). The connection's search path picks the schema, so the same SQL works in all six services.
 
-### 2.7 `Bank.Common`
+### 2.8 `Bank.Common`
 
 Shared types with no I/O:
 
@@ -380,13 +422,13 @@ Shared types with no I/O:
 
 Only the interfaces exist. Implementations come in the stages that need them.
 
-### 2.8 `Bank.Testing` and the integration tests
+### 2.9 `Bank.Testing` and the integration tests
 
 #### `Bank.Testing`
 
 | Type | What it is |
 | --- | --- |
-| `PostgresFixture` | Starts one `postgres:18-alpine` container. `CreateServiceSchemaAsync(prefix)` creates a login role and a schema it owns, with a random name and a password generated at run time, and returns a connection string with that schema as the search path. This mirrors the platform's "one role and schema per service" |
+| `PostgresFixture` | The one place in test code that uses Npgsql directly, because its job is PostgreSQL itself. Starts one `postgres:18-alpine` container. `CreateServiceSchemaAsync(prefix)` creates a login role and a schema it owns, with a random name and a password generated at run time, and returns a connection string with that schema as the search path. This mirrors the platform's "one role and schema per service" |
 | `InMemoryTransport` | An `IMessageTransport` in memory. It records every sent message in `Sent` and hands it to each subscriber. As with a real broker, a failing subscriber does not fail the send; its exception goes to `DeliveryErrors`. `FailSends = true` simulates a broker outage |
 | `Eventually.AssertAsync` | Retries an assertion until it passes or a timeout ends, for work done by the background dispatcher |
 | `FakeBusinessClock` | A settable `Today` with `AdvanceDays` |
@@ -412,7 +454,7 @@ flowchart LR
 ```
 
 - `Support/AssemblyInfo.cs` registers `PostgresFixture` as an **assembly fixture**: one container for the whole run (about 2 s to start), while each test gets fresh schemas and can run in parallel.
-- `Support/TestService.cs` builds a real host per "service" with `AddBankMessaging`, `AddSqlMigrations` and its own `InMemoryTransport`. Its helpers are `CountAsync(table, where)` and `QuerySingleAsync`. Each service has its own outbound broker, so a receiver's follow-up events do not loop back into itself.
+- `Support/TestService.cs` builds a real host per "service" with `AddNpgsqlConnectionFactory`, `AddBankMessaging`, `AddSqlMigrations` and its own `InMemoryTransport`. Its helpers are `CountAsync(table, where)` and `QuerySingleAsync`. Each service has its own outbound broker, so a receiver's follow-up events do not loop back into itself.
 - `Support/TestHandlers.cs` holds `RecordTestEvent` (writes the effect, can publish a reply, can fail after both) and `AuditTestEvent` (a second handler of the same event, can fail). `HandlerBehaviour` holds the switches a test flips.
 - `Migrations/0001_test_tables.sql` creates `test_item` (the sender's state change), `received_test_event` (the receiver's effect, with the business key `uq_received_test_event_business_key` on `(message_key, sequence)`) and `audited_test_event`.
 - `TestEvents.New(...)` and `TestEvents.AsMessage(...)` build a `TestEvent` and the `TransportMessage` a dispatcher would have sent.
@@ -455,6 +497,14 @@ flowchart LR
 
 **Price.** The dependency is hidden: forgetting `BeginAsync` fails at run time, not at compile time. That is why `PublishAsync` throws a clear error without a transaction.
 
+#### `IDbConnection` through a connection factory (ADR 0010, amends 0009)
+
+**Why.** The first version exposed `NpgsqlConnection` from `DbSession`, so the driver leaked into every feature and handler. Now only `NpgsqlConnectionFactory` knows the provider. Everything else, including the dispatcher and the runner, sees only `System.Data` types. Async is kept through `DbAsyncExtensions`, which reach the provider's real async methods. Because the dispatcher and the runner also use `DbSession`, connection and transaction handling is written once.
+
+**Rejected.** `DbConnection` as the public type would be async without extensions, but you preferred the interface. Blocking calls only would hold a thread on every commit. `Task.Run` around blocking calls only moves the blocking to another thread.
+
+**Price.** The SQL is still PostgreSQL (`SKIP LOCKED`, `ON CONFLICT`, `jsonb`, advisory locks). The factory hides the driver's types, not the database. A provider-specific feature, such as binary `COPY`, would need a new factory method instead of a cast.
+
 ### 3.2 Design choices I made (D2)
 
 | Choice | Why |
@@ -464,7 +514,9 @@ flowchart LR
 | `payload` is `jsonb` | It can be inspected with SQL. Key order and whitespace may change, not the meaning |
 | `attempts` and `last_error` on the outbox row | A stuck message can be diagnosed with one query |
 | The dispatcher stops a batch at the first failed send | Later messages, possibly with the same key, must not overtake it |
-| The dispatcher has its own connection, not `DbSession` | It is not part of a request; one poll is its own unit of work |
+| The dispatcher and the runner create their own `DbSession`, not a scoped one | Neither is part of a request; one poll or one run is its own unit of work. Using `DbSession` keeps begin, commit and dispose in one class |
+| `DbSession` and the factory in the namespace `Bank.Messaging.Data` | Groups database access apart from the outbox and inbox logic |
+| `NpgsqlConnectionFactory` owns its `NpgsqlDataSource` and is disposed by the container | One pool per service, closed when the host stops |
 | The hosted loop polls again at once after a full batch | A backlog drains at full speed; an idle service still polls only every 200 ms |
 | One scope and one transaction per handler | Handlers are independent: one failing does not undo another |
 | Handler name is the class name, not the full name | Moving a class to another namespace does not change the inbox key. Duplicate names fail at startup |
@@ -472,7 +524,7 @@ flowchart LR
 | Older and newer ADDITIONs are read with the latest known record of their MODEL | Within a MODEL every version only adds optional fields (slice 1.1) |
 | `EventHandlerRegistration` uses a captured delegate | Calls the generic handler without reflection on every message |
 | SQL names no schema; the search path decides | The same SQL works in every service. The platform roles in slice 1.4 get the same default |
-| The migration runner lives in `Bank.Messaging` | It is the only shared Npgsql package. A separate `Bank.Data` package for about 100 lines is not worth it |
+| The migration runner lives in `Bank.Messaging` | It is the only shared database package. A separate `Bank.Data` package for about 100 lines is not worth it |
 | Migrations run in `IHostedLifecycleService.StartingAsync` | It runs before every hosted service, whatever the registration order |
 | `MigrationScript.Checksum` is computed on read | A stored value was copied unchanged by `with { Sql = ... }`. A test caught this bug |
 | Advisory lock keyed by schema name | Instances of one service wait for each other; different services do not |
@@ -494,6 +546,8 @@ flowchart LR
 - **Port and adapter (seam)**: `IMessageTransport` lets the whole messaging logic be built and tested before Kafka exists. Slice 1.3 adds an adapter, not a rewrite.
 - **Competing consumers on a table**: `SKIP LOCKED` lets several dispatchers share the work.
 - **Tolerant reader**: a consumer reads newer ADDITIONs with the record it knows and ignores unknown fields.
+- **Abstract factory** (`IDbConnectionFactory`): the one place that chooses the database provider.
+- **Runtime capability check** (`DbAsyncExtensions`): use the async members when the concrete type has them, without changing the public type.
 - **Type erasure through a delegate**: `EventHandlerRegistration` hides the generic handler behind a non-generic call.
 - **Fail fast**: a publish without a transaction, an edited migration, two handlers with the same name, or a missing `ServiceName` all fail at the earliest point.
 
@@ -504,7 +558,7 @@ flowchart LR
 | Project | Count | What |
 | --- | --- | --- |
 | `Bank.Common.Tests` | 16 | Rounding (midpoints away from zero, 0 and 3 minor units, range), `PerformedBy`, `Result` |
-| `Bank.Messaging.UnitTests` | 6 | `SchemaRouting`: exact, newer and older ADDITION, other MODEL, unknown MODEL, not subscribed |
+| `Bank.Messaging.UnitTests` | 9 | `SchemaRouting`: exact, newer and older ADDITION, other MODEL, unknown MODEL, not subscribed. `DbAsyncExtensions`: async when the provider has it, blocking fallback otherwise |
 | `Bank.Messaging.IntegrationTests` | 19 | Outbox, inbox and migrations against PostgreSQL, listed below |
 
 The integration tests:
@@ -537,7 +591,7 @@ Command and result (run three times in a row, all green):
 cd core_banking/bank-contracts && dotnet build && dotnet test
 Build succeeded.  0 Warning(s)  0 Error(s)
 Passed!  - Failed: 0, Passed:  16 - Bank.Common.Tests
-Passed!  - Failed: 0, Passed:   6 - Bank.Messaging.UnitTests
+Passed!  - Failed: 0, Passed:   9 - Bank.Messaging.UnitTests
 Passed!  - Failed: 0, Passed: 106 - Bank.Contracts.Tests
 Passed!  - Failed: 0, Passed:  19 - Bank.Messaging.IntegrationTests
 ```
@@ -553,4 +607,5 @@ Passed!  - Failed: 0, Passed:  19 - Bank.Messaging.IntegrationTests
 1. In `Each_handler_applies_a_message_once_even_when_another_handler_failed`, `RecordTestEvent` commits and `AuditTestEvent` throws. Walk through the redelivery: what happens to each handler, and what would go wrong if the inbox key were `message_id` alone?
 2. The dispatcher process is killed right after the broker acknowledges a message but before `UPDATE outbox_message SET sent_at`. What does the broker hold afterwards, and which row makes sure Lending's effect still happens only once?
 3. Why does the migration runner take its advisory lock **before** `CREATE TABLE IF NOT EXISTS schema_migration`, and not after?
-4. Why can `MessagePipeline` call `IEventHandler<TestEvent>` without knowing `TestEvent` at compile time? What does `EventHandlerRegistration.For<TEvent, THandler>()` capture, and when?
+4. `DbSession.Transaction` is an `IDbTransaction`, which has no `CommitAsync`. How does `session.CommitAsync` still commit without blocking a thread, and why would `Task.Run(() => transaction.Commit())` not achieve the same?
+5. Why can `MessagePipeline` call `IEventHandler<TestEvent>` without knowing `TestEvent` at compile time? What does `EventHandlerRegistration.For<TEvent, THandler>()` capture, and when?

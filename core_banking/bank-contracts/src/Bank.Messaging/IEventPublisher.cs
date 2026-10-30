@@ -1,4 +1,5 @@
 using Bank.Contracts.Events;
+using Bank.Messaging.Data;
 
 namespace Bank.Messaging;
 

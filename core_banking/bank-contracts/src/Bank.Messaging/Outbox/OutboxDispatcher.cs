@@ -1,8 +1,8 @@
+using Bank.Messaging.Data;
 using Bank.Messaging.Transport;
 using Dapper;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Npgsql;
 
 namespace Bank.Messaging.Outbox;
 
@@ -12,7 +12,7 @@ namespace Bank.Messaging.Outbox;
 /// A crash between "sent" and "marked" sends the row again on the next poll; the consumer's inbox absorbs that.
 /// </summary>
 public sealed class OutboxDispatcher(
-    NpgsqlDataSource dataSource,
+    IDbConnectionFactory connectionFactory,
     IMessageTransport transport,
     IOptions<BankMessagingOptions> options,
     TimeProvider timeProvider,
@@ -37,8 +37,11 @@ public sealed class OutboxDispatcher(
     /// <summary>Runs one poll and returns how many messages it sent.</summary>
     public async Task<int> DispatchBatchAsync(CancellationToken ct)
     {
-        await using var connection = await dataSource.OpenConnectionAsync(ct);
-        await using var transaction = await connection.BeginTransactionAsync(ct);
+        // Its own unit of work, not part of any request: one poll is one transaction.
+        await using var session = new DbSession(connectionFactory);
+        await session.BeginAsync(ct);
+        var connection = session.Connection;
+        var transaction = session.Transaction;
 
         var batch = (await connection.QueryAsync<TransportMessage>(
             new CommandDefinition(LockBatch, new { options.Value.BatchSize }, transaction, cancellationToken: ct))).ToList();
@@ -68,7 +71,7 @@ public sealed class OutboxDispatcher(
                 MarkSent, new { SentAt = timeProvider.GetUtcNow(), Ids = sent.ToArray() }, transaction, cancellationToken: ct));
         }
 
-        await transaction.CommitAsync(ct);
+        await session.CommitAsync(ct);
         return sent.Count;
     }
 }

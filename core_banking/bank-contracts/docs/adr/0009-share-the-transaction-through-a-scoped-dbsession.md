@@ -1,6 +1,6 @@
 # 0009. Share one connection and transaction through a scoped DbSession
 
-- Status: Accepted
+- Status: Accepted, amended by 0010 (IDbConnection through a connection factory)
 - Date: 2026-10-30
 - Scope: bank-contracts (Bank.Messaging), used by every service
 - Design plan reference: section 4, ADR row 07; `docs/implementation-decisions.md`, Database ("one NpgsqlConnection and one transaction per request or per handled message")
@@ -11,7 +11,7 @@ The outbox only works if the event row is written in the same transaction as the
 
 ## Decision
 
-1. `DbSession` is a scoped class in `Bank.Messaging` with `OpenAsync`, `BeginAsync`, `CommitAsync` and `RollbackAsync`, and the properties `Connection` and `Transaction`. Disposing it without a commit rolls back.
+1. `DbSession` is a scoped class in `Bank.Messaging` (namespace `Bank.Messaging.Data` since ADR 0010) with `OpenAsync`, `BeginAsync`, `CommitAsync` and `RollbackAsync`, and the properties `Connection` and `Transaction` (`IDbConnection` and `IDbTransaction` since ADR 0010). Disposing it without a commit rolls back.
 2. Features and handlers inject `DbSession` and pass `session.Transaction` to every Dapper call that changes data. `IEventPublisher` keeps the signature from `docs/stages/stage-1.md` and writes to the outbox through the same session.
 3. `PublishAsync` without an active transaction throws `InvalidOperationException`, so an event can never be written outside the state change's transaction.
 4. For a handled message, `MessagePipeline` creates the scope, begins the transaction, writes the inbox row, calls the handler and commits. For an HTTP request, the feature begins and commits itself.
@@ -19,7 +19,7 @@ The outbox only works if the event row is written in the same transaction as the
 
 ## Rationale
 
-- The public interfaces stay free of Npgsql types and keep their fixed signatures.
+- The public interfaces stay free of Npgsql types and keep their fixed signatures. Since ADR 0010 `DbSession` is free of them too.
 - A scope already exists per HTTP request, and the pipeline creates one per handler, so "one transaction per unit of work" falls out of normal dependency injection.
 - Begin and commit stay visible in the feature code, matching the explicit style of ADR 0001.
 

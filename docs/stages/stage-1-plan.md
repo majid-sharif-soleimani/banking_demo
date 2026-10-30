@@ -59,7 +59,7 @@ Claude draws the sequence diagram of one event's full path, with a "crash at thi
   - Rollback publishes nothing
   - A duplicate message is applied once
   - The handler effect, the inbox row and the outgoing outbox row commit together or not at all
-- **ADRs:** outbox dispatcher (0006); inbox key (0007); migration runner (0008); transaction sharing (0009).
+- **ADRs:** outbox dispatcher (0006); inbox key (0007); migration runner (0008); transaction sharing (0009); IDbConnection through a factory (0010).
 - **D1 (already decided, Majid reconfirms):**
   - How the dispatcher finds new rows: polling with `FOR UPDATE SKIP LOCKED` every 200 ms, LISTEN/NOTIFY, or Debezium CDC
   - Inbox key: `(MessageId, HandlerName)` or MessageId only
@@ -109,7 +109,8 @@ Claude draws the sequence diagram of one event's full path, with a "crash at thi
 | Outbox dispatcher polls with SKIP LOCKED (0006) | bank-contracts/docs/adr |
 | Inbox keyed by message id and handler (0007) | bank-contracts/docs/adr |
 | Hand-written SQL migration runner (0008) | bank-contracts/docs/adr |
-| Share the transaction through a scoped DbSession (0009) | bank-contracts/docs/adr |
+| Share the transaction through a scoped DbSession (0009, amended by 0010) | bank-contracts/docs/adr |
+| Depend on IDbConnection through a connection factory (0010) | bank-contracts/docs/adr |
 | Kafka message format and headers | bank-contracts/docs/adr |
 | Retry and dead-letter | bank-contracts/docs/adr |
 | One role and schema per service | bank-platform/docs/adr |
@@ -155,3 +156,4 @@ None. Non-blocking notes:
 - 2026-10-30: in stage 1, Claude writes everything and a learning document per slice. Majid keeps the D1 decisions. Stages 2–8 are unchanged.
 - 2026-10-30, slice 1.2 D1 (reconfirmed by Majid): the outbox dispatcher polls with `FOR UPDATE SKIP LOCKED` every 200 ms (ADR 0006); the inbox key is `(MessageId, HandlerName)` (ADR 0007).
 - 2026-10-30, slice 1.2 D1 (new, Majid): a small **hand-written migration runner** (ADR 0008) and a **scoped `DbSession`** shared by features, the publisher and the inbox (ADR 0009).
+- 2026-10-30, slice 1.2 (Majid): `DbSession` and every other user depend on `IDbConnection`; only a connection factory knows Npgsql. Async kept through extension methods that call the provider's real async members, never `Task.Run` (ADR 0010, amends 0009).

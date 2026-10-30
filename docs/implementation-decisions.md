@@ -87,7 +87,7 @@ Claude always stops and asks when:
 - Schema changes are versioned SQL scripts per service, applied at startup in development and by the AppHost. They are applied by a small hand-written runner in `Bank.Messaging` (one transaction per run, advisory lock, checksum check; decided by Majid in slice 1.2, bank-contracts ADR 0008).
 - Snake-case table and column names, written by hand in SQL. Dapper maps them to PascalCase properties with `DefaultTypeMap.MatchNamesWithUnderscores = true`.
 - Optimistic concurrency on `Version`: PostgreSQL `xmin` read as `uint`; every update has `WHERE id = @Id AND xmin = @Version` and treats 0 affected rows as a concurrency conflict.
-- One `NpgsqlConnection` and one transaction per request or per handled message. Feature code, the outbox and the inbox all use that same transaction. They share it through a scoped `DbSession` (decided by Majid in slice 1.2, bank-contracts ADR 0009).
+- One `NpgsqlConnection` and one transaction per request or per handled message. Feature code, the outbox and the inbox all use that same transaction. They share it through a scoped `DbSession` (decided by Majid in slice 1.2, bank-contracts ADR 0009). Code depends on `IDbConnection` and `IDbTransaction`; only `NpgsqlConnectionFactory` knows Npgsql (bank-contracts ADR 0010).
 
 ## APIs
 

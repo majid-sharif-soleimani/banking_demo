@@ -11,10 +11,11 @@ Shared packages for every service: contracts (`Bank.Contracts`), and from slice 
 - Versions: only ADDITION (`1-0-0` → `1-0-1`, new optional fields) or MODEL (`2-0-0`, anything else). REVISION is not used. Never edit or regenerate a published snapshot; bump `SchemaUri` instead.
 - JSON for event payloads always uses `ContractJson.Options` (camelCase, strict numbers, required and non-nullable fields enforced on read). `Money` serializes as `{ "amount": "1234.50", "currency": "SEK" }`.
 
-## Messaging (Bank.Messaging, ADRs 0006–0009)
+## Messaging (Bank.Messaging, ADRs 0006–0010)
 
-- A service registers an `NpgsqlDataSource` for its own role and schema, an `IMessageTransport` (Kafka from slice 1.3), then `AddBankMessaging(o => o.ServiceName = "...")`, `AddSqlMigrations(typeof(Program).Assembly, "<service>")` and one `AddEventHandler<TEvent, THandler>()` per handler.
-- `DbSession` (scoped) is the one connection and transaction of a request or a handled message. Features call `BeginAsync`, pass `session.Transaction` to every Dapper write, publish, then `CommitAsync`. `PublishAsync` without a transaction throws.
+- A service registers `AddNpgsqlConnectionFactory(connectionString)` for its own role and schema, an `IMessageTransport` (Kafka from slice 1.3), then `AddBankMessaging(o => o.ServiceName = "...")`, `AddSqlMigrations(typeof(Program).Assembly, "<service>")` and one `AddEventHandler<TEvent, THandler>()` per handler.
+- Only `NpgsqlConnectionFactory` names Npgsql (ADR 0010). Everything else uses `IDbConnectionFactory`, `IDbConnection` and `IDbTransaction`; for async begin, commit, rollback and dispose use `DbAsyncExtensions` (never `Task.Run`). Test code may use Npgsql where the test is about PostgreSQL itself.
+- `DbSession` (`Bank.Messaging.Data`, scoped) is the one connection and transaction of a request or a handled message. Features call `BeginAsync`, pass `session.Transaction` to every Dapper write, publish, then `CommitAsync`. `PublishAsync` without a transaction throws.
 - The pipeline gives each handler its own scope and transaction: inbox row `(message_id, handler_name)`, the handler's effect and its outgoing events commit together. Handlers never begin or commit.
 - SQL is unqualified; the schema comes from the role's search path. Tables are snake_case; `AddBankMessaging` sets Dapper's `MatchNamesWithUnderscores`.
 - Migrations: `.sql` files embedded with `LogicalName="migrations/%(Filename)%(Extension)"`, named `0001_...`, applied in one transaction before hosted services start. Never edit an applied script (the checksum check stops startup); add a new one.

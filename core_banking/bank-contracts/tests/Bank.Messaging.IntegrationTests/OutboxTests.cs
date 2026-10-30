@@ -6,6 +6,7 @@ using Bank.Messaging.Outbox;
 using Bank.Testing;
 using Dapper;
 using Microsoft.Extensions.DependencyInjection;
+using Bank.Messaging.Data;
 
 namespace Bank.Messaging.IntegrationTests;
 

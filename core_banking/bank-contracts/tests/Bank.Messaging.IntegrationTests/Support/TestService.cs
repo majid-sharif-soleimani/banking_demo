@@ -8,7 +8,7 @@ using Bank.Testing;
 using Dapper;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Npgsql;
+using Bank.Messaging.Data;
 
 namespace Bank.Messaging.IntegrationTests.Support;
 
@@ -19,12 +19,12 @@ namespace Bank.Messaging.IntegrationTests.Support;
 public sealed class TestService : IAsyncDisposable
 {
     private readonly IHost host;
-    private readonly NpgsqlDataSource dataSource;
+    private readonly IDbConnectionFactory connectionFactory;
 
     private TestService(IHost host)
     {
         this.host = host;
-        dataSource = host.Services.GetRequiredService<NpgsqlDataSource>();
+        connectionFactory = host.Services.GetRequiredService<IDbConnectionFactory>();
     }
 
     public IServiceProvider Services => host.Services;
@@ -42,8 +42,7 @@ public sealed class TestService : IAsyncDisposable
         var connectionString = await postgres.CreateServiceSchemaAsync(name);
 
         var builder = Host.CreateEmptyApplicationBuilder(new HostApplicationBuilderSettings());
-        // Registered through a factory so the container disposes it with the host.
-        builder.Services.AddSingleton(_ => NpgsqlDataSource.Create(connectionString));
+        builder.Services.AddNpgsqlConnectionFactory(connectionString);
         builder.Services.AddSingleton<IMessageTransport, InMemoryTransport>();
         builder.Services.AddSingleton<HandlerBehaviour>();
         builder.Services.AddBankMessaging(options =>
@@ -61,13 +60,13 @@ public sealed class TestService : IAsyncDisposable
 
     public async Task<long> CountAsync(string table, string where = "true")
     {
-        await using var connection = await dataSource.OpenConnectionAsync(TestContext.Current.CancellationToken);
+        using var connection = await connectionFactory.OpenAsync(TestContext.Current.CancellationToken);
         return await connection.ExecuteScalarAsync<long>($"SELECT count(*) FROM {table} WHERE {where}");
     }
 
     public async Task<T> QuerySingleAsync<T>(string sql, object? parameters = null)
     {
-        await using var connection = await dataSource.OpenConnectionAsync(TestContext.Current.CancellationToken);
+        using var connection = await connectionFactory.OpenAsync(TestContext.Current.CancellationToken);
         return await connection.QuerySingleAsync<T>(sql, parameters);
     }
 

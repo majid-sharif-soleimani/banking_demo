@@ -1,31 +1,33 @@
-using Npgsql;
+using System.Data;
 
-namespace Bank.Messaging;
+namespace Bank.Messaging.Data;
 
 /// <summary>
-/// The one connection and transaction of a request or a handled message (scoped). Feature SQL, the outbox
-/// publisher and the inbox all use it, which is what makes the state change and its event atomic.
+/// The one connection and transaction of a unit of work (ADR 0009): an HTTP request or a handled message (scoped),
+/// and also one dispatcher poll or one migration run. Feature SQL, the outbox publisher and the inbox all use it,
+/// which is what makes the state change and its event atomic. It sees only <see cref="IDbConnection"/>; the
+/// provider is known only to the <see cref="IDbConnectionFactory"/> (ADR 0010).
 /// Disposing it without <see cref="CommitAsync"/> rolls back.
 /// </summary>
-public sealed class DbSession(NpgsqlDataSource dataSource) : IAsyncDisposable
+public sealed class DbSession(IDbConnectionFactory connectionFactory) : IAsyncDisposable
 {
-    private NpgsqlConnection? connection;
-    private NpgsqlTransaction? transaction;
+    private IDbConnection? connection;
+    private IDbTransaction? transaction;
 
     /// <summary>The open connection; call <see cref="OpenAsync"/> or <see cref="BeginAsync"/> first.</summary>
-    public NpgsqlConnection Connection =>
+    public IDbConnection Connection =>
         connection ?? throw new InvalidOperationException("The DbSession is not open. Call OpenAsync or BeginAsync first.");
 
     /// <summary>The active transaction; pass it to every Dapper call that changes data.</summary>
-    public NpgsqlTransaction Transaction =>
+    public IDbTransaction Transaction =>
         transaction ?? throw new InvalidOperationException("The DbSession has no transaction. Call BeginAsync before changing data or publishing events.");
 
     public bool InTransaction => transaction is not null;
 
     /// <summary>Opens the connection without a transaction, for read-only work.</summary>
-    public async Task<NpgsqlConnection> OpenAsync(CancellationToken ct)
+    public async Task<IDbConnection> OpenAsync(CancellationToken ct)
     {
-        connection ??= await dataSource.OpenConnectionAsync(ct);
+        connection ??= await connectionFactory.OpenAsync(ct);
         return connection;
     }
 
@@ -54,11 +56,11 @@ public sealed class DbSession(NpgsqlDataSource dataSource) : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        // Disposing an uncommitted NpgsqlTransaction rolls it back.
+        // Disposing an uncommitted transaction rolls it back.
         await EndTransactionAsync();
         if (connection is not null)
         {
-            await connection.DisposeAsync();
+            await connection.DisposeAsyncIfPossible();
             connection = null;
         }
     }
@@ -67,7 +69,7 @@ public sealed class DbSession(NpgsqlDataSource dataSource) : IAsyncDisposable
     {
         if (transaction is not null)
         {
-            await transaction.DisposeAsync();
+            await transaction.DisposeAsyncIfPossible();
             transaction = null;
         }
     }

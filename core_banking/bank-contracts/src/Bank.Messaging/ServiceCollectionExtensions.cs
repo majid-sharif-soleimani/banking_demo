@@ -1,5 +1,6 @@
 using System.Reflection;
 using Bank.Contracts.Events;
+using Bank.Messaging.Data;
 using Bank.Messaging.Inbox;
 using Bank.Messaging.Migrations;
 using Bank.Messaging.Outbox;
@@ -14,8 +15,8 @@ public static class ServiceCollectionExtensions
 {
     /// <summary>
     /// Registers DbSession, IEventPublisher (outbox), the outbox dispatcher and the consumer pipeline.
-    /// The service must also register an NpgsqlDataSource for its own schema and an IMessageTransport
-    /// (AddKafkaTransport from slice 1.3, or the in-memory one in tests).
+    /// The service must also register an IDbConnectionFactory for its own schema (AddNpgsqlConnectionFactory)
+    /// and an IMessageTransport (AddKafkaTransport from slice 1.3, or the in-memory one in tests).
     /// </summary>
     public static IServiceCollection AddBankMessaging(this IServiceCollection services, Action<BankMessagingOptions> configure)
     {
@@ -32,6 +33,17 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<OutboxDispatcher>();
         services.TryAddSingleton<MessagePipeline>();
         services.AddHostedService<OutboxDispatcherService>();
+        return services;
+    }
+
+    /// <summary>
+    /// Registers the PostgreSQL <see cref="IDbConnectionFactory"/> for the service's own role and schema.
+    /// The container owns it and disposes its connection pool when the host stops.
+    /// </summary>
+    public static IServiceCollection AddNpgsqlConnectionFactory(this IServiceCollection services, string connectionString)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
+        services.TryAddSingleton<IDbConnectionFactory>(_ => new NpgsqlConnectionFactory(connectionString));
         return services;
     }
 

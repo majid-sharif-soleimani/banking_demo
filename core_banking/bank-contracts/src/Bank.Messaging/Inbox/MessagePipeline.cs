@@ -4,6 +4,7 @@ using Bank.Contracts.Schema;
 using Bank.Messaging.Transport;
 using Dapper;
 using Microsoft.Extensions.DependencyInjection;
+using Bank.Messaging.Data;
 
 namespace Bank.Messaging.Inbox;
 

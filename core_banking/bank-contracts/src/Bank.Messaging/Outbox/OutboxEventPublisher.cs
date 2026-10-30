@@ -3,6 +3,7 @@ using Bank.Contracts;
 using Bank.Contracts.Events;
 using Bank.Contracts.Schema;
 using Dapper;
+using Bank.Messaging.Data;
 
 namespace Bank.Messaging.Outbox;
 

@@ -1,6 +1,6 @@
+using Bank.Messaging.Data;
 using Dapper;
 using Microsoft.Extensions.Logging;
-using Npgsql;
 
 namespace Bank.Messaging.Migrations;
 
@@ -10,7 +10,7 @@ namespace Bank.Messaging.Migrations;
 /// one instance of a service migrate at a time. A changed script that was already applied stops the run.
 /// Scripts therefore must not use statements that cannot run in a transaction, such as CREATE INDEX CONCURRENTLY.
 /// </summary>
-public sealed class SqlMigrationRunner(NpgsqlDataSource dataSource, TimeProvider timeProvider, ILogger<SqlMigrationRunner> logger)
+public sealed class SqlMigrationRunner(IDbConnectionFactory connectionFactory, TimeProvider timeProvider, ILogger<SqlMigrationRunner> logger)
 {
     private const string CreateJournal = """
         CREATE TABLE IF NOT EXISTS schema_migration (
@@ -29,8 +29,10 @@ public sealed class SqlMigrationRunner(NpgsqlDataSource dataSource, TimeProvider
     /// <summary>Applies the pending scripts in the given order and returns their ids.</summary>
     public async Task<IReadOnlyList<string>> RunAsync(IReadOnlyList<MigrationScript> scripts, CancellationToken ct)
     {
-        await using var connection = await dataSource.OpenConnectionAsync(ct);
-        await using var transaction = await connection.BeginTransactionAsync(ct);
+        await using var session = new DbSession(connectionFactory);
+        await session.BeginAsync(ct);
+        var connection = session.Connection;
+        var transaction = session.Transaction;
 
         // Released at commit or rollback. Keyed by schema, so services sharing the database do not wait for each other.
         await connection.ExecuteAsync(new CommandDefinition(
@@ -61,7 +63,7 @@ public sealed class SqlMigrationRunner(NpgsqlDataSource dataSource, TimeProvider
             ran.Add(script.Id);
         }
 
-        await transaction.CommitAsync(ct);
+        await session.CommitAsync(ct);
 
         foreach (var id in ran)
         {
