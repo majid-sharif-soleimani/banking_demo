@@ -1,6 +1,6 @@
 using System.Reflection;
 
-namespace Bank.Contracts;
+namespace Bank.Contracts.Schema;
 
 /// <summary>The JSON Schemas shipped inside this package as embedded resources.</summary>
 public static class ContractSchemas

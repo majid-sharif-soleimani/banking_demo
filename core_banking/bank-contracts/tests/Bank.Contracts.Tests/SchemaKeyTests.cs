@@ -1,3 +1,5 @@
+using Bank.Contracts.Schema;
+
 namespace Bank.Contracts.Tests;
 
 public class SchemaKeyTests

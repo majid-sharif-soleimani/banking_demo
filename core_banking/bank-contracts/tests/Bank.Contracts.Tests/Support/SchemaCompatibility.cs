@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using Bank.Contracts.Schema;
 
 namespace Bank.Contracts.Tests.Support;
 

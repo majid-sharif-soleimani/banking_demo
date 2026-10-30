@@ -92,8 +92,8 @@ Everything is under `core_banking/bank-contracts/`.
 | `src/Bank.Contracts/IIntegrationEvent.cs` | `EventId`, `OccurredOn` (business date), `PerformedBy`, with the descriptions and constraints every schema uses for them |
 | `src/Bank.Contracts/Operations/*.cs` | `CurrencyActivated`, `BusinessDayOpened`, `DayClosed`, `DayCompleted`, each with `[Description]` and field attributes |
 | `src/Bank.Contracts/Testing/TestEvent.cs` | For messaging tests only: `Key` (ordering), `Sequence`, `Amount` (exercises `Money` in a schema) |
-| `src/Bank.Contracts/SchemaKey.cs` | Parses and formats `iglu:` URIs, orders versions, maps a key to its file path |
-| `src/Bank.Contracts/ContractSchemas.cs` | Lists and reads the embedded schemas |
+| `src/Bank.Contracts/Schema/SchemaKey.cs` | Parses and formats `iglu:` URIs, orders versions, maps a key to its file path |
+| `src/Bank.Contracts/Schema/ContractSchemas.cs` | Lists and reads the embedded schemas |
 | `src/Bank.Contracts/ContractJson.cs` | The one `JsonSerializerOptions` for events: camelCase, strict numbers, required and non-nullable fields enforced on read |
 | `tests/.../MoneyTests.cs`, `MoneyJsonTests.cs` | Arithmetic, comparison, mismatch, validation, JSON shape |
 | `tests/.../SchemaKeyTests.cs` | URI parsing, path, ordering |
@@ -174,4 +174,4 @@ Adding an event is now: write the record, run `dotnet run --project tools/Bank.C
 
 Later the same day, `Money`'s JSON knowledge moved into one file: `Money.cs` holds the type, `MoneyJsonConverter` and `Money.JsonSchema()` (a raw JSON string). The generator no longer knows `Money` by name. For every property type it looks for `public static JsonObject JsonSchema()` and uses it when present; otherwise it uses the shape `JsonSchemaExporter` produces. A type with a custom converter but no `JsonSchema()` fails generation, because the exporter cannot see what a converter writes and would describe it as "anything".
 
-Then the convention became an interface: `IJsonSchemaProvider` in `Bank.Contracts` with `static abstract JsonObject JsonSchema()`, implemented by `Money`. The compiler now checks the method's name and return type. Because a static abstract member can only be called through a type parameter, the generator calls a small generic helper `SchemaOf<T>() where T : IJsonSchemaProvider` with `MakeGenericMethod(type)`. Only value types like `Money` implement it; `IIntegrationEvent` stays free of static abstract members, so it can still be used as an ordinary type (`List<IIntegrationEvent>`).
+Then the convention became an interface: `IJsonSchemaProvider` (now in `Bank.Contracts.Schema`) with `static abstract JsonObject JsonSchema()`, implemented by `Money`. The compiler now checks the method's name and return type. Because a static abstract member can only be called through a type parameter, the generator calls a small generic helper `SchemaOf<T>() where T : IJsonSchemaProvider` with `MakeGenericMethod(type)`. Only value types like `Money` implement it; `IIntegrationEvent` stays free of static abstract members, so it can still be used as an ordinary type (`List<IIntegrationEvent>`).

@@ -1,7 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 
-namespace Bank.Contracts;
+namespace Bank.Contracts.Schema;
 
 /// <summary>
 /// An Iglu-style schema URI, <c>iglu:{vendor}/{name}/{format}/{MODEL}-{REVISION}-{ADDITION}</c>, versioned with SchemaVer.

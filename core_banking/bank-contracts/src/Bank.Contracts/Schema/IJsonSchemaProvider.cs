@@ -1,6 +1,6 @@
 using System.Text.Json.Nodes;
 
-namespace Bank.Contracts;
+namespace Bank.Contracts.Schema;
 
 /// <summary>
 /// A contract type that describes its own JSON Schema, because the schema generator cannot see its shape. Every type

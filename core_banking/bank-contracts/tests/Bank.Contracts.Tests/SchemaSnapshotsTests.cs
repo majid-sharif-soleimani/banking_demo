@@ -1,3 +1,4 @@
+using Bank.Contracts.Schema;
 using Bank.Contracts.SchemaTool;
 
 namespace Bank.Contracts.Tests;

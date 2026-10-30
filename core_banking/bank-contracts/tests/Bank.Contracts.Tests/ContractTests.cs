@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Bank.Contracts.Schema;
 using Bank.Contracts.SchemaTool;
 using Bank.Contracts.Tests.Support;
 using Json.Schema;
