@@ -46,7 +46,7 @@ banking_demo/                  ← launch Claude Code here (this folder holds th
   .claude/                     ← settings, rules, skills, agents for this workspace
   .github/workflows/           ← one CI workflow per service folder
   core_banking/
-    bank-contracts/            ← Bank.Contracts (JSON Schemas + C# records) and Bank.Messaging (NuGet)
+    bank-contracts/            ← Bank.Contracts (C# records + generated JSON Schemas) and Bank.Messaging (NuGet)
     bank-platform/             ← Aspire AppHost, Docker Compose, AWS CDK
     bank-gateway/              ← YARP gateway
     bank-operations/  bank-customers/  bank-accounts/

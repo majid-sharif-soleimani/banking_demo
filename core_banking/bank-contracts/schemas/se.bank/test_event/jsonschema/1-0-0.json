@@ -21,18 +21,18 @@
     },
     "performedBy": {
       "type": "string",
-      "minLength": 1,
-      "description": "Actor id that caused the event, 'system' by default."
+      "description": "Actor id that caused the event, 'system' by default.",
+      "minLength": 1
     },
     "key": {
       "type": "string",
-      "minLength": 1,
-      "description": "Message key; events with the same key must be handled in order."
+      "description": "Message key; events with the same key must be handled in order.",
+      "minLength": 1
     },
     "sequence": {
       "type": "integer",
-      "minimum": 0,
-      "description": "Position of the event within its key."
+      "description": "Position of the event within its key.",
+      "minimum": 0
     },
     "amount": {
       "type": "object",

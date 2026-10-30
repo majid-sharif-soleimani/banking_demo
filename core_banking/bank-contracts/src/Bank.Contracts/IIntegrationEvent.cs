@@ -1,17 +1,22 @@
+using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
+
 namespace Bank.Contracts;
 
 /// <summary>
 /// An event that crosses a service boundary. Every implementing record also declares
-/// <c>public const string SchemaUri</c> pointing at its JSON Schema (checked by the contract tests).
+/// <c>public const string SchemaUri</c>, the version of its contract (checked by the contract tests).
+/// The attributes here also describe these fields in every generated JSON Schema.
 /// </summary>
 public interface IIntegrationEvent
 {
-    /// <summary>Unique per event; consumers use it as the inbox key.</summary>
+    [Description("Unique id of this event; the consumer inbox key.")]
     Guid EventId { get; }
 
-    /// <summary>The business date (from Operations) on which the event happened, not the wall clock.</summary>
+    [Description("Business date on which the event happened.")]
     DateOnly OccurredOn { get; }
 
-    /// <summary>Actor id of whoever caused the event, "system" by default.</summary>
+    [Description("Actor id that caused the event, 'system' by default.")]
+    [MinLength(1)]
     string PerformedBy { get; }
 }

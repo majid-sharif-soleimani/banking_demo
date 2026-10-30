@@ -49,7 +49,7 @@ Claude always stops and asks when:
 
 | Package | Contains |
 | --- | --- |
-| `Bank.Contracts` | `Money`, `IIntegrationEvent`, all event records with `SchemaUri` constants, JSON Schemas as embedded resources |
+| `Bank.Contracts` | `Money`, `IIntegrationEvent`, all event records with `SchemaUri` constants, and the JSON Schemas generated from them as embedded resources |
 | `Bank.Common` | `IBusinessClock`, `MoneyRounding`, `IFileStorage`, `IEmailSender`, `IExchangeRateProvider`, `IAccountNumberGenerator` interfaces, `PerformedBy` helpers, a `Result<T>` type |
 | `Bank.Messaging` | `IEventPublisher`, `IEventHandler<T>`, outbox, inbox, dispatcher, consumer pipeline (EF Core, no Kafka) |
 | `Bank.Messaging.Kafka` | The only project that references Confluent.Kafka |
@@ -74,7 +74,7 @@ Claude always stops and asks when:
 ## Messaging details
 
 - Kafka message value is the event JSON. Headers: `message-id`, `schema-uri`, `performed-by`, `occurred-on`.
-- Consumers pick the handler by schema URI. Unknown MODEL versions go to the DLT; unknown ADDITION or REVISION versions within a known MODEL are handled with the latest known record.
+- Consumers pick the handler by schema URI. Unknown MODEL versions go to the DLT; unknown ADDITION versions within a known MODEL are handled with the latest known record.
 - Inbox key is `(MessageId, HandlerName)`, so two handlers in one service can process the same event.
 - Outbox dispatcher: polling with `FOR UPDATE SKIP LOCKED`, interval configurable, default 200 ms.
 - Retries happen inside the consumer (3 attempts, backoff 200 ms, 1 s, 5 s), then the message goes to `<topic>.dlt` and the offset is committed. Blocking the partition during retries is accepted for this demo.

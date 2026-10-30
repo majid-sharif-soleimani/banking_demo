@@ -1,6 +1,6 @@
 # 0002. Keep event records and JSON Schemas in sync with a reflection test
 
-- Status: Accepted
+- Status: Superseded by 0003 (2026-10-30)
 - Date: 2026-10-30
 - Scope: bank-contracts
 - Design plan reference: section 4, ADR row 10 (JSON Schema is the source of truth, plus C# records)

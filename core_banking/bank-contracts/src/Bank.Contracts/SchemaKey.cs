@@ -5,7 +5,7 @@ namespace Bank.Contracts;
 
 /// <summary>
 /// An Iglu-style schema URI, <c>iglu:{vendor}/{name}/{format}/{MODEL}-{REVISION}-{ADDITION}</c>, versioned with SchemaVer.
-/// MODEL: breaking change. REVISION: may break some historical data. ADDITION: compatible with all historical data.
+/// We use two of the three parts: ADDITION (only new optional fields) and MODEL (any other change). REVISION stays 0.
 /// </summary>
 public sealed record SchemaKey(string Vendor, string Name, string Format, int Model, int Revision, int Addition)
     : IComparable<SchemaKey>

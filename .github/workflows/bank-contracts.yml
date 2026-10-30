@@ -28,5 +28,5 @@ jobs:
       - run: mkdir -p ../.local-feed
       - run: dotnet restore
       - run: dotnet build --no-restore -c Release
-      # Contract tests include the schema/record sync and SchemaVer compatibility checks.
+      # Contract tests include the record/schema snapshot match and version compatibility checks.
       - run: dotnet test --no-build -c Release

@@ -21,18 +21,18 @@
     },
     "performedBy": {
       "type": "string",
-      "minLength": 1,
-      "description": "Actor id that caused the event, 'system' by default."
+      "description": "Actor id that caused the event, 'system' by default.",
+      "minLength": 1
     },
     "code": {
       "type": "string",
-      "pattern": "^[A-Z]{3}$",
-      "description": "ISO 4217 code, for example SEK."
+      "description": "ISO 4217 code, for example SEK.",
+      "pattern": "^[A-Z]{3}$"
     },
     "minorUnits": {
       "type": "integer",
-      "minimum": 0,
-      "description": "Digits after the decimal point, for example 2 for SEK."
+      "description": "Digits after the decimal point, for example 2 for SEK.",
+      "minimum": 0
     }
   },
   "required": [

@@ -21,8 +21,8 @@
     },
     "performedBy": {
       "type": "string",
-      "minLength": 1,
-      "description": "Actor id that caused the event, 'system' by default."
+      "description": "Actor id that caused the event, 'system' by default.",
+      "minLength": 1
     },
     "date": {
       "type": "string",
@@ -31,8 +31,8 @@
     },
     "service": {
       "type": "string",
-      "pattern": "^[a-z]+$",
-      "description": "Name of the service that completed, in lower case, for example accounts."
+      "description": "Name of the service that completed, in lower case, for example accounts.",
+      "pattern": "^[a-z]+$"
     }
   },
   "required": [

@@ -157,7 +157,7 @@ Each row is an ADR and is also recorded as a separate file (`docs/adr/NNNN-title
 | 07 | Transactional Outbox for publishing and Inbox for receiving, in each service's schema | At-least-once delivery without losing messages | Publishing directly after commit |
 | 08 | Idempotency: the message id is unique in the Inbox; duplicate messages are ignored; financial operations also have a unique business key (e.g. LoanId + installment number) | Duplicate messages in Kafka are certain | Relying only on Kafka exactly-once |
 | 09 | Errors: three retries with increasing backoff, then a dead-letter topic | A poison message does not block the queue | Infinite retries |
-| 10 | Contracts: JSON Schema (source of truth, Iglu-style URIs) + C# records, in the `Bank.Contracts` NuGet package on GitHub Packages; CI checks version compatibility | Type safety, no server and no cost, can move to a registry later | Iglu Server (limited license, extra server), Confluent Schema Registry (tied to Kafka) |
+| 10 | Contracts: C# records (source of truth) in the `Bank.Contracts` NuGet package on GitHub Packages; JSON Schemas with Iglu-style URIs generated from them and committed as snapshots; only optional fields may be added, any other change is a new MODEL; CI checks snapshots and version compatibility (changed 2026-10-30, bank-contracts ADR 0003) | Type safety, one copy of each contract, a language-neutral schema, no server and no cost, can move to a registry later | Hand-written schemas as source of truth (every event written twice), Iglu Server (limited license, extra server), Confluent Schema Registry (tied to Kafka) |
 | 11 | One PostgreSQL instance; one schema and one database user per service, with access only to its own schema | Cost of a single server; the data boundary is enforced by permissions, not convention | Separate database per service |
 | 12 | API Gateway with YARP; REST + OpenAPI | Free, .NET, identical locally and on AWS | AWS API Gateway (cost, environment differences) |
 | 13 | Simulated authentication: the gateway sets the `X-Customer-Id` header; Keycloak or JWT later | Phase 1 focuses on banking logic | — |
@@ -267,7 +267,7 @@ Financial logic is written test-first, and each service has three test levels; e
 | --- | --- | --- | --- |
 | Unit | Pure functions in `Logic/` | xUnit, Shouldly | Annuity schedule, Actual/365 interest, payment allocation, early payoff minimum interest, penalty, classification |
 | Service integration | Endpoints and handlers with a real database and Kafka | Testcontainers | A duplicate message has an effect only once; the outbox publishes nothing after a rollback |
-| Contract | Schema and record compatibility; new version compatible with the previous one | Tests in `bank-contracts` | An incompatible change without a MODEL bump breaks the build |
+| Contract | Each record matches its schema snapshot; new version compatible with the previous one | Tests in `bank-contracts` | An incompatible change without a MODEL bump breaks the build |
 | End-to-end | A few scenarios across all services with Aspire | xUnit + Aspire testing | Loan application through early payoff; failed installment through default; cross-currency transfer |
 
 Edge cases that must be tested: leap years in Actual/365, last-installment rounding, overpayment, two concurrent messages on one account, end of day in the middle of a transfer.

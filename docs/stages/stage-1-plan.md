@@ -31,16 +31,17 @@ Approved by Majid on 2026-10-30.
   - `Money(decimal Amount, string Currency)` with `+`, `-`, comparison, `Money * decimal`, `CurrencyMismatchException`, and a JSON converter that writes `{ "amount": "1234.50", "currency": "SEK" }`
   - `IIntegrationEvent { EventId, OccurredOn, PerformedBy }`
   - Records `CurrencyActivated(Code, MinorUnits)`, `BusinessDayOpened(Date)`, `DayClosed(Date)`, `DayCompleted(Date, Service)` and `TestEvent`, each with a `SchemaUri` constant
-  - Schemas at `schemas/se.bank/<event>/jsonschema/1-0-0.json`, embedded as resources
+  - Schemas at `schemas/se.bank/<event>/jsonschema/1-0-0.json`, generated from the records, committed as snapshots and embedded as resources
 - **Tests first:**
   - Money arithmetic, comparison, currency mismatch and JSON shape
-  - Every record matches its schema (the reflection test)
+  - Every record matches its schema snapshot, and the generator maps types and attributes correctly
   - Schema path, `self` and `SchemaUri` agree
-  - SchemaVer compatibility between consecutive versions
+  - Compatibility between consecutive versions (ADDITION or MODEL only)
 - **ADRs:**
   - Package layout
-  - Schema/record sync by reflection test
-- **D1:** schema/record sync. Decided: **reflection test**.
+  - Schema/record sync by reflection test (superseded)
+  - Generate event schemas from records
+- **D1:** schema/record sync. Decided: **reflection test**; changed the same day to **schema generation from records**, with committed snapshots.
 - **Learning document:** `docs/learning/stage-1/slice-1.1.md`
 
 ### Before 1.2
@@ -99,7 +100,8 @@ Claude draws the sequence diagram of one event's full path, with a "crash at thi
 | ADR | Folder |
 | --- | --- |
 | Package layout | bank-contracts/docs/adr |
-| Schema/record sync by reflection test | bank-contracts/docs/adr |
+| Schema/record sync by reflection test (0002, superseded by 0003) | bank-contracts/docs/adr |
+| Generate event schemas from records (0003) | bank-contracts/docs/adr |
 | Outbox dispatcher | bank-contracts/docs/adr |
 | Inbox key | bank-contracts/docs/adr |
 | Kafka message format and headers | bank-contracts/docs/adr |
@@ -140,4 +142,5 @@ None. Non-blocking notes:
 
 ## Decisions made
 - 2026-10-30, slice 1.1 D1: schema/record sync by **reflection test**.
+- 2026-10-30, slice 1.1 D1 changed by Majid: the C# records are the source of truth; schemas are generated with `JsonSchemaExporter` and committed as snapshots; only ADDITION (optional fields) or MODEL bumps. ADR 0003 supersedes ADR 0002.
 - 2026-10-30: in stage 1, Claude writes everything and a learning document per slice. Majid keeps the D1 decisions. Stages 2–8 are unchanged.

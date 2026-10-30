@@ -7,8 +7,8 @@ using Json.Schema;
 namespace Bank.Contracts.Tests;
 
 /// <summary>
-/// The schema files are the contract. These tests keep the hand-written C# records in sync with them
-/// (ADR 0002: schema/record sync by reflection test).
+/// The C# records are the source of truth; the schema files are snapshots generated from them (ADR 0003).
+/// These tests fail when a record no longer matches its published snapshot, and check the snapshots themselves.
 /// </summary>
 public class ContractTests
 {
@@ -30,12 +30,12 @@ public class ContractTests
 
     [Theory]
     [MemberData(nameof(EventTypes))]
-    public void Every_event_record_declares_a_SchemaUri_constant_that_exists(string eventType)
+    public void Every_event_record_declares_a_valid_SchemaUri_constant(string eventType)
     {
         var uri = ContractCatalog.SchemaUriOf(EventType(eventType));
 
         uri.ShouldNotBeNull($"{eventType} needs 'public const string SchemaUri'.");
-        ContractSchemas.All.ShouldContain(SchemaKey.Parse(uri));
+        SchemaKey.TryParse(uri, out _).ShouldBeTrue($"{eventType}.SchemaUri '{uri}' is not a valid schema URI.");
     }
 
     [Theory]
@@ -51,12 +51,29 @@ public class ContractTests
 
     [Theory]
     [MemberData(nameof(EventTypes))]
-    public void Every_event_record_matches_its_schema(string eventType)
+    public void Every_event_record_matches_its_schema_snapshot(string eventType)
     {
         var type = EventType(eventType);
-        var schema = ReadSchema(SchemaKey.Parse(ContractCatalog.SchemaUriOf(type)!));
+        var key = SchemaKey.Parse(ContractCatalog.SchemaUriOf(type)!);
+        var generated = ContractSchemaGenerator.Generate(type, key);
 
-        RecordSchemaComparer.Compare(type, schema).ShouldBeEmpty();
+        if (!ContractSchemas.All.Contains(key))
+        {
+            if (SchemaSnapshots.WritingEnabled)
+            {
+                var path = SchemaSnapshots.WriteIfMissing(key, generated);
+                Assert.Fail($"Wrote the snapshot {path}. Run 'dotnet test' again, without {SchemaSnapshots.WriteVariable}, so the build embeds it.");
+            }
+
+            Assert.Fail($"No schema snapshot for {key}. Write it with '{SchemaSnapshots.WriteVariable}=1 dotnet test', then run 'dotnet test' again.");
+        }
+
+        var published = ReadSchema(key);
+        JsonNode.DeepEquals(published, generated).ShouldBeTrue(
+            $"{type.Name} no longer matches the published schema {key}. A published version never changes: " +
+            $"bump SchemaUri (ADDITION if you only added optional fields, otherwise a new MODEL) and write the new snapshot." +
+            $"{Environment.NewLine}Published:{Environment.NewLine}{SchemaSnapshots.ToFileText(published)}" +
+            $"Generated now:{Environment.NewLine}{SchemaSnapshots.ToFileText(generated)}");
     }
 
     [Theory]

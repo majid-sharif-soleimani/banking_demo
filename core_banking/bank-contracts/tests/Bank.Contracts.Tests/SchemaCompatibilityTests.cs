@@ -59,10 +59,9 @@ public class SchemaCompatibilityTests
     }
 
     [Fact]
-    public void Revision_may_add_a_required_field_but_not_remove_one()
+    public void Revision_is_not_used()
     {
-        Check("1-0-0", V100, "1-1-0", WithRequiredField).ShouldBeEmpty();
-        Check("1-0-0", V100, "1-1-0", DateRemoved).ShouldContain(p => p.Contains("'date'"));
+        Check("1-0-0", V100, "1-1-0", WithOptionalField).ShouldContain(p => p.Contains("REVISION"));
     }
 
     [Fact]

@@ -3,10 +3,10 @@ using System.Text.Json.Nodes;
 namespace Bank.Contracts.Tests.Support;
 
 /// <summary>
-/// Checks that a schema version is a legal SchemaVer step from the previous one.
+/// Checks that a schema version is a legal step from the previous one (ADR 0003). Only two steps exist:
 /// ADDITION: same required fields, no field removed or changed, new fields optional. Every old reader still works.
-/// REVISION: no field removed or changed; new required fields are allowed.
-/// MODEL: anything goes; consumers that do not know the new MODEL send the message to the dead-letter topic.
+/// MODEL: any other change; consumers that do not know the new MODEL send the message to the dead-letter topic.
+/// REVISION is not used, so a REVISION bump is reported as a problem.
 /// </summary>
 public static class SchemaCompatibility
 {
@@ -21,6 +21,11 @@ public static class SchemaCompatibility
         if (step == "MODEL")
         {
             return [];
+        }
+
+        if (step == "REVISION")
+        {
+            return [$"{older} -> {newer}: REVISION is not used; add only optional fields (ADDITION) or bump the MODEL."];
         }
 
         var problems = new List<string>();
@@ -39,14 +44,11 @@ public static class SchemaCompatibility
             }
         }
 
-        if (step == "ADDITION")
+        var oldRequired = RequiredOf(olderSchema);
+        var newRequired = RequiredOf(newerSchema);
+        foreach (var name in oldRequired.Except(newRequired).Concat(newRequired.Except(oldRequired)))
         {
-            var oldRequired = RequiredOf(olderSchema);
-            var newRequired = RequiredOf(newerSchema);
-            foreach (var name in oldRequired.Except(newRequired).Concat(newRequired.Except(oldRequired)))
-            {
-                problems.Add($"{newer}: '{name}' changed between required and optional; an ADDITION may only add optional fields.");
-            }
+            problems.Add($"{newer}: '{name}' changed between required and optional; an ADDITION may only add optional fields.");
         }
 
         return problems;

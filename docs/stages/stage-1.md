@@ -79,7 +79,7 @@ Services are added to the AppHost in the stages that create them.
 
 ## Tests (minimum)
 
-Bank.Contracts.Tests: every record matches its schema; schema path, `self` field and `SchemaUri` agree; SchemaVer compatibility check between consecutive versions; Money serialization shape; Money arithmetic and mismatch.
+Bank.Contracts.Tests: every record matches its schema snapshot; schema path, `self` field and `SchemaUri` agree; SchemaVer compatibility check between consecutive versions; Money serialization shape; Money arithmetic and mismatch.
 
 Bank.Messaging.UnitTests: backoff sequence; SchemaVer change classification.
 
@@ -89,7 +89,7 @@ Bank.Platform.IntegrationTests: AppHost starts PostgreSQL and Kafka healthy; eac
 
 ## ADRs to write
 
-In `bank-contracts/docs/adr`: package layout; Kafka message format and headers; outbox dispatcher polling; inbox key; retry and dead-letter; schema/record sync by reflection test. In `bank-platform/docs/adr`: one role and schema per service.
+In `bank-contracts/docs/adr`: package layout; Kafka message format and headers; outbox dispatcher polling; inbox key; retry and dead-letter; schema/record sync (generate schemas from records, ADR 0003). In `bank-platform/docs/adr`: one role and schema per service.
 
 ## Out of scope
 

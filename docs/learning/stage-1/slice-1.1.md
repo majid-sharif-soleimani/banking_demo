@@ -1,6 +1,6 @@
 # Slice 1.1: Contracts
 
-What this slice built: the `bank-contracts` folder and its first package, `Bank.Contracts`. It holds `Money`, the event interface, the first five events with their JSON Schemas, and the tests that keep records and schemas in sync. Nothing here talks to a database or Kafka yet; that is slices 1.2 and 1.3.
+What this slice built: the `bank-contracts` folder and its first package, `Bank.Contracts`. It holds `Money`, the event interface, the first five events, the JSON Schemas generated from them, and the tests that keep the two in sync. Nothing here talks to a database or Kafka yet; that is slices 1.2 and 1.3.
 
 ## 1. The concepts
 
@@ -26,6 +26,8 @@ A *contract* is the promise a publisher makes to everyone who reads its events: 
 
 A JSON Schema is a JSON file that describes another JSON document: which properties it has, their types, which are required, and patterns such as `^[A-Z]{3}$`. Any language can validate a message against it, so the contract is not tied to C#.
 
+Here the schemas are generated from the C# records, not written by hand (ADR 0003, see section 7). The generated files are committed as *snapshots*, so the contract is still a plain JSON file anyone can read and review in a diff.
+
 Each schema is named by a URI such as `iglu:se.bank/day_closed/jsonschema/1-0-0`. That is vendor / name / format / version, the naming style of Snowplow's Iglu. The same four parts appear in three places, and the tests check that they agree:
 
 ```
@@ -38,13 +40,14 @@ We validate with standard JSON Schema draft 2020-12 and keep `self` as an extra 
 
 ### SchemaVer: MODEL-REVISION-ADDITION
 
-SemVer (1.2.3) is about code APIs. SchemaVer is about *data*: will a reader that knows the old version still understand messages in the new one?
+SemVer (1.2.3) is about code APIs. SchemaVer is about *data*: will a reader that knows the old version still understand messages in the new one? We keep its three-part format but use only two of the bumps:
 
 | Bump | Example | Meaning | Our rule (checked in CI) |
 | --- | --- | --- | --- |
 | ADDITION | 1-0-0 → 1-0-1 | Every old message is valid under the new schema | Only new **optional** fields; nothing removed, retyped, or made required/optional |
-| REVISION | 1-0-1 → 1-1-0 | Some old messages may not be valid any more | No field removed or retyped; new required fields allowed |
-| MODEL | 1-1-0 → 2-0-0 | Breaking change | Anything; a consumer that knows only MODEL 1 sends a MODEL 2 message to the dead-letter topic (slice 1.3) |
+| MODEL | 1-0-1 → 2-0-0 | Any other change | Anything; a consumer that knows only MODEL 1 sends a MODEL 2 message to the dead-letter topic (slice 1.3) |
+
+REVISION stays 0: a bump to it fails the compatibility test.
 
 **Without it**, a consumer receiving `day_closed/1-0-1` could not tell whether it is safe to read with its 1-0-0 record. With SchemaVer it knows: same MODEL means read it with the record you have.
 
@@ -57,13 +60,15 @@ These are tests whose subject is the contract itself, not behaviour. They turn "
 ```mermaid
 flowchart LR
     subgraph bank-contracts
-        S["schemas/se.bank/*/jsonschema/1-0-0.json<br/>(source of truth)"]
-        R["C# records<br/>DayClosed, ... + SchemaUri const"]
-        T["ContractTests<br/>(reflection + validation)"]
+        R["C# records + attributes<br/>DayClosed, ... + SchemaUri const<br/>(source of truth)"]
+        G["ContractSchemaGenerator<br/>(JsonSchemaExporter)"]
+        S["schemas/se.bank/*/jsonschema/1-0-0.json<br/>(committed snapshots)"]
+        T["ContractTests<br/>(snapshot match, compatibility, validation)"]
+        R --> G
+        G -- WRITE_SCHEMA_SNAPSHOTS=1 --> S
         S -- embedded resource --> P[(Bank.Contracts.nupkg)]
         R --> P
-        T -. checks .-> S
-        T -. checks .-> R
+        T -. generated equals snapshot? .-> S
     end
     P -- dotnet pack --> F[".local-feed/"]
     F -- PackageReference 0.1.0 --> SVC["services (from stage 2)"]
@@ -80,42 +85,51 @@ Everything is under `core_banking/bank-contracts/`.
 | `nuget.config` | Package sources: nuget.org and `../.local-feed` |
 | `Bank.Contracts.slnx` | Solution file (the new XML format) |
 | `CLAUDE.md` | Notes and gotchas for this folder |
-| `schemas/se.bank/<event>/jsonschema/1-0-0.json` | The five schemas: `currency_activated`, `business_day_opened`, `day_closed`, `day_completed`, `test_event` |
+| `schemas/se.bank/<event>/jsonschema/1-0-0.json` | The five generated snapshots: `currency_activated`, `business_day_opened`, `day_closed`, `day_completed`, `test_event` |
 | `src/Bank.Contracts/Money.cs` | The value object and its operators; it validates that the currency is a three-letter upper-case code |
 | `src/Bank.Contracts/CurrencyMismatchException.cs` | Thrown when two currencies are combined; carries `Left` and `Right` |
 | `src/Bank.Contracts/MoneyJsonConverter.cs` | Reads and writes the string-amount JSON shape; rejects numbers, exponents, commas and bad codes |
-| `src/Bank.Contracts/IIntegrationEvent.cs` | `EventId`, `OccurredOn` (business date), `PerformedBy` |
-| `src/Bank.Contracts/Operations/*.cs` | `CurrencyActivated`, `BusinessDayOpened`, `DayClosed`, `DayCompleted` |
+| `src/Bank.Contracts/IIntegrationEvent.cs` | `EventId`, `OccurredOn` (business date), `PerformedBy`, with the descriptions and constraints every schema uses for them |
+| `src/Bank.Contracts/Operations/*.cs` | `CurrencyActivated`, `BusinessDayOpened`, `DayClosed`, `DayCompleted`, each with `[Description]` and field attributes |
 | `src/Bank.Contracts/Testing/TestEvent.cs` | For messaging tests only: `Key` (ordering), `Sequence`, `Amount` (exercises `Money` in a schema) |
 | `src/Bank.Contracts/SchemaKey.cs` | Parses and formats `iglu:` URIs, orders versions, maps a key to its file path |
 | `src/Bank.Contracts/ContractSchemas.cs` | Lists and reads the embedded schemas |
-| `src/Bank.Contracts/ContractJson.cs` | The one `JsonSerializerOptions` for events: camelCase, strict numbers |
+| `src/Bank.Contracts/ContractJson.cs` | The one `JsonSerializerOptions` for events: camelCase, strict numbers, required and non-nullable fields enforced on read |
 | `tests/.../MoneyTests.cs`, `MoneyJsonTests.cs` | Arithmetic, comparison, mismatch, validation, JSON shape |
 | `tests/.../SchemaKeyTests.cs` | URI parsing, path, ordering |
-| `tests/.../ContractTests.cs` | **The reflection test** and the schema checks (see below) |
-| `tests/.../RecordSchemaComparerTests.cs`, `SchemaCompatibilityTests.cs` | Tests of the checkers themselves, fed deliberately wrong input |
-| `tests/.../Support/*.cs` | `ContractCatalog` (finds the records), `RecordSchemaComparer`, `SchemaCompatibility`, `SampleFactory` |
-| `docs/adr/0001-package-layout.md`, `0002-schema-record-sync-by-reflection-test.md` | The two ADRs of this slice |
+| `tests/.../ContractTests.cs` | **The snapshot test** and the schema checks (see below) |
+| `tests/.../ContractSchemaGeneratorTests.cs`, `SchemaCompatibilityTests.cs` | Tests of the generator and the compatibility checker themselves |
+| `tests/.../Support/*.cs` | `ContractCatalog` (finds the records), `ContractSchemaGenerator`, `SchemaSnapshots` (writes missing snapshots), `SchemaCompatibility`, `SampleFactory` |
+| `docs/adr/0001-package-layout.md`, `0002-...` (superseded), `0003-generate-event-schemas-from-records.md` | The ADRs of this slice |
 | `.github/workflows/bank-contracts.yml` (repo root) | CI: restore, build, test; runs only when this folder changes; publishes nothing |
 
 ### What `ContractTests` checks
 
 For every record that implements `IIntegrationEvent`:
 
-1. It has `public const string SchemaUri`, the schema exists, and it is the **latest** version.
-2. **Reflection:** the record's properties and the schema's `properties` are the same set of names. Types match (`Guid` → string/uuid, `DateOnly` → string/date, `int` → integer, `Money` → object with string `amount` and `currency`). `required` lists exactly the non-nullable ones.
+1. It has a valid `public const string SchemaUri`, and it is the **latest** version of its schema.
+2. **Snapshot:** the schema generated from the record now is equal to the committed snapshot for that `SchemaUri`. A missing snapshot fails with the command that writes it.
 3. **Validation:** a sample instance serialized to JSON passes the schema, with patterns and formats enforced.
 
-For every schema file: path, `self` and URI agree; the common fields `eventId`, `occurredOn` and `performedBy` are required; the first version is `1-0-0`; each next version is a legal SchemaVer step.
+The generator maps `Guid` → string/uuid, `DateOnly` → string/date, `int` → integer, `Money` → object with string `amount` and `currency`, and a constructor parameter without a default → `required`. `ContractSchemaGeneratorTests` checks each mapping, and that a bare `decimal` or an unmapped attribute is refused.
 
-I proved the checks really fail. I temporarily added `string? Reason` to `DayClosed` and changed one schema pattern, then ran the tests. They failed with `'reason': record property is not in the schema.` and `/service: The string value is not a match for the indicated regular expression`. Then I reverted both changes.
+For every schema file: path, `self` and URI agree; the common fields `eventId`, `occurredOn` and `performedBy` are required; the first version is `1-0-0`; each next version is a legal step (ADDITION or MODEL).
+
+I proved the checks really fail. I temporarily added `string? Reason = null` to `DayClosed`:
+
+- With `SchemaUri` still `1-0-0`, the snapshot test failed: `DayClosed no longer matches the published schema iglu:se.bank/day_closed/jsonschema/1-0-0.`
+- With `SchemaUri` bumped to `1-0-1` and its snapshot written, all tests passed.
+- With the field made required (`string Reason`) under `1-0-1`, the compatibility test failed: `'reason' changed between required and optional; an ADDITION may only add optional fields.`
+
+Then I reverted all three.
 
 ## 4. Patterns used and why
 
 - **Value object** (`Money`): makes invalid states (an amount without a currency, mixed currencies) impossible or loud.
 - **Records for contracts**: immutable, value equality, short syntax. An event is a fact that happened, so it should never change after creation.
-- **Schema as source of truth, checked by tests** (ADR 0002): the contract is readable outside .NET, and drift fails the build.
-- **Test the test**: `RecordSchemaComparerTests` feeds the comparer wrong schemas. A checker that is never seen failing might always pass.
+- **Code as source of truth, schema as a committed snapshot** (ADR 0003): one copy of each contract, still readable outside .NET, and an incompatible change fails the build.
+- **Snapshot testing**: generated output is compared with a reviewed file; changing it is a deliberate step, never a side effect.
+- **Test the test**: `ContractSchemaGeneratorTests` checks the generator's mappings, so a generator bug cannot hide inside every snapshot.
 - **Central package management**: one place to upgrade a library, so all projects use the same version.
 - **Fail fast at the boundary**: `Money`'s constructor and the JSON converter reject bad input right where it enters, not three services later.
 
@@ -131,7 +145,11 @@ I proved the checks really fail. I temporarily added `string? Reason` to `DayClo
 | Schemas do not set `additionalProperties: false` (except inside `Money`) | An older consumer that validates must accept messages from a newer ADDITION that has extra optional fields |
 | Schemas use draft 2020-12 with an extra `self` block | Standard tooling validates them; Iglu naming without an Iglu server |
 | `ContractJson.Options`: Web defaults + strict numbers | camelCase as in the schemas; `"2"` is not accepted as the number 2 |
-| JsonSchema.Net in the test project only | Validation is a test concern for now; `Bank.Contracts` stays dependency-free |
+| JsonSchema.Net and the generator in the test project only | Generation and validation are test concerns; `Bank.Contracts` stays dependency-free |
+| Descriptions and constraints as attributes (`System.ComponentModel`, `DataAnnotations`) | In-box attributes the generator can read; the schema keeps its descriptions and patterns |
+| `ContractJson.Options` enforces required and non-nullable fields on read | A consumer rejects exactly what the schema rejects, instead of filling in `Guid.Empty` or null |
+| The generator applies `Money` and attributes in its own pass, not in `TransformSchemaNode` | The exporter skips that callback for a second `Money` field |
+| `WRITE_SCHEMA_SNAPSHOTS=1` writes only missing files | A published snapshot can never be overwritten by accident |
 | `SampleFactory` has per-name samples for `Code` and `Service` | Fields with a pattern need a matching value; the test says when one is missing |
 | No XML doc file generation | With warnings as errors it would force a comment on every public member; key types have summaries anyway |
 
@@ -139,3 +157,7 @@ I proved the checks really fail. I temporarily added `string? Reason` to `DayClo
 
 1. Someone adds a new **required** field `reason` to `day_closed` and saves it as `1-0-1`. Which test fails, and what version should it have been instead? Why can't an ADDITION add a required field?
 2. Why is `Money(1000m, "SEK") * 0.0695m / 12` left unrounded, and what could go wrong in a 60-month loan schedule if `Money` rounded each multiplication itself?
+
+## 7. Change on 2026-10-30: schemas generated from records
+
+The slice first used hand-written schemas as the source of truth, with a reflection test that compared each record with its schema (ADR 0002). The same day Majid changed this D1 decision (ADR 0003): every event was written twice, and the comparer existed only to keep the copies equal. Now the record is the only copy, the schema is generated from it and committed as a snapshot, and only ADDITION or MODEL bumps are allowed. The five generated snapshots are equal, as JSON, to the hand-written files, so no contract changed.
