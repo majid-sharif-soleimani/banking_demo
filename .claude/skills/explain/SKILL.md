@@ -18,3 +18,4 @@ Use this order and keep each part short:
 
 If $ARGUMENTS is empty or "last slice", explain the patterns used in the most recent slice.
 Point to a well-known source (book chapter, article or docs page) for further reading only when you are sure it exists.
+When the explanation is written to a file instead of the chat, follow `.claude/rules/documentation.md`.

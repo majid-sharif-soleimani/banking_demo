@@ -30,7 +30,7 @@ The bank is assumed to operate in Sweden with SEK as the base currency, but curr
 | Registration | Through the API (called by the agent in phase 2), plus a bulk import of initial customers | The only system user for now is the agent |
 | KYC | None | Outside the learning goal |
 | Branches | None; customers, accounts, loans, employees and journal entries are not tied to a branch | Simplicity; can be added later as a dimension if needed |
-| Account number format | Decided later; for now a temporary identifier behind a number-generator interface | Format can change without touching business logic |
+| Account number format | 9 digits without meaning: 8 random digits (the first 1–9) plus a Luhn check digit, generated behind `IAccountNumberGenerator`; uniqueness by a unique index and a new draw on collision (decided by Majid on 2026-10-30) | Reveals nothing (not the number or order of accounts); Luhn is the Swedish standard and catches every single-digit typo and almost every swap of two neighbouring digits; the generator interface keeps the format out of business logic. Rejected: a serial number (reveals count and order), 7 digits, Damm and mod 11 check digits |
 | Currency | Every amount is always stored and transmitted with its currency (`Money`); each account has one currency; base currency is SEK | Multi-currency from day one, no later rewrite |
 | Exchange rates | Fetched from an external service at conversion time; rate, source and timestamp are stored on the transaction. Default source: the free Riksbank API (confirmed) | Auditable; free and official source |
 
@@ -148,7 +148,7 @@ Each row is an ADR and is also recorded as a separate file (`docs/adr/NNNN-title
 
 | # | Decision | Rationale | Rejected alternatives |
 | --- | --- | --- | --- |
-| 01 | .NET 10, ASP.NET Core Minimal API, EF Core | LTS release; the team's core expertise | — |
+| 01 | .NET 10, ASP.NET Core Minimal API, EF Core with the Npgsql provider (briefly Dapper on 2026-10-30, workspace ADR 0001; back to EF Core the same day, workspace ADR 0002) | LTS release; the team's core expertise; unit of work, migrations and optimistic concurrency built in; raw SQL (`FromSql`, `ExecuteSqlAsync`) where LINQ has no equivalent, such as `FOR UPDATE SKIP LOCKED` | Dapper (SQL fully visible, but the project would maintain its own unit of work, connection factory and migration runner) |
 | 02 | Vertical slice style; DDD only at the strategic level (service boundaries); calculation logic in pure functions under `Logic/` | Simplicity; financial logic without dependencies, the main TDD target | Domain/Application/Infrastructure layering, aggregates, repositories |
 | 03 | Six services: Customers, Accounts, Cards, Lending, Ledger, Operations | Each has one responsibility and owns its data | Merging Cards into Accounts (different behavior and future) |
 | 04 | Services communicate only through events; no synchronous service-to-service calls | Independent deployment and failure | Internal REST calls |
@@ -157,7 +157,7 @@ Each row is an ADR and is also recorded as a separate file (`docs/adr/NNNN-title
 | 07 | Transactional Outbox for publishing and Inbox for receiving, in each service's schema | At-least-once delivery without losing messages | Publishing directly after commit |
 | 08 | Idempotency: the message id is unique in the Inbox; duplicate messages are ignored; financial operations also have a unique business key (e.g. LoanId + installment number) | Duplicate messages in Kafka are certain | Relying only on Kafka exactly-once |
 | 09 | Errors: three retries with increasing backoff, then a dead-letter topic | A poison message does not block the queue | Infinite retries |
-| 10 | Contracts: JSON Schema (source of truth, Iglu-style URIs) + C# records, in the `Bank.Contracts` NuGet package on GitHub Packages; CI checks version compatibility | Type safety, no server and no cost, can move to a registry later | Iglu Server (limited license, extra server), Confluent Schema Registry (tied to Kafka) |
+| 10 | Contracts: C# records (source of truth) in the `Bank.Contracts` NuGet package on GitHub Packages; JSON Schemas with Iglu-style URIs generated from them and committed as snapshots; only optional fields may be added, any other change is a new MODEL; CI checks snapshots and version compatibility (changed 2026-10-30, bank-contracts ADR 0003) | Type safety, one copy of each contract, a language-neutral schema, no server and no cost, can move to a registry later | Hand-written schemas as source of truth (every event written twice), Iglu Server (limited license, extra server), Confluent Schema Registry (tied to Kafka) |
 | 11 | One PostgreSQL instance; one schema and one database user per service, with access only to its own schema | Cost of a single server; the data boundary is enforced by permissions, not convention | Separate database per service |
 | 12 | API Gateway with YARP; REST + OpenAPI | Free, .NET, identical locally and on AWS | AWS API Gateway (cost, environment differences) |
 | 13 | Simulated authentication: the gateway sets the `X-Customer-Id` header; Keycloak or JWT later | Phase 1 focuses on banking logic | — |
@@ -175,7 +175,7 @@ Each row is an ADR and is also recorded as a separate file (`docs/adr/NNNN-title
 
 ## 5. High-level data model
 
-Each service owns only its own tables; reference data from other services (such as currencies) is kept in a local copy table updated from events. All tables have `CreatedAt`, `PerformedBy` and `Version` (optimistic concurrency); each schema also has `outbox` and `inbox` tables.
+Each service owns only its own tables; reference data from other services (such as currencies) is kept in a local copy table updated from events. All tables have `CreatedAt`, `PerformedBy` and `Version` (optimistic concurrency); each schema also has `outbox_message` and `inbox_message` tables.
 
 | Service | Table | Key fields |
 | --- | --- | --- |
@@ -267,7 +267,7 @@ Financial logic is written test-first, and each service has three test levels; e
 | --- | --- | --- | --- |
 | Unit | Pure functions in `Logic/` | xUnit, Shouldly | Annuity schedule, Actual/365 interest, payment allocation, early payoff minimum interest, penalty, classification |
 | Service integration | Endpoints and handlers with a real database and Kafka | Testcontainers | A duplicate message has an effect only once; the outbox publishes nothing after a rollback |
-| Contract | Schema and record compatibility; new version compatible with the previous one | Tests in `bank-contracts` | An incompatible change without a MODEL bump breaks the build |
+| Contract | Each record matches its schema snapshot; new version compatible with the previous one | Tests in `bank-contracts` | An incompatible change without a MODEL bump breaks the build |
 | End-to-end | A few scenarios across all services with Aspire | xUnit + Aspire testing | Loan application through early payoff; failed installment through default; cross-currency transfer |
 
 Edge cases that must be tested: leap years in Actual/365, last-installment rounding, overpayment, two concurrent messages on one account, end of day in the middle of a transfer.
@@ -314,4 +314,4 @@ All assumptions below were confirmed on 2026-10-29.
 - [x] Penalty is calculated from day six (after the 5-day grace period), not from day one
 - [x] A failed installment is retried from the account every business day; a failed standing order is not retried
 
-Out of scope for phase 1: the agent, branches, corporate customers, joint accounts and loans, guarantors and collateral, KYC, deposit interest, interbank transfers, real bank cards, variable rates, daily interest accrual, real authentication, PDF output, the final account number format, a full loan review workflow.
+Out of scope for phase 1: the agent, branches, corporate customers, joint accounts and loans, guarantors and collateral, KYC, deposit interest, interbank transfers, real bank cards, variable rates, daily interest accrual, real authentication, PDF output, a full loan review workflow.

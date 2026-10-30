@@ -49,9 +49,10 @@ Claude always stops and asks when:
 
 | Package | Contains |
 | --- | --- |
-| `Bank.Contracts` | `Money`, `IIntegrationEvent`, all event records with `SchemaUri` constants, JSON Schemas as embedded resources |
-| `Bank.Common` | `IBusinessClock`, `MoneyRounding`, `IFileStorage`, `IEmailSender`, `IExchangeRateProvider`, `IAccountNumberGenerator` interfaces, `PerformedBy` helpers, a `Result<T>` type |
-| `Bank.Messaging` | `IEventPublisher`, `IEventHandler<T>`, outbox, inbox, dispatcher, consumer pipeline (EF Core, no Kafka) |
+| `Bank.Contracts` | `Money`, `IIntegrationEvent`, all event records with `SchemaUri` constants, and the JSON Schemas generated from them as embedded resources |
+| `Bank.Common` | The bank's shared business vocabulary: `IBusinessClock`, `MoneyRounding`, `IFileStorage`, `IEmailSender`, `IExchangeRateProvider`, `IAccountNumberGenerator` interfaces, `PerformedBy` helpers, a `Result<T>` type. No I/O, no external packages |
+| `Bank.Toolkit.<Area>` | Technical building blocks unrelated to banking, one package per area, no reference to any `Bank.*` package (bank-contracts ADR 0011). Today `Bank.Toolkit.Data`: `AddNpgsqlDbContext` and `AddMigrationsOnStartup` for EF Core |
+| `Bank.Messaging` | `IEventPublisher`, `IEventHandler<T>`, outbox and inbox entities (`modelBuilder.AddBankMessaging()`), dispatcher, consumer pipeline (EF Core, no Kafka) |
 | `Bank.Messaging.Kafka` | The only project that references Confluent.Kafka |
 | `Bank.Testing` | Test helpers: Testcontainers fixtures (PostgreSQL, Kafka), fake clock, polling `Eventually` helper, in-memory fakes for the interfaces in `Bank.Common` |
 
@@ -73,19 +74,21 @@ Claude always stops and asks when:
 
 ## Messaging details
 
-- Kafka message value is the event JSON. Headers: `message-id`, `schema-uri`, `performed-by`, `occurred-on`.
-- Consumers pick the handler by schema URI. Unknown MODEL versions go to the DLT; unknown ADDITION or REVISION versions within a known MODEL are handled with the latest known record.
+- Kafka message key is the entity id, value is the event JSON. Headers: `message-id`, `schema-uri`, `performed-by`, `occurred-on` (bank-contracts ADR 0014).
+- Consumers pick the handler by schema URI. Unknown MODEL versions go to the DLT; unknown ADDITION versions within a known MODEL are handled with the latest known record.
 - Inbox key is `(MessageId, HandlerName)`, so two handlers in one service can process the same event.
 - Outbox dispatcher: polling with `FOR UPDATE SKIP LOCKED`, interval configurable, default 200 ms.
-- Retries happen inside the consumer (3 attempts, backoff 200 ms, 1 s, 5 s), then the message goes to `<topic>.dlt` and the offset is committed. Blocking the partition during retries is accepted for this demo.
-- Consumer group per service: `bank.<service>`.
+- Retries happen inside the consumer: one first attempt plus three retries (backoff 200 ms, 1 s, 5 s, so four executions), then the message goes to `<topic>.dlt` and the offset is committed. Permanent failures (unknown MODEL, bad JSON, missing or malformed headers) go to the DLT without retries; a business-key violation is retried like any other failure. Blocking the partition during retries is accepted for this demo (confirmed by Majid in slice 1.3, bank-contracts ADR 0013).
+- Consumer group per service: `bank.<service>`. Each service lists the services it reads from in `Kafka:SubscribeTo` (decided by Majid in slice 1.3, bank-contracts ADR 0015).
 
 ## Database
 
 - One PostgreSQL database `bank`. One schema and one login role per service (`operations`, `customers`, `accounts`, `cards`, `lending`, `ledger`). Each role can only use its own schema. The init script lives in `bank-platform`.
-- EF Core migrations per service, applied at startup in development and by the AppHost.
-- Snake-case table and column names (`EFCore.NamingConventions`).
-- `Version` column is a PostgreSQL `xmin`-style concurrency token (use `uint` mapped to `xmin`).
+- Data access is EF Core with the Npgsql provider (workspace ADR 0002, which supersedes the Dapper decision of ADR 0001). Each service has one `DbContext`, registered with `AddNpgsqlDbContext` from `Bank.Toolkit.Data`. Raw SQL only where LINQ has no equivalent, through `FromSql`/`ExecuteSqlAsync` with interpolated parameters.
+- Schema changes are EF Core migrations per service (`Data/Migrations`, `dotnet ef migrations add`), applied at startup in development and by the AppHost with `AddMigrationsOnStartup`, before any hosted service starts (bank-contracts ADR 0012).
+- Snake-case names through `EFCore.NamingConventions`; table names are set explicitly and singular (`ToTable("loan")`). The schema comes from the role's search path, so the model names no schema.
+- Optimistic concurrency on `Version`: a `uint Version` property mapped to PostgreSQL `xmin` with `.IsRowVersion()`. EF adds it to every update's `WHERE` and throws `DbUpdateConcurrencyException` when no row matches.
+- One `DbContext` per request or per handled message (scoped). `SaveChangesAsync` writes the feature's changes and the outbox rows from `IEventPublisher` in one transaction; a feature that needs several saves opens `Database.BeginTransactionAsync`. Handlers never call `SaveChangesAsync`: the inbox pipeline saves and commits (bank-contracts ADR 0012).
 
 ## APIs
 
@@ -97,7 +100,7 @@ Claude always stops and asks when:
 
 ## Reference and seed data
 
-Seeded by migrations so every environment starts the same. Values are demo values and can be changed in the seed files.
+Seeded by each service's EF Core migrations (`HasData`, or SQL inside a migration) so every environment starts the same. Values are demo values and can be changed in the seed files.
 
 **Currencies** (Operations): SEK (2 minor units, active), EUR (2, active), USD (2, active).
 
@@ -123,7 +126,7 @@ Seeded by migrations so every environment starts the same. Values are demo value
 
 **Standing order frequencies**: Weekly, Monthly, Quarterly. A monthly order on the 31st runs on the last day of shorter months.
 
-**Account numbers** (temporary until Majid decides the format): 10 digits, a sequence of 9 digits plus a Luhn check digit, behind `IAccountNumberGenerator`.
+**Account numbers** (decided by Majid on 2026-10-30, design plan section 2): 9 digits with no meaning. 8 random digits, the first one 1–9 so that no leading zero is lost, plus a Luhn (mod 10) check digit. Generated behind `IAccountNumberGenerator`; Accounts keeps a unique index on the number and draws again on a collision. Stored and sent as a string.
 
 ## External services
 
@@ -138,6 +141,17 @@ Seeded by migrations so every environment starts the same. Values are demo value
 - xUnit v3, Shouldly, Testcontainers. Unit test projects never start containers.
 - A stage is done only when `dotnet build` (warnings as errors) and `dotnet test` pass in every service folder the stage touched.
 - Hand-calculated expected values in financial tests show the arithmetic in a comment.
+- Test projects may use Confluent.Kafka types through the transitive reference of `Bank.Messaging.Kafka` (to read raw topics and test `KafkaHeaders`, which is `internal` with `InternalsVisibleTo`). No `.csproj` other than `Bank.Messaging.Kafka` references Confluent.Kafka directly.
+
+## Accepted limits (demo, not operational)
+
+This system is a learning demo and never runs in production. These gaps were found in the stage 1 review and are deliberately not fixed (Majid, 2026-10-30). Fix them first if the system ever handles real traffic.
+
+- **A failed offset store can stop a service.** In `KafkaConsumerService`, a `KafkaException` from `StoreOffset` (for example after a handler outlived `max.poll.interval.ms` and lost its partition) reaches the outer catch, whose `Seek` then also throws; the hosted service faults and the host stops. That catch also waits `RetryBackoff.DefaultDelays[^1]` instead of the configured delays.
+- **Untested failure paths in the Kafka transport.** No test proves that a failed dead-letter send loses nothing (ADR 0013, point 6), and no Kafka-level test sends a message with a missing header or invalid JSON to the DLT. Only the unknown-MODEL case is tested end to end.
+- **The Compose healthcheck can pass before the init script finishes.** `pg_isready` without `-h` uses the Unix socket, which the temporary init server already listens on, so a service could start before its role exists. The AppHost is not affected.
+- **The atomicity test covers only a failing handler.** It does not cover `SaveChangesAsync` itself failing (for example a business-key violation) after the handler published a reply.
+- **Tests and platform use different Kafka images.** Tests use `apache/kafka-native`; the AppHost and Compose use `confluentinc/confluent-local`.
 
 ## Language
 

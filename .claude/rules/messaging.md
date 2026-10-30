@@ -6,10 +6,10 @@ paths:
 
 # Messaging and contracts rules
 
-- Event contracts are JSON Schemas under `bank-contracts/schemas/se.bank/<event_name>/jsonschema/<MODEL-REVISION-ADDITION>.json`, with a matching C# record in `Bank.Contracts`. The schema is the source of truth; a contract test keeps the record in sync.
-- SchemaVer: ADDITION for new optional fields, REVISION for changes that may break some consumers, MODEL for breaking changes. Never edit a published schema version; add a new file.
+- Event contracts are C# records in `Bank.Contracts` (the source of truth). Their JSON Schemas are generated and committed as snapshots under `bank-contracts/schemas/se.bank/<event_name>/jsonschema/<MODEL-REVISION-ADDITION>.json`; contract tests fail when a record drifts from its snapshot.
+- Versions: ADDITION for new optional fields, MODEL for any other change. REVISION is not used. Never edit a published snapshot; bump `SchemaUri` and write a new one.
 - Every event carries: `EventId`, `OccurredOn` (business date), `PerformedBy`, and Money as `{ amount, currency }`.
 - Handlers: check the inbox first, apply the effect, write any resulting events to the outbox, commit once. A handler that is replayed must change nothing.
 - Topic per publishing service (`bank.<service>.events`), message key = the entity id the event is about.
-- After three failed attempts a message goes to `<topic>.dlt`. Do not swallow exceptions to avoid this.
+- A failed message is retried three times (four executions in total), then goes to `<topic>.dlt`; permanent failures go there at once (bank-contracts ADR 0013). Do not swallow exceptions to avoid this.
 - Nothing outside `Bank.Messaging.Kafka` may reference Confluent.Kafka.

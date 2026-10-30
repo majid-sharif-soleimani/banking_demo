@@ -30,6 +30,17 @@ This is a learning project. Majid builds it to learn solution and software engin
 - The first time you implement something that `docs/implementation-decisions.md` or the design plan already decided, explain it in two or three sentences: what problem it solves and what would break without it. `/explain` gives the longer version on request.
 - Business-rule gaps: ask; do not invent business rules.
 - Show evidence when you claim something works: the command you ran and its result.
+- IMPORTANT: every document you write follows `.claude/rules/documentation.md`: first the big picture (what we want to do and why), then the building blocks and how they connect, then why it is designed this way. This includes the per-slice learning documents.
+
+## Replying in Persian
+
+Majid often writes in Persian. Files on disk stay in English (see above); this section is only about chat replies.
+
+- When Majid writes in Persian, reply in Persian.
+- IMPORTANT: every new line of a Persian reply must start with a Persian word, never with an English word, a name like Claude, code, a file path or a command. Terminals and chat views pick the text direction of each line from its first word, so a line that starts in English flips to left-to-right.
+- This matters most for the FIRST item of every list, because it sets the direction of the whole list.
+- Example: write "اینجا Claude ..." not "Claude ...", and "فایل `Program.cs` ..." not "`Program.cs` ...".
+- Code blocks are the exception: they stay as normal fenced blocks in English. Put a Persian sentence on the line before the block to introduce it.
 
 ## Layout
 
@@ -46,7 +57,7 @@ banking_demo/                  ← launch Claude Code here (this folder holds th
   .claude/                     ← settings, rules, skills, agents for this workspace
   .github/workflows/           ← one CI workflow per service folder
   core_banking/
-    bank-contracts/            ← Bank.Contracts (JSON Schemas + C# records) and Bank.Messaging (NuGet)
+    bank-contracts/            ← Bank.Contracts (C# records + generated JSON Schemas) and Bank.Messaging (NuGet)
     bank-platform/             ← Aspire AppHost, Docker Compose, AWS CDK
     bank-gateway/              ← YARP gateway
     bank-operations/  bank-customers/  bank-accounts/
@@ -62,7 +73,7 @@ bank-<service>/
   CLAUDE.md                    ← service-specific notes only (owned tables, events in/out, gotchas)
   docs/adr/
   src/Bank.<Service>.Api/
-    Data/                      ← EF Core DbContext + entities (schema "<service>")
+    Data/                      ← DbContext, entities and EF Core migrations (schema "<service>")
     Features/                  ← one file per use case: endpoint or event handler
     Logic/                     ← pure static functions, no I/O; main TDD target
     Program.cs
@@ -97,7 +108,7 @@ Integration tests need Docker running.
 
 ## Style
 
-- Vertical slices, not layers. No repositories, no unit-of-work wrappers, no aggregates. EF Core DbContext is used directly in features.
+- Vertical slices, not layers. No repositories, no unit-of-work wrappers, no aggregates. Data access is EF Core on Npgsql, with the service's `DbContext` used directly in features (`docs/adr/0002-use-ef-core-for-data-access.md`). Raw SQL only where LINQ has no equivalent, through `FromSql`/`ExecuteSqlAsync` with interpolated parameters.
 - Minimal APIs. Records for requests, responses and events.
 - Write the failing test first for anything in `Logic/`.
 - Prefer small, explicit code over abstractions. Add an abstraction only when a second real use appears or the design plan requires it.

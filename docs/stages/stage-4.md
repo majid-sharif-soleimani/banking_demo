@@ -28,6 +28,8 @@ Employees, interactions, information requests and appointments are stage 5.
 
 ## Accounts
 
+Account numbers: 9 digits, 8 random plus a Luhn check digit, from `IAccountNumberGenerator`, unique index with a new draw on collision (`docs/implementation-decisions.md`, Reference and seed data). The Luhn check is pure logic in `Logic/` and gets its tests first.
+
 Data: `account`, `account_entry`, `transfer`, `standing_order`, `standing_order_run`, local copies `customer_ref` and `currency_ref`, `business_day`.
 
 Endpoints:

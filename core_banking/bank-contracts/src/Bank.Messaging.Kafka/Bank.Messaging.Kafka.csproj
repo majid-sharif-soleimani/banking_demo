@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Bank.Messaging.Kafka</PackageId>
+    <Description>Kafka transport for Bank.Messaging: producer, consumer with retry and dead-letter topic. The only package that references Confluent.Kafka.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Confluent.Kafka" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- KafkaHeaders uses Confluent types, so it stays internal; only the tests see it. -->
+    <InternalsVisibleTo Include="Bank.Messaging.UnitTests" />
+    <InternalsVisibleTo Include="Bank.Messaging.IntegrationTests" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bank.Messaging\Bank.Messaging.csproj" />
+  </ItemGroup>
+</Project>

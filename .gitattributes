@@ -1,0 +1,2 @@
+# Schema snapshots are compared byte for byte with what Bank.Contracts.SchemaTool writes (LF), so keep LF on every OS.
+core_banking/bank-contracts/schemas/**/*.json text eol=lf

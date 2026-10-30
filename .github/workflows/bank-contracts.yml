@@ -1,0 +1,32 @@
+name: bank-contracts
+
+on:
+  push:
+    paths:
+      - "core_banking/bank-contracts/**"
+      - ".github/workflows/bank-contracts.yml"
+  pull_request:
+    paths:
+      - "core_banking/bank-contracts/**"
+      - ".github/workflows/bank-contracts.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: core_banking/bank-contracts
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      # nuget.config lists the local feed; it is gitignored, so create it empty.
+      - run: mkdir -p ../.local-feed
+      - run: dotnet restore
+      - run: dotnet build --no-restore -c Release
+      # Contract tests include the record/schema snapshot match and version compatibility checks.
+      - run: dotnet test --no-build -c Release

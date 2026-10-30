@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "self": {
+    "vendor": "se.bank",
+    "name": "test_event",
+    "format": "jsonschema",
+    "version": "1-0-0"
+  },
+  "description": "Used only by the messaging integration tests. No service publishes or consumes it.",
+  "type": "object",
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique id of this event; the consumer inbox key."
+    },
+    "occurredOn": {
+      "type": "string",
+      "format": "date",
+      "description": "Business date on which the event happened."
+    },
+    "performedBy": {
+      "type": "string",
+      "description": "Actor id that caused the event, 'system' by default.",
+      "minLength": 1
+    },
+    "key": {
+      "type": "string",
+      "description": "Message key; events with the same key must be handled in order.",
+      "minLength": 1
+    },
+    "sequence": {
+      "type": "integer",
+      "description": "Position of the event within its key.",
+      "minimum": 0
+    },
+    "amount": {
+      "type": "object",
+      "description": "Money; amount is a decimal string so no consumer loses precision.",
+      "properties": {
+        "amount": {
+          "type": "string",
+          "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        }
+      },
+      "required": [
+        "amount",
+        "currency"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "eventId",
+    "occurredOn",
+    "performedBy",
+    "key",
+    "sequence",
+    "amount"
+  ]
+}
