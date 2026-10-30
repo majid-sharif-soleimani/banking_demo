@@ -143,7 +143,7 @@ A partial index `ix_outbox_message_unsent` on `position WHERE sent_at IS NULL` k
 
 EF Core adds its own table, `__EFMigrationsHistory`, which records the applied migrations.
 
-`Version`, required on every table, is PostgreSQL's hidden `xmin` column. Business entities map it with `.IsRowVersion()`. The messaging rows need no optimistic concurrency, because the dispatcher locks them and the inbox only inserts.
+`Version`, required on every table, is PostgreSQL's hidden `xmin` column, mapped with `.IsRowVersion()`. The messaging rows map it too (added at the stage 1 review): the dispatcher's update checks it, although the row is already locked, and the inbox only inserts, so there it is never checked. Because `xmin` is a system column, the migration that adds it to the model creates no SQL, and the dispatcher's `FromSql` must select it by name (`SELECT *, xmin`).
 
 ### 2.3 Database access (`Bank.Toolkit.Data`)
 
@@ -400,7 +400,7 @@ Only the interfaces exist. Implementations come in the stages that need them.
 
 | Type | What it is |
 | --- | --- |
-| `PostgresFixture` | Uses Npgsql directly, because its job is PostgreSQL itself. Starts one `postgres:18-alpine` container. `CreateServiceSchemaAsync(prefix)` creates a login role and a schema it owns, with a random name and a password generated at run time. It returns a connection string with that schema as the search path, mirroring the platform's "one role and schema per service" |
+| `PostgresFixture` | Uses Npgsql directly, because its job is PostgreSQL itself. Starts one `postgres:18.3` container, the platform's image. `CreateServiceSchemaAsync(prefix)` creates a login role and a schema it owns, with a random name and a password generated at run time. It returns a connection string with that schema as the search path, mirroring the platform's "one role and schema per service" |
 | `InMemoryTransport` | An `IMessageTransport` in memory. It records every sent message in `Sent` and hands it to each subscriber. As with a real broker, a failing subscriber does not fail the send; its exception goes to `DeliveryErrors`. `FailSends = true` simulates a broker outage |
 | `Eventually.AssertAsync` | Retries an assertion until it passes or a timeout ends, for work done by the background dispatcher |
 | `FakeBusinessClock` | A settable `Today` with `AdvanceDays` |
@@ -534,7 +534,7 @@ One package per area keeps dependencies narrow. A project that later needs a spe
 | Each test gets its own role and schema; one container per run | Parallel tests that never see each other's rows, and a container that starts only once |
 | Each `TestService` has its own outbound `InMemoryTransport` | A receiver's follow-up events must not loop back into itself |
 | Kafka Testcontainers fixture moved to slice 1.3 | It would be untested code until a Kafka test exists |
-| `postgres:18-alpine` | The current major version. Slice 1.4 should use the same image |
+| `postgres:18.3` (was `18-alpine` until the stage 1 review) | The same image as the AppHost and Compose (slice 1.4), so tests run on the PostgreSQL the services use |
 | Fake account numbers `TEST-000001` | The real format is still open |
 
 ### 3.4 Patterns used

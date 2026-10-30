@@ -100,7 +100,7 @@ Claude always stops and asks when:
 
 ## Reference and seed data
 
-Seeded by the SQL migration scripts so every environment starts the same. Values are demo values and can be changed in the seed files.
+Seeded by each service's EF Core migrations (`HasData`, or SQL inside a migration) so every environment starts the same. Values are demo values and can be changed in the seed files.
 
 **Currencies** (Operations): SEK (2 minor units, active), EUR (2, active), USD (2, active).
 

@@ -175,7 +175,7 @@ Each row is an ADR and is also recorded as a separate file (`docs/adr/NNNN-title
 
 ## 5. High-level data model
 
-Each service owns only its own tables; reference data from other services (such as currencies) is kept in a local copy table updated from events. All tables have `CreatedAt`, `PerformedBy` and `Version` (optimistic concurrency); each schema also has `outbox` and `inbox` tables.
+Each service owns only its own tables; reference data from other services (such as currencies) is kept in a local copy table updated from events. All tables have `CreatedAt`, `PerformedBy` and `Version` (optimistic concurrency); each schema also has `outbox_message` and `inbox_message` tables.
 
 | Service | Table | Key fields |
 | --- | --- | --- |

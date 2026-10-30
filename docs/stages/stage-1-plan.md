@@ -50,7 +50,8 @@ Claude draws the sequence diagram of one event's full path, with a "crash at thi
 ### 1.2 Outbox and inbox
 - **Projects:**
   - `src/Bank.Common`: `IBusinessClock`, `MoneyRounding`, `IFileStorage`, `IEmailSender`, `IExchangeRateProvider`, `IAccountNumberGenerator`, `PerformedBy` helpers, `Result<T>`
-  - `src/Bank.Messaging` (Dapper on Npgsql): `IEventPublisher`, `IEventHandler<T>`, the SQL for `outbox_message` and `inbox_message`, `AddBankMessaging()`, the outbox dispatcher, and the consumer pipeline with an in-process transport seam
+  - `src/Bank.Messaging` (EF Core on Npgsql since ADR 0012; Dapper when the slice started): `IEventPublisher`, `IEventHandler<T>`, the `outbox_message` and `inbox_message` entities in each service's model, `AddBankMessaging()`, the outbox dispatcher, and the consumer pipeline with an in-process transport seam
+  - `src/Bank.Toolkit.Data` (ADR 0011): `AddNpgsqlDbContext`, `AddMigrationsOnStartup`
   - `src/Bank.Testing`: PostgreSQL and Kafka Testcontainers fixtures, `FakeBusinessClock`, `Eventually`, in-memory fakes
   - `tests/Bank.Messaging.UnitTests`: SchemaVer change classification
   - `tests/Bank.Messaging.IntegrationTests`: two schemas with two connections
@@ -63,9 +64,9 @@ Claude draws the sequence diagram of one event's full path, with a "crash at thi
 - **D1 (already decided, Majid reconfirms):**
   - How the dispatcher finds new rows: polling with `FOR UPDATE SKIP LOCKED` every 200 ms, LISTEN/NOTIFY, or Debezium CDC
   - Inbox key: `(MessageId, HandlerName)` or MessageId only
-- **D1 (new, from the switch to Dapper):**
-  - SQL migration runner: DbUp, FluentMigrator, or a small hand-written runner
-  - How `IEventPublisher` joins the feature's connection and transaction
+- **D1 (new, from the switch to Dapper; both superseded by the move back to EF Core, ADR 0012):**
+  - SQL migration runner: DbUp, FluentMigrator, or a small hand-written runner (now EF Core migrations)
+  - How `IEventPublisher` joins the feature's connection and transaction (now the service's `DbContext`)
 - **Learning document:** `docs/learning/stage-1/slice-1.2.md`
 
 ### 1.3 Kafka transport

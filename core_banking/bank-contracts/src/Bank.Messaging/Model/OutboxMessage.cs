@@ -28,4 +28,7 @@ public sealed class OutboxMessage
     public int Attempts { get; set; }
 
     public string? LastError { get; set; }
+
+    /// <summary>PostgreSQL's xmin, like every table's Version; checked on the dispatcher's update.</summary>
+    public uint Version { get; set; }
 }

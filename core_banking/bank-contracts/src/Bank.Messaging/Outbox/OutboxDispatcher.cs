@@ -29,9 +29,10 @@ public sealed class OutboxDispatcher(
         await using var transaction = await context.Database.BeginTransactionAsync(ct);
 
         // LINQ has no FOR UPDATE SKIP LOCKED; the rows come back tracked, so marking them is a normal SaveChanges.
+        // xmin is a system column, so SELECT * leaves it out; the Version property needs it named.
         var batchSize = options.Value.BatchSize;
         var batch = await context.Set<OutboxMessage>()
-            .FromSql($"SELECT * FROM outbox_message WHERE sent_at IS NULL ORDER BY position LIMIT {batchSize} FOR UPDATE SKIP LOCKED")
+            .FromSql($"SELECT *, xmin FROM outbox_message WHERE sent_at IS NULL ORDER BY position LIMIT {batchSize} FOR UPDATE SKIP LOCKED")
             .ToListAsync(ct);
 
         var sent = 0;

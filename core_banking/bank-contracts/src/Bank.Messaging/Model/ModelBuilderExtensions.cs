@@ -25,6 +25,7 @@ public static class ModelBuilderExtensions
             outbox.Property(m => m.SentAt).HasColumnName("sent_at");
             outbox.Property(m => m.Attempts).HasColumnName("attempts");
             outbox.Property(m => m.LastError).HasColumnName("last_error");
+            outbox.Property(m => m.Version).HasColumnName("xmin").HasColumnType("xid").IsRowVersion();
 
             // The dispatcher only ever reads unsent rows, in order.
             outbox.HasIndex(m => m.Position).HasDatabaseName("ix_outbox_message_unsent").HasFilter("sent_at IS NULL");
@@ -39,6 +40,7 @@ public static class ModelBuilderExtensions
             inbox.Property(m => m.SchemaUri).HasColumnName("schema_uri");
             inbox.Property(m => m.PerformedBy).HasColumnName("performed_by");
             inbox.Property(m => m.CreatedAt).HasColumnName("created_at");
+            inbox.Property(m => m.Version).HasColumnName("xmin").HasColumnType("xid").IsRowVersion();
         });
 
         return modelBuilder;

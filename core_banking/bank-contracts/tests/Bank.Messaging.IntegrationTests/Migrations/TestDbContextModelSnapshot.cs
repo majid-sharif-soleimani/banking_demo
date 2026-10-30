@@ -145,6 +145,12 @@ namespace Bank.Messaging.IntegrationTests.Migrations
                         .HasColumnType("text")
                         .HasColumnName("schema_uri");
 
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
                     b.HasKey("MessageId", "HandlerName")
                         .HasName("pk_inbox_message");
 
@@ -203,6 +209,12 @@ namespace Bank.Messaging.IntegrationTests.Migrations
                     b.Property<DateTimeOffset?>("SentAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("sent_at");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
 
                     b.HasKey("Id")
                         .HasName("pk_outbox_message");

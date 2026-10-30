@@ -12,4 +12,7 @@ public sealed class InboxMessage
     public required string PerformedBy { get; init; }
 
     public DateTimeOffset CreatedAt { get; init; }
+
+    /// <summary>PostgreSQL's xmin, like every table's Version. Inbox rows are only inserted, so it is never checked.</summary>
+    public uint Version { get; set; }
 }

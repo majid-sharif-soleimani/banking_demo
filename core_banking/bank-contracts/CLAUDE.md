@@ -1,6 +1,6 @@
 # bank-contracts
 
-Shared packages for every service: contracts (`Bank.Contracts`), and from slice 1.2 on `Bank.Common`, `Bank.Toolkit.Data`, `Bank.Messaging`, `Bank.Messaging.Kafka` (slice 1.3), `Bank.Testing`. Data access is EF Core (workspace ADR 0002). `tools/Bank.Contracts.SchemaTool` is a developer tool and is never packed. Not a service: owns no tables and publishes no events.
+Shared packages for every service: `Bank.Contracts`, `Bank.Common`, `Bank.Toolkit.Data`, `Bank.Messaging`, `Bank.Messaging.Kafka`, `Bank.Testing`, all packed to `../.local-feed`. Data access is EF Core (workspace ADR 0002). `tools/Bank.Contracts.SchemaTool` is a developer tool and is never packed. Not a service: owns no tables and publishes no events.
 
 ## Contracts
 
@@ -25,7 +25,7 @@ Shared packages for every service: contracts (`Bank.Contracts`), and from slice 
 
 ## Messaging (Bank.Messaging, ADRs 0006, 0007, 0012)
 
-- A service registers `AddNpgsqlDbContext<TContext>`, `AddMigrationsOnStartup<TContext>`, an `IMessageTransport` (Kafka from slice 1.3), `AddBankMessaging(o => o.ServiceName = "...")` and one `AddEventHandler<TEvent, THandler>()` per handler. Its `OnModelCreating` calls `modelBuilder.AddBankMessaging()`, so its migrations create `outbox_message` and `inbox_message`.
+- A service registers `AddNpgsqlDbContext<TContext>`, `AddMigrationsOnStartup<TContext>`, an `IMessageTransport` (`AddKafkaTransport`), `AddBankMessaging(o => o.ServiceName = "...")` and one `AddEventHandler<TEvent, THandler>()` per handler. Its `OnModelCreating` calls `modelBuilder.AddBankMessaging()`, so its migrations create `outbox_message` and `inbox_message`.
 - A feature changes its entities, calls `PublishAsync` (which only tracks an outbox row), then `SaveChangesAsync` once: state change and event commit together, or neither is written.
 - The pipeline gives each handler its own scope, context and transaction: inbox row first (raw `ON CONFLICT DO NOTHING`), then the handler, then `SaveChangesAsync` and commit. Handlers change the context and publish, and never call `SaveChangesAsync`.
 - The dispatcher uses its own scope per poll and `FromSql(... FOR UPDATE SKIP LOCKED)`.
@@ -45,6 +45,7 @@ Shared packages for every service: contracts (`Bank.Contracts`), and from slice 
 - A field with a `pattern` needs a matching sample in `tests/.../Support/SampleFactory.cs`.
 - The handler class name is part of the inbox key: renaming a handler makes it treat old messages as new. Two handlers with the same class name in one service fail at startup.
 - The messaging column names are set explicitly in `ModelBuilderExtensions` because the dispatcher and the inbox use them in raw SQL; keep both in sync.
+- `Version` is PostgreSQL's system column `xmin`: `SELECT *` leaves it out, so any `FromSql` on a mapped table must select `xmin` by name. Its migration creates no SQL.
 - A business-key violation surfaces as `DbUpdateException` with an inner `PostgresException`.
 - `Bank.Messaging.IntegrationTests` and `Bank.Toolkit.Data.IntegrationTests` need Docker. Each test creates its own role and schema in one shared PostgreSQL container. The Kafka tests share one broker per class and keep apart by unique service names (own topics and groups).
 - `KafkaOptions.RetryDelays` starts empty and gets its default after binding: the configuration binder appends configured array items to existing ones instead of replacing them.

@@ -10,7 +10,7 @@ namespace Bank.Testing;
 /// </summary>
 public sealed class PostgresFixture : IAsyncLifetime
 {
-    private readonly PostgreSqlContainer container = new PostgreSqlBuilder("postgres:18-alpine").Build();
+    private readonly PostgreSqlContainer container = new PostgreSqlBuilder("postgres:18.3").Build();
 
     public string AdminConnectionString => container.GetConnectionString();
 

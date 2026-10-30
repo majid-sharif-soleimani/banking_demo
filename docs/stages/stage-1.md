@@ -11,7 +11,7 @@ This stage is large, so it runs as four slices with a checkpoint after each (see
 | Slice | Content | Concepts | Decisions for Majid (D1) | Majid writes (originally; reassigned, see below) |
 | --- | --- | --- | --- | --- |
 | 1.1 Contracts | `bank-contracts` folder, build props, `Money`, `IIntegrationEvent`, the five schemas, `Bank.Contracts.Tests` | Value objects, contract-first design, JSON Schema, SchemaVer, contract tests | How records and schemas stay in sync (reflection test, code generation from schema, or schema generation from records). ADR: schema/record sync | `Money` and its tests (arithmetic, currency mismatch, JSON shape); the ADR |
-| 1.2 Outbox and inbox | `Bank.Common`, `Bank.Messaging` (EF Core, no Kafka; originally Dapper), `Bank.Testing` fixtures | The dual-write problem, transactional outbox, at-least-once delivery, idempotent consumers, inbox | How the dispatcher finds new outbox rows (polling, PostgreSQL LISTEN/NOTIFY, CDC with Debezium); the inbox key; the SQL migration runner; how `IEventPublisher` joins the feature's connection and transaction. ADRs: outbox dispatcher, inbox key, migration runner, transaction sharing | Integration tests "rollback publishes nothing" and "duplicate message applied once"; both ADRs |
+| 1.2 Outbox and inbox | `Bank.Common`, `Bank.Messaging` (EF Core, no Kafka; originally Dapper), `Bank.Testing` fixtures | The dual-write problem, transactional outbox, at-least-once delivery, idempotent consumers, inbox | How the dispatcher finds new outbox rows (polling, PostgreSQL LISTEN/NOTIFY, CDC with Debezium); the inbox key; the SQL migration runner and how `IEventPublisher` joins the feature's connection and transaction (both decided for Dapper, then superseded by EF Core, ADR 0012). ADRs: outbox dispatcher, inbox key, EF Core for the shared packages (0012, superseding migration runner and transaction sharing) | Integration tests "rollback publishes nothing" and "duplicate message applied once"; both ADRs |
 | 1.3 Kafka transport | `Bank.Messaging.Kafka`: producer, consumer, headers, retry, DLT | Topics, partitions and keys, ordering, consumer groups, offset commits, poison messages, dead-letter topics | Retry strategy (in-consumer retry that blocks the partition, retry topics, or no retry). ADRs: message format and headers, retry and dead-letter | The backoff sequence function and its unit test; the retry and dead-letter ADR |
 | 1.4 Platform | `bank-platform`: Aspire AppHost, init SQL, docker-compose, platform tests | Infrastructure as code, least-privilege database roles, service defaults, OpenTelemetry basics | none new | `db/init/001-roles-and-schemas.sql` and the test "each service role cannot read another schema"; ADR: one role and schema per service |
 
@@ -63,7 +63,7 @@ Schemas created in this stage (Operations needs them in stage 2): `currency_acti
 | DayClosed | Date |
 | DayCompleted | Date, Service |
 
-Also a `test_event` schema used only by messaging integration tests (`Bank.Testing`, never consumed by services).
+Also a `test_event` schema used only by messaging integration tests. The `TestEvent` record and its schema ship in `Bank.Contracts` (every contract is generated and checked there); no service handles it.
 
 Package versions: all five libraries (`Bank.Toolkit.Data` added by ADR 0011) plus `Bank.Testing` start at `0.1.0` and are packed to `../.local-feed`.
 
