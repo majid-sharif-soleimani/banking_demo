@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Bank.Messaging</PackageId>
+    <Description>Transactional outbox, inbox, outbox dispatcher, consumer pipeline and SQL migration runner (Dapper on Npgsql, no Kafka).</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Npgsql" />
+    <PackageReference Include="Dapper" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Options" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bank.Contracts\Bank.Contracts.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The outbox and inbox tables; SqlMigrationRunner reads every embedded resource under migrations/ (see MigrationScripts). -->
+    <EmbeddedResource Include="Migrations\*.sql" LogicalName="migrations/%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>

@@ -1,11 +1,17 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/Bank.Common/Bank.Common.csproj" />
     <Project Path="src/Bank.Contracts/Bank.Contracts.csproj" />
+    <Project Path="src/Bank.Messaging/Bank.Messaging.csproj" />
+    <Project Path="src/Bank.Testing/Bank.Testing.csproj" />
   </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/Bank.Contracts.SchemaTool/Bank.Contracts.SchemaTool.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Bank.Common.Tests/Bank.Common.Tests.csproj" />
     <Project Path="tests/Bank.Contracts.Tests/Bank.Contracts.Tests.csproj" />
+    <Project Path="tests/Bank.Messaging.IntegrationTests/Bank.Messaging.IntegrationTests.csproj" />
+    <Project Path="tests/Bank.Messaging.UnitTests/Bank.Messaging.UnitTests.csproj" />
   </Folder>
 </Solution>

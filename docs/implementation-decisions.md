@@ -84,10 +84,10 @@ Claude always stops and asks when:
 
 - One PostgreSQL database `bank`. One schema and one login role per service (`operations`, `customers`, `accounts`, `cards`, `lending`, `ledger`). Each role can only use its own schema. The init script lives in `bank-platform`.
 - Data access is Dapper with hand-written SQL on Npgsql. No EF Core anywhere (changed by Majid on 2026-10-30, `docs/adr/0001-use-dapper-instead-of-ef-core.md`).
-- Schema changes are versioned SQL scripts per service, applied at startup in development and by the AppHost. The runner (DbUp, FluentMigrator, or a small hand-written runner) is a D1 decision in slice 1.2.
+- Schema changes are versioned SQL scripts per service, applied at startup in development and by the AppHost. They are applied by a small hand-written runner in `Bank.Messaging` (one transaction per run, advisory lock, checksum check; decided by Majid in slice 1.2, bank-contracts ADR 0008).
 - Snake-case table and column names, written by hand in SQL. Dapper maps them to PascalCase properties with `DefaultTypeMap.MatchNamesWithUnderscores = true`.
 - Optimistic concurrency on `Version`: PostgreSQL `xmin` read as `uint`; every update has `WHERE id = @Id AND xmin = @Version` and treats 0 affected rows as a concurrency conflict.
-- One `NpgsqlConnection` and one transaction per request or per handled message. Feature code, the outbox and the inbox all use that same transaction. How `IEventPublisher` receives it is a D1 decision in slice 1.2.
+- One `NpgsqlConnection` and one transaction per request or per handled message. Feature code, the outbox and the inbox all use that same transaction. They share it through a scoped `DbSession` (decided by Majid in slice 1.2, bank-contracts ADR 0009).
 
 ## APIs
 

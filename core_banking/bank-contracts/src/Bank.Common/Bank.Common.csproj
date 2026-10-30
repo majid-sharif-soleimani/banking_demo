@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Bank.Common</PackageId>
+    <Description>Interfaces for the business clock and external services, money rounding, PerformedBy helpers and Result.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bank.Contracts\Bank.Contracts.csproj" />
+  </ItemGroup>
+</Project>

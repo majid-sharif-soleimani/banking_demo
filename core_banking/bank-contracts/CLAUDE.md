@@ -11,6 +11,14 @@ Shared packages for every service: contracts (`Bank.Contracts`), and from slice 
 - Versions: only ADDITION (`1-0-0` → `1-0-1`, new optional fields) or MODEL (`2-0-0`, anything else). REVISION is not used. Never edit or regenerate a published snapshot; bump `SchemaUri` instead.
 - JSON for event payloads always uses `ContractJson.Options` (camelCase, strict numbers, required and non-nullable fields enforced on read). `Money` serializes as `{ "amount": "1234.50", "currency": "SEK" }`.
 
+## Messaging (Bank.Messaging, ADRs 0006–0009)
+
+- A service registers an `NpgsqlDataSource` for its own role and schema, an `IMessageTransport` (Kafka from slice 1.3), then `AddBankMessaging(o => o.ServiceName = "...")`, `AddSqlMigrations(typeof(Program).Assembly, "<service>")` and one `AddEventHandler<TEvent, THandler>()` per handler.
+- `DbSession` (scoped) is the one connection and transaction of a request or a handled message. Features call `BeginAsync`, pass `session.Transaction` to every Dapper write, publish, then `CommitAsync`. `PublishAsync` without a transaction throws.
+- The pipeline gives each handler its own scope and transaction: inbox row `(message_id, handler_name)`, the handler's effect and its outgoing events commit together. Handlers never begin or commit.
+- SQL is unqualified; the schema comes from the role's search path. Tables are snake_case; `AddBankMessaging` sets Dapper's `MatchNamesWithUnderscores`.
+- Migrations: `.sql` files embedded with `LogicalName="migrations/%(Filename)%(Extension)"`, named `0001_...`, applied in one transaction before hosted services start. Never edit an applied script (the checksum check stops startup); add a new one.
+
 ## Gotchas
 
 - The `schemas` resource names use the build machine's path separator; always read them through `ContractSchemas`, never by raw resource name.
@@ -18,11 +26,15 @@ Shared packages for every service: contracts (`Bank.Contracts`), and from slice 
 - A type with a custom `JsonConverter` (such as `Money`) must implement `IJsonSchemaProvider` (`static abstract JsonObject JsonSchema()`), describing what its converter writes, next to the converter. The generator uses it for any type that implements it, and fails for a converter type that does not.
 - A validation attribute or CLR type the generator does not map fails generation; add the mapping in `tools/.../ContractSchemaGenerator.cs`. Nested records are not supported.
 - A field with a `pattern` needs a matching sample in `tests/.../Support/SampleFactory.cs`.
+- The handler class name is part of the inbox key: renaming a handler makes it treat old messages as new. Two handlers with the same class name in one service fail at startup.
+- Migration scripts must be able to run inside a transaction (no `CREATE INDEX CONCURRENTLY`).
+- `Bank.Messaging.IntegrationTests` needs Docker. Each test creates its own role and schema in one shared PostgreSQL container.
 
 ## Commands
 
 ```bash
 dotnet build && dotnet test
+dotnet test tests/Bank.Messaging.IntegrationTests   # outbox, inbox and migrations against PostgreSQL (Docker)
 dotnet run --project tools/Bank.Contracts.SchemaTool -- write   # writes missing schema snapshots
 dotnet pack -c Release -o ../.local-feed     # then bump the version in each consumer
 ```

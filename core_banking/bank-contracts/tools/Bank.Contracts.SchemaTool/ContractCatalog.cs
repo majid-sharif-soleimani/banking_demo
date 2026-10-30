@@ -1,5 +1,5 @@
-using System.Reflection;
 using Bank.Contracts.Events;
+using Bank.Contracts.Schema;
 
 namespace Bank.Contracts.SchemaTool;
 
@@ -12,8 +12,5 @@ public static class ContractCatalog
         .OrderBy(t => t.FullName, StringComparer.Ordinal)
         .ToList();
 
-    public static string? SchemaUriOf(Type eventType) =>
-        eventType.GetField("SchemaUri", BindingFlags.Public | BindingFlags.Static) is { IsLiteral: true } field
-            ? (string?)field.GetRawConstantValue()
-            : null;
+    public static string? SchemaUriOf(Type eventType) => EventSchemaUri.Find(eventType);
 }
