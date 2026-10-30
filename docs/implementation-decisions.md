@@ -141,6 +141,17 @@ Seeded by each service's EF Core migrations (`HasData`, or SQL inside a migratio
 - xUnit v3, Shouldly, Testcontainers. Unit test projects never start containers.
 - A stage is done only when `dotnet build` (warnings as errors) and `dotnet test` pass in every service folder the stage touched.
 - Hand-calculated expected values in financial tests show the arithmetic in a comment.
+- Test projects may use Confluent.Kafka types through the transitive reference of `Bank.Messaging.Kafka` (to read raw topics and test `KafkaHeaders`, which is `internal` with `InternalsVisibleTo`). No `.csproj` other than `Bank.Messaging.Kafka` references Confluent.Kafka directly.
+
+## Accepted limits (demo, not operational)
+
+This system is a learning demo and never runs in production. These gaps were found in the stage 1 review and are deliberately not fixed (Majid, 2026-10-30). Fix them first if the system ever handles real traffic.
+
+- **A failed offset store can stop a service.** In `KafkaConsumerService`, a `KafkaException` from `StoreOffset` (for example after a handler outlived `max.poll.interval.ms` and lost its partition) reaches the outer catch, whose `Seek` then also throws; the hosted service faults and the host stops. That catch also waits `RetryBackoff.DefaultDelays[^1]` instead of the configured delays.
+- **Untested failure paths in the Kafka transport.** No test proves that a failed dead-letter send loses nothing (ADR 0013, point 6), and no Kafka-level test sends a message with a missing header or invalid JSON to the DLT. Only the unknown-MODEL case is tested end to end.
+- **The Compose healthcheck can pass before the init script finishes.** `pg_isready` without `-h` uses the Unix socket, which the temporary init server already listens on, so a service could start before its role exists. The AppHost is not affected.
+- **The atomicity test covers only a failing handler.** It does not cover `SaveChangesAsync` itself failing (for example a business-key violation) after the handler published a reply.
+- **Tests and platform use different Kafka images.** Tests use `apache/kafka-native`; the AppHost and Compose use `confluentinc/confluent-local`.
 
 ## Language
 

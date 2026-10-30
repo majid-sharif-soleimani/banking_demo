@@ -37,6 +37,9 @@ public class MoneyJsonTests
     [InlineData("""{"amount":1234.5,"currency":"SEK"}""")]
     [InlineData("""{"amount":"1234.50","currency":"sek"}""")]
     [InlineData("""{"amount":"1234.50"}""")]
+    [InlineData("""{"amount":"+5","currency":"SEK"}""")]       // leading plus sign
+    [InlineData("""{"amount":".5","currency":"SEK"}""")]       // no digit before the point
+    [InlineData("""{"amount":"5.","currency":"SEK"}""")]       // no digit after the point
     public void Money_JsonSchema_rejects_what_the_converter_rejects(string json)
     {
         var schema = JsonSchema.FromText(Money.JsonSchema().ToJsonString());

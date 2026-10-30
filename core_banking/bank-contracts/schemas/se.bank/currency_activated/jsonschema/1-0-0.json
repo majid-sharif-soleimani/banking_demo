@@ -31,8 +31,9 @@
     },
     "minorUnits": {
       "type": "integer",
-      "description": "Digits after the decimal point, for example 2 for SEK.",
-      "minimum": 0
+      "description": "Digits after the decimal point, for example 2 for SEK; at most 28, the most a decimal holds.",
+      "minimum": 0,
+      "maximum": 28
     }
   },
   "required": [

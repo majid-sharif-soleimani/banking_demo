@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using Bank.Contracts.Schema;
 
 namespace Bank.Contracts;
@@ -49,13 +50,13 @@ public sealed record Money(decimal Amount, string Currency) : IComparable<Money>
 
     public static Money operator *(decimal factor, Money money) => money * factor;
 
-    public static bool operator <(Money left, Money right) => left.CompareTo(right) < 0;
+    public static bool operator <(Money? left, Money? right) => Compare(left, right) < 0;
 
-    public static bool operator >(Money left, Money right) => left.CompareTo(right) > 0;
+    public static bool operator >(Money? left, Money? right) => Compare(left, right) > 0;
 
-    public static bool operator <=(Money left, Money right) => left.CompareTo(right) <= 0;
+    public static bool operator <=(Money? left, Money? right) => Compare(left, right) <= 0;
 
-    public static bool operator >=(Money left, Money right) => left.CompareTo(right) >= 0;
+    public static bool operator >=(Money? left, Money? right) => Compare(left, right) >= 0;
 
     public int CompareTo(Money? other)
     {
@@ -67,6 +68,10 @@ public sealed record Money(decimal Amount, string Currency) : IComparable<Money>
         EnsureSameCurrency(this, other);
         return Amount.CompareTo(other.Amount);
     }
+
+    // null sorts first, the same order as CompareTo(null)
+    private static int Compare(Money? left, Money? right) =>
+        left is null ? (right is null ? 0 : -1) : left.CompareTo(right);
 
     public override string ToString() => $"{Amount.ToString(System.Globalization.CultureInfo.InvariantCulture)} {Currency}";
 
@@ -91,9 +96,13 @@ public sealed record Money(decimal Amount, string Currency) : IComparable<Money>
 /// Writes Money as { "amount": "1234.50", "currency": "SEK" }. The amount is a string so that
 /// consumers whose JSON parser uses binary floating point (JavaScript, many others) cannot lose precision.
 /// </summary>
-public sealed class MoneyJsonConverter : JsonConverter<Money>
+public sealed partial class MoneyJsonConverter : JsonConverter<Money>
 {
     private const NumberStyles AmountStyle = NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint;
+
+    // The same pattern as "amount" in Money.JsonSchema(): decimal.TryParse alone also accepts "+5", ".5" and "5."
+    [GeneratedRegex(@"^-?[0-9]+(\.[0-9]+)?$")]
+    private static partial Regex AmountPattern();
 
     public override Money Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
@@ -154,7 +163,8 @@ public sealed class MoneyJsonConverter : JsonConverter<Money>
             throw new JsonException("Money amount must be a string, for example \"1234.50\".");
         }
 
-        return decimal.TryParse(reader.GetString(), AmountStyle, CultureInfo.InvariantCulture, out var amount)
+        var text = reader.GetString()!;
+        return AmountPattern().IsMatch(text) && decimal.TryParse(text, AmountStyle, CultureInfo.InvariantCulture, out var amount)
             ? amount
             : throw new JsonException("Money amount is not a plain decimal number.");
     }

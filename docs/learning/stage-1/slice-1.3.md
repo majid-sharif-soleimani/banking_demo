@@ -161,7 +161,7 @@ sequenceDiagram
 
 #### `KafkaHeaders` (`KafkaHeaders.cs`)
 
-The message format (ADR 0014). `ToKafka(TransportMessage)` builds:
+The message format (ADR 0014). It is `internal`, because its signatures use Confluent types and no service may see those; only the two test projects get access, through `InternalsVisibleTo` (changed at the stage 1 review). `ToKafka(TransportMessage)` builds:
 
 | Part | Content |
 | --- | --- |

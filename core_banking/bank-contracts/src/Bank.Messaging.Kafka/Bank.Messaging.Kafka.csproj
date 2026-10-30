@@ -9,6 +9,11 @@
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
   </ItemGroup>
   <ItemGroup>
+    <!-- KafkaHeaders uses Confluent types, so it stays internal; only the tests see it. -->
+    <InternalsVisibleTo Include="Bank.Messaging.UnitTests" />
+    <InternalsVisibleTo Include="Bank.Messaging.IntegrationTests" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\Bank.Messaging\Bank.Messaging.csproj" />
   </ItemGroup>
 </Project>

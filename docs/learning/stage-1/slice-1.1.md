@@ -139,7 +139,7 @@ The same file holds `MoneyJsonConverter` and `Money.JsonSchema()`, so everything
 { "amount": "1234.50", "currency": "SEK" }
 ```
 
-The amount is a **string**. The converter writes it with its scale (`1234.50`, not `1234.5`) and rejects JSON numbers, exponents, commas and bad currency codes on read.
+The amount is a **string**. The converter writes it with its scale (`1234.50`, not `1234.5`) and rejects JSON numbers, exponents, commas and bad currency codes on read. On read it first matches the amount against the schema's own pattern (`^-?[0-9]+(\.[0-9]+)?$`), because `decimal.TryParse` alone would also accept `+5`, `.5` and `5.`; so the converter and the schema accept exactly the same amounts (fixed at the stage 1 review). The comparison operators accept `null` and sort it first, the same order as `CompareTo(null)`.
 
 ### 2.4 The events (`src/Bank.Contracts/Events/`)
 

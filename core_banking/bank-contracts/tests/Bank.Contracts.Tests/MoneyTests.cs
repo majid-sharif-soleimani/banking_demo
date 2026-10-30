@@ -53,6 +53,18 @@ public class MoneyTests
     }
 
     [Fact]
+    public void Comparison_operators_treat_null_as_less_than_any_amount()
+    {
+        // Same order as CompareTo(null), which returns 1
+        Money? none = null;
+
+        (none < Sek(1m)).ShouldBeTrue();
+        (none > Sek(1m)).ShouldBeFalse();
+        (Sek(1m) > none).ShouldBeTrue();
+        (Sek(1m) >= none).ShouldBeTrue();
+    }
+
+    [Fact]
     public void Zero_creates_an_empty_amount_in_the_currency()
     {
         Money.Zero("EUR").ShouldBe(Eur(0m));

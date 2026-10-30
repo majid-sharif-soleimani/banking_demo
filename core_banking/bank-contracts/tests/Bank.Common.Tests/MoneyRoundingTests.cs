@@ -1,3 +1,4 @@
+using System.Globalization;
 using Bank.Contracts;
 
 namespace Bank.Common.Tests;
@@ -12,9 +13,9 @@ public class MoneyRoundingTests
     [InlineData("12.3456", 3, "12.346")]
     public void Round_uses_the_minor_units_and_rounds_midpoints_away_from_zero(string amount, int minorUnits, string expected)
     {
-        var rounded = MoneyRounding.Round(new Money(decimal.Parse(amount), "SEK"), minorUnits);
+        var rounded = MoneyRounding.Round(new Money(decimal.Parse(amount, CultureInfo.InvariantCulture), "SEK"), minorUnits);
 
-        rounded.ShouldBe(new Money(decimal.Parse(expected), "SEK"));
+        rounded.ShouldBe(new Money(decimal.Parse(expected, CultureInfo.InvariantCulture), "SEK"));
     }
 
     [Fact]

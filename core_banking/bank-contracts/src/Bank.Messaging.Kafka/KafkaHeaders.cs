@@ -11,7 +11,7 @@ namespace Bank.Messaging.Kafka;
 /// in the headers message-id, schema-uri, performed-by and occurred-on. Keys and values are bytes so the dead-letter
 /// topic can keep exactly what arrived, even when it is not valid.
 /// </summary>
-public static class KafkaHeaders
+internal static class KafkaHeaders
 {
     public const string MessageId = "message-id";
     public const string SchemaUri = "schema-uri";
