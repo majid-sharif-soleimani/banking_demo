@@ -1,4 +1,6 @@
+using System.Globalization;
 using System.Text.Json;
+using Json.Schema;
 
 namespace Bank.Contracts.Tests;
 
@@ -17,6 +19,30 @@ public class MoneyJsonTests
     {
         JsonSerializer.Serialize(new Money(-0.0000001m, "EUR"))
             .ShouldBe("""{"amount":"-0.0000001","currency":"EUR"}""");
+    }
+
+    [Theory]
+    [InlineData("1234.50", "SEK")]
+    [InlineData("-0.0000001", "EUR")]
+    [InlineData("0", "USD")]
+    public void What_the_converter_writes_validates_against_Money_JsonSchema(string amount, string currency)
+    {
+        var schema = JsonSchema.FromText(Money.JsonSchema().ToJsonString());
+        var json = JsonSerializer.SerializeToElement(new Money(decimal.Parse(amount, CultureInfo.InvariantCulture), currency));
+
+        schema.Evaluate(json).IsValid.ShouldBeTrue();
+    }
+
+    [Theory]
+    [InlineData("""{"amount":1234.5,"currency":"SEK"}""")]
+    [InlineData("""{"amount":"1234.50","currency":"sek"}""")]
+    [InlineData("""{"amount":"1234.50"}""")]
+    public void Money_JsonSchema_rejects_what_the_converter_rejects(string json)
+    {
+        var schema = JsonSchema.FromText(Money.JsonSchema().ToJsonString());
+
+        schema.Evaluate(JsonDocument.Parse(json).RootElement).IsValid.ShouldBeFalse();
+        Should.Throw<JsonException>(() => JsonSerializer.Deserialize<Money>(json));
     }
 
     [Fact]

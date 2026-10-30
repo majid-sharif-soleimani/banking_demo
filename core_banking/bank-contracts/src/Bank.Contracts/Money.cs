@@ -1,3 +1,6 @@
+using System.Globalization;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
 namespace Bank.Contracts;
@@ -12,6 +15,23 @@ public sealed record Money(decimal Amount, string Currency) : IComparable<Money>
     public string Currency { get; } = ValidateCurrency(Currency);
 
     public static Money Zero(string currency) => new(0m, currency);
+
+    /// <summary>
+    /// The JSON Schema of what <see cref="MoneyJsonConverter"/> writes. A schema generator cannot see through a custom
+    /// converter, so the shape is described here, next to the type. Returns a new object on every call.
+    /// </summary>
+    public static JsonObject JsonSchema() => JsonNode.Parse("""
+        {
+          "type": "object",
+          "description": "Money; amount is a decimal string so no consumer loses precision.",
+          "properties": {
+            "amount": { "type": "string", "pattern": "^-?[0-9]+(\\.[0-9]+)?$" },
+            "currency": { "type": "string", "pattern": "^[A-Z]{3}$" }
+          },
+          "required": ["amount", "currency"],
+          "additionalProperties": false
+        }
+        """)!.AsObject();
 
     public static Money operator +(Money left, Money right)
     {
@@ -64,5 +84,78 @@ public sealed record Money(decimal Amount, string Currency) : IComparable<Money>
         {
             throw new CurrencyMismatchException(left.Currency, right.Currency);
         }
+    }
+}
+
+/// <summary>
+/// Writes Money as { "amount": "1234.50", "currency": "SEK" }. The amount is a string so that
+/// consumers whose JSON parser uses binary floating point (JavaScript, many others) cannot lose precision.
+/// </summary>
+public sealed class MoneyJsonConverter : JsonConverter<Money>
+{
+    private const NumberStyles AmountStyle = NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint;
+
+    public override Money Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.StartObject)
+        {
+            throw new JsonException("Money must be a JSON object.");
+        }
+
+        decimal? amount = null;
+        string? currency = null;
+
+        while (reader.Read() && reader.TokenType != JsonTokenType.EndObject)
+        {
+            var name = reader.GetString();
+            reader.Read();
+
+            switch (name)
+            {
+                case "amount":
+                    amount = ReadAmount(ref reader);
+                    break;
+                case "currency":
+                    currency = reader.TokenType == JsonTokenType.String
+                        ? reader.GetString()
+                        : throw new JsonException("Money currency must be a string.");
+                    break;
+                default:
+                    reader.Skip();
+                    break;
+            }
+        }
+
+        if (amount is null || currency is null)
+        {
+            throw new JsonException("Money needs both 'amount' and 'currency'.");
+        }
+
+        if (!Money.IsValidCurrency(currency))
+        {
+            throw new JsonException($"Money currency '{currency}' is not a three-letter upper-case code.");
+        }
+
+        return new Money(amount.Value, currency);
+    }
+
+    public override void Write(Utf8JsonWriter writer, Money value, JsonSerializerOptions options)
+    {
+        writer.WriteStartObject();
+        writer.WriteString("amount", value.Amount.ToString(CultureInfo.InvariantCulture));
+        writer.WriteString("currency", value.Currency);
+        writer.WriteEndObject();
+    }
+
+    private static decimal ReadAmount(ref Utf8JsonReader reader)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException("Money amount must be a string, for example \"1234.50\".");
+        }
+
+        return decimal.TryParse(reader.GetString(), AmountStyle, CultureInfo.InvariantCulture, out var amount)
+            ? amount
+            : throw new JsonException("Money amount is not a plain decimal number.");
     }
 }

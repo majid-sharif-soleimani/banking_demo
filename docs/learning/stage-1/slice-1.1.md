@@ -88,7 +88,7 @@ Everything is under `core_banking/bank-contracts/`.
 | `schemas/se.bank/<event>/jsonschema/1-0-0.json` | The five generated snapshots: `currency_activated`, `business_day_opened`, `day_closed`, `day_completed`, `test_event` |
 | `src/Bank.Contracts/Money.cs` | The value object and its operators; it validates that the currency is a three-letter upper-case code |
 | `src/Bank.Contracts/CurrencyMismatchException.cs` | Thrown when two currencies are combined; carries `Left` and `Right` |
-| `src/Bank.Contracts/MoneyJsonConverter.cs` | Reads and writes the string-amount JSON shape; rejects numbers, exponents, commas and bad codes |
+| `src/Bank.Contracts/Money.cs` (`MoneyJsonConverter`, `Money.JsonSchema()`) | The converter reads and writes the string-amount JSON shape and rejects numbers, exponents, commas and bad codes; `JsonSchema()` describes that shape for the schema tool, next to the converter |
 | `src/Bank.Contracts/IIntegrationEvent.cs` | `EventId`, `OccurredOn` (business date), `PerformedBy`, with the descriptions and constraints every schema uses for them |
 | `src/Bank.Contracts/Operations/*.cs` | `CurrencyActivated`, `BusinessDayOpened`, `DayClosed`, `DayCompleted`, each with `[Description]` and field attributes |
 | `src/Bank.Contracts/Testing/TestEvent.cs` | For messaging tests only: `Key` (ordering), `Sequence`, `Amount` (exercises `Money` in a schema) |

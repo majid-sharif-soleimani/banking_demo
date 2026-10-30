@@ -18,20 +18,6 @@ public static class ContractSchemaGenerator
 
     private static readonly Type[] FloatingTypes = [typeof(decimal), typeof(double), typeof(float)];
 
-    // Money has its own converter, so the exporter cannot see its shape; this is what MoneyJsonConverter writes.
-    private static JsonObject MoneySchema() => new()
-    {
-        ["type"] = "object",
-        ["description"] = "Money; amount is a decimal string so no consumer loses precision.",
-        ["properties"] = new JsonObject
-        {
-            ["amount"] = new JsonObject { ["type"] = "string", ["pattern"] = @"^-?[0-9]+(\.[0-9]+)?$" },
-            ["currency"] = new JsonObject { ["type"] = "string", ["pattern"] = "^[A-Z]{3}$" },
-        },
-        ["required"] = new JsonArray("amount", "currency"),
-        ["additionalProperties"] = false,
-    };
-
     public static JsonObject Generate(Type recordType, SchemaKey key)
     {
         var description = recordType.GetCustomAttribute<DescriptionAttribute>()?.Description
@@ -95,7 +81,8 @@ public static class ContractSchemaGenerator
 
     private static JsonObject WithMoneyShape(JsonNode? exported, bool allowsNull)
     {
-        var money = MoneySchema();
+        // Money has its own converter, so the exporter cannot see its shape; Money describes it itself.
+        var money = Money.JsonSchema();
         if (allowsNull)
         {
             money["type"] = new JsonArray("object", "null");
