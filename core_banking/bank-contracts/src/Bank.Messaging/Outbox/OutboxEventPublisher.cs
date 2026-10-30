@@ -7,6 +7,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Bank.Messaging.Outbox;
 
+/// <summary>
+/// Turns an event into an outbox row in the caller's DbContext (ADR 0012). It never calls SaveChangesAsync: that call
+/// would save everything tracked in the shared context, including the caller's unfinished work, in a transaction of its
+/// own. The caller saves once when its work is complete (a feature at its end, MessagePipeline after a handler), so the
+/// state change and its events are written together or not at all.
+/// </summary>
 internal sealed class OutboxEventPublisher(DbContext context, TimeProvider timeProvider) : IEventPublisher
 {
     public Task PublishAsync<T>(T @event, string key, CancellationToken ct) where T : IIntegrationEvent
