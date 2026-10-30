@@ -91,7 +91,7 @@ public class ContractSchemaGeneratorTests
         Property("performedBy")["minLength"]!.GetValue<int>().ShouldBe(1);
     }
 
-    private sealed record Tag(string Value)
+    private sealed record Tag(string Value) : IJsonSchemaProvider
     {
         public static JsonObject JsonSchema() => new() { ["type"] = "string", ["pattern"] = "^[a-z]+$" };
     }
@@ -100,7 +100,7 @@ public class ContractSchemaGeneratorTests
     private sealed record WithOwnSchema(Tag Label, Tag? Other = null);
 
     [Fact]
-    public void A_type_with_its_own_JsonSchema_method_uses_it()
+    public void A_type_that_implements_IJsonSchemaProvider_uses_its_own_schema()
     {
         var properties = ContractSchemaGenerator.Generate(typeof(WithOwnSchema), Key)["properties"]!;
 
@@ -124,10 +124,10 @@ public class ContractSchemaGeneratorTests
     private sealed record WithOpaque(Opaque Value);
 
     [Fact]
-    public void Refuses_a_type_with_a_custom_converter_but_no_JsonSchema_method()
+    public void Refuses_a_type_with_a_custom_converter_that_does_not_implement_IJsonSchemaProvider()
     {
         Should.Throw<NotSupportedException>(() => ContractSchemaGenerator.Generate(typeof(WithOpaque), Key))
-            .Message.ShouldContain("JsonSchema()");
+            .Message.ShouldContain(nameof(IJsonSchemaProvider));
     }
 
     [Description("Has a bare decimal.")]

@@ -12,15 +12,16 @@ namespace Bank.Contracts.SchemaTool;
 /// Generates the JSON Schema of an event record (ADR 0003). The record is the source of truth: the shape comes from
 /// <see cref="JsonSchemaExporter"/> with <see cref="ContractJson.Options"/>, and descriptions and constraints come
 /// from attributes on the record, or on <see cref="IIntegrationEvent"/> for the common fields. A property type that
-/// has <c>public static JsonObject JsonSchema()</c> (such as <see cref="Money"/>) describes its own shape.
+/// implements <see cref="IJsonSchemaProvider"/> (such as <see cref="Money"/>) describes its own shape.
 /// </summary>
 public static class ContractSchemaGenerator
 {
     private const string Draft = "https://json-schema.org/draft/2020-12/schema";
 
-    private const string SchemaMethodName = "JsonSchema";
-
     private static readonly Type[] FloatingTypes = [typeof(decimal), typeof(double), typeof(float)];
+
+    private static readonly MethodInfo SchemaOfMethod =
+        typeof(ContractSchemaGenerator).GetMethod(nameof(SchemaOf), BindingFlags.NonPublic | BindingFlags.Static)!;
 
     public static JsonObject Generate(Type recordType, SchemaKey key)
     {
@@ -79,37 +80,36 @@ public static class ContractSchemaGenerator
             ? WithOwnSchema(own, exported, allowsNull: nullability.Create(property).ReadState == NullabilityState.Nullable)
             : exported as JsonObject ?? throw new NotSupportedException(
                 $"'{jsonName}' of type {type.Name} has no JSON shape the generator understands; " +
-                $"contracts hold flat fields and types with their own {SchemaMethodName}().");
+                $"contracts hold flat fields and types that implement {nameof(IJsonSchemaProvider)}.");
 
         ApplyAttributes(schema, jsonName, property);
         return schema;
     }
 
     /// <summary>
-    /// The schema a type gives of itself through <c>public static JsonObject JsonSchema()</c>, or null when it has none
-    /// and the exporter's shape is used. A type with a custom converter must have one: the exporter cannot see what
-    /// the converter writes and would describe it as "anything".
+    /// The schema a type gives of itself through <see cref="IJsonSchemaProvider"/>, or null when it does not implement
+    /// it and the exporter's shape is used. A type with a custom converter must implement it: the exporter cannot see
+    /// what the converter writes and would describe it as "anything".
     /// </summary>
     private static JsonObject? OwnSchema(Type type, string jsonName)
     {
-        var method = type.GetMethod(SchemaMethodName, BindingFlags.Public | BindingFlags.Static, Type.EmptyTypes);
-        if (method is not null)
+        if (type.IsAssignableTo(typeof(IJsonSchemaProvider)))
         {
-            return method.ReturnType == typeof(JsonObject)
-                ? (JsonObject)method.Invoke(null, null)!
-                : throw new NotSupportedException(
-                    $"{type.Name}.{SchemaMethodName}() must return {nameof(JsonObject)}, not {method.ReturnType.Name}.");
+            return (JsonObject)SchemaOfMethod.MakeGenericMethod(type).Invoke(null, null)!;
         }
 
         if (type.GetCustomAttribute<JsonConverterAttribute>() is not null)
         {
             throw new NotSupportedException(
                 $"'{jsonName}' of type {type.Name} has a custom JsonConverter, so its shape cannot be generated; " +
-                $"add 'public static JsonObject {SchemaMethodName}()' to {type.Name} describing what the converter writes.");
+                $"implement {nameof(IJsonSchemaProvider)} on {type.Name}, describing what the converter writes.");
         }
 
         return null;
     }
+
+    // A static abstract member can only be called through a type parameter; reflection supplies the type.
+    private static JsonObject SchemaOf<T>() where T : IJsonSchemaProvider => T.JsonSchema();
 
     private static JsonObject WithOwnSchema(JsonObject own, JsonNode? exported, bool allowsNull)
     {

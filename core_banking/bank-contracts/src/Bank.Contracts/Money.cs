@@ -10,15 +10,14 @@ namespace Bank.Contracts;
 /// Operations on two different currencies throw <see cref="CurrencyMismatchException"/>.
 /// </summary>
 [JsonConverter(typeof(MoneyJsonConverter))]
-public sealed record Money(decimal Amount, string Currency) : IComparable<Money>
+public sealed record Money(decimal Amount, string Currency) : IComparable<Money>, IJsonSchemaProvider
 {
     public string Currency { get; } = ValidateCurrency(Currency);
 
     public static Money Zero(string currency) => new(0m, currency);
 
     /// <summary>
-    /// The JSON Schema of what <see cref="MoneyJsonConverter"/> writes. A schema generator cannot see through a custom
-    /// converter, so the shape is described here, next to the type. Returns a new object on every call.
+    /// The JSON Schema of what <see cref="MoneyJsonConverter"/> writes (<see cref="IJsonSchemaProvider"/>).
     /// </summary>
     public static JsonObject JsonSchema() => JsonNode.Parse("""
         {

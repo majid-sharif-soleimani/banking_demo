@@ -15,7 +15,7 @@ Shared packages for every service: contracts (`Bank.Contracts`), and from slice 
 
 - The `schemas` resource names use the build machine's path separator; always read them through `ContractSchemas`, never by raw resource name.
 - A contract property of type `decimal`, `double` or `float` fails generation on purpose: use `Money`.
-- A type with a custom `JsonConverter` (such as `Money`) must describe what its converter writes in `public static JsonObject JsonSchema()`, next to the converter; the generator uses that method for any type that has it, and fails for a converter type without it.
+- A type with a custom `JsonConverter` (such as `Money`) must implement `IJsonSchemaProvider` (`static abstract JsonObject JsonSchema()`), describing what its converter writes, next to the converter. The generator uses it for any type that implements it, and fails for a converter type that does not.
 - A validation attribute or CLR type the generator does not map fails generation; add the mapping in `tools/.../ContractSchemaGenerator.cs`. Nested records are not supported.
 - A field with a `pattern` needs a matching sample in `tests/.../Support/SampleFactory.cs`.
 
