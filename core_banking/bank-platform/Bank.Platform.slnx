@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Bank.AppHost/Bank.AppHost.csproj" />
+    <Project Path="src/Bank.ServiceDefaults/Bank.ServiceDefaults.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Bank.Platform.IntegrationTests/Bank.Platform.IntegrationTests.csproj" />
+  </Folder>
+</Solution>

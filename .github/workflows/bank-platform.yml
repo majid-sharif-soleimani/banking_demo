@@ -1,0 +1,34 @@
+name: bank-platform
+
+on:
+  push:
+    paths:
+      - "core_banking/bank-platform/**"
+      - ".github/workflows/bank-platform.yml"
+  pull_request:
+    paths:
+      - "core_banking/bank-platform/**"
+      - ".github/workflows/bank-platform.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: core_banking/bank-platform
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      # nuget.config lists the local feed; it is gitignored, so create it empty.
+      - run: mkdir -p ../.local-feed
+      # The AppHost serves its internal endpoints over HTTPS; the tests need a development certificate.
+      - run: dotnet dev-certs https
+      - run: dotnet restore
+      - run: dotnet build --no-restore -c Release
+      # Starts the AppHost with Docker (preinstalled on ubuntu-latest): PostgreSQL, Kafka, Kafka UI, Mailpit.
+      - run: dotnet test --no-build -c Release

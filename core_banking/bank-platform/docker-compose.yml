@@ -1,0 +1,74 @@
+# The same infrastructure as the Aspire AppHost, without Aspire: PostgreSQL with one role and schema per service,
+# Kafka (KRaft), Kafka UI and Mailpit. Used on the EC2 instance in stage 8; services are added there.
+#
+#   cp .env.example .env      # then replace every placeholder (.env is gitignored)
+#   docker compose up -d
+#
+# Image tags match the ones Aspire 13.6 uses, so both environments run the same versions.
+# Ports are bound to 127.0.0.1 only: nothing here is meant to be reachable from outside the machine.
+
+name: bank
+
+services:
+  postgres:
+    image: postgres:18.3
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      # The init script runs in this database, so the roles and schemas end up in "bank".
+      POSTGRES_DB: bank
+      OPERATIONS_DB_PASSWORD: ${OPERATIONS_DB_PASSWORD:?Set OPERATIONS_DB_PASSWORD in .env}
+      CUSTOMERS_DB_PASSWORD: ${CUSTOMERS_DB_PASSWORD:?Set CUSTOMERS_DB_PASSWORD in .env}
+      ACCOUNTS_DB_PASSWORD: ${ACCOUNTS_DB_PASSWORD:?Set ACCOUNTS_DB_PASSWORD in .env}
+      CARDS_DB_PASSWORD: ${CARDS_DB_PASSWORD:?Set CARDS_DB_PASSWORD in .env}
+      LENDING_DB_PASSWORD: ${LENDING_DB_PASSWORD:?Set LENDING_DB_PASSWORD in .env}
+      LEDGER_DB_PASSWORD: ${LEDGER_DB_PASSWORD:?Set LEDGER_DB_PASSWORD in .env}
+    volumes:
+      # Runs once, on an empty data volume. Changing it later needs "docker compose down -v" (deletes all data).
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+      - postgres-data:/var/lib/postgresql
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d bank"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  kafka:
+    image: confluentinc/confluent-local:8.2.0
+    environment:
+      # Single node in KRaft mode (no ZooKeeper). Programs on the host use localhost:9092; containers use kafka:9093.
+      KAFKA_LISTENERS: PLAINTEXT://localhost:29092,CONTROLLER://localhost:29093,PLAINTEXT_HOST://0.0.0.0:9092,PLAINTEXT_INTERNAL://0.0.0.0:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:29092,PLAINTEXT_HOST://localhost:9092,PLAINTEXT_INTERNAL://kafka:9093
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    ports:
+      - "127.0.0.1:9092:9092"
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+
+  kafka-ui:
+    image: kafbat/kafka-ui:v1.5.0
+    environment:
+      KAFKA_CLUSTERS_0_NAME: bank
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9093
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  mailpit:
+    image: axllent/mailpit:v1.31.2
+    ports:
+      - "127.0.0.1:8025:8025" # web UI
+      - "127.0.0.1:1025:1025" # SMTP
+
+volumes:
+  postgres-data:
+  kafka-data:

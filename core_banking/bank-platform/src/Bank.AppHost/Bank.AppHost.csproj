@@ -1,0 +1,15 @@
+<Project Sdk="Aspire.AppHost.Sdk/13.6.4">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <!-- Only an id: the secret parameter values live in the user profile, never in the repo. -->
+    <UserSecretsId>bef4f1b4-4d03-40a9-9659-24479c525efe</UserSecretsId>
+    <!-- We run with dotnet run, not the Aspire CLI: the SDK takes the orchestrator and dashboard from NuGet instead. -->
+    <NoWarn>$(NoWarn);ASPIRE010</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.PostgreSQL" />
+    <PackageReference Include="Aspire.Hosting.Kafka" />
+    <PackageReference Include="CommunityToolkit.Aspire.Hosting.MailPit" />
+  </ItemGroup>
+</Project>
