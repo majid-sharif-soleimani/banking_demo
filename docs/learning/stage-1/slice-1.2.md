@@ -180,85 +180,88 @@ EF Core takes a database lock while it migrates. Two instances of a service star
 
 ### 2.4 The sending side
 
+#### The idea in one sentence
+
+The feature never talks to the broker. It only **writes the event into a table** of its own database, in the same transaction as its change. A background loop **reads that table later and sends** what it finds.
+
+Think of an office: you write a letter and drop it in the out-tray on your desk (the `outbox_message` table). A courier comes by every 200 ms, takes what is in the tray, delivers it, and stamps it "sent". You never wait for the courier, and the courier never takes a letter you threw away.
+
+#### Why it takes two classes
+
+The two halves run at different times, in different places:
+
+| | `OutboxEventPublisher` | `OutboxDispatcher` |
+| --- | --- | --- |
+| Runs | inside the request, while the feature works | in the background, after the request has finished |
+| Transaction | the feature's own | its own, one per poll |
+| Talks to the broker? | **never** | yes |
+| Job | turn the event into an outbox row | send saved rows and mark them sent |
+
+The split is the whole point. If the publisher sent to the broker itself, a rollback after the send would leave an event for a change that never happened. Because the dispatcher only sees rows that were **committed**, it can only send real facts.
+
+#### One message, from start to finish
+
+Example: Operations closes the business day and publishes `DayClosed`.
+
 ```mermaid
-flowchart LR
-    F["Feature<br/>(endpoint or handler)"] -->|"1 change entities"| CTX["service DbContext<br/>(scoped)"]
-    F -->|"2 PublishAsync(event, key)"| P["OutboxEventPublisher<br/>(IEventPublisher)"]
-    P -->|"Add(OutboxMessage)<br/>tracked only"| CTX
-    F -->|"3 SaveChangesAsync<br/>one transaction"| CTX
-    CTX --- DB[("schema of the service")]
-    SVC["OutboxDispatcherService<br/>(hosted loop)"] -->|"every 200 ms"| D["OutboxDispatcher"]
-    D -->|"own scope: FromSql(... FOR UPDATE SKIP LOCKED)"| DB
-    D -->|"SendAsync(TransportMessage)"| TR{{"IMessageTransport"}}
+sequenceDiagram
+    autonumber
+    participant F as Feature<br/>(CloseDay endpoint)
+    participant P as OutboxEventPublisher
+    participant C as DbContext
+    participant DB as PostgreSQL
+    participant S as OutboxDispatcherService<br/>(background loop)
+    participant D as OutboxDispatcher
+    participant T as IMessageTransport<br/>(Kafka)
+
+    rect rgba(120, 160, 255, 0.15)
+    Note over F,DB: Part 1: inside the request
+    F->>C: Add(businessDay)  [only in memory]
+    F->>P: PublishAsync(DayClosed, key "bank")
+    P->>C: Add(OutboxMessage)  [only in memory]
+    F->>C: SaveChangesAsync()
+    C->>DB: BEGIN, INSERT business_day, INSERT outbox_message, COMMIT
+    Note over F,DB: The request ends here. Nothing has gone to Kafka yet.
+    end
+
+    rect rgba(120, 220, 160, 0.15)
+    Note over S,T: Part 2: in the background, up to 200 ms later
+    S->>D: DispatchBatchAsync()
+    D->>DB: BEGIN, SELECT unsent rows FOR UPDATE SKIP LOCKED
+    DB-->>D: the DayClosed row
+    D->>T: SendAsync(TransportMessage)
+    T-->>D: OK, the broker has it
+    D->>DB: UPDATE sent_at = now, COMMIT
+    D-->>S: 1 sent
+    Note over S: wait 200 ms, then poll again
+    end
 ```
 
-A feature looks like this:
+What happens if something goes wrong at each point:
 
-```csharp
-context.BusinessDays.Add(day);                                    // state change, tracked
-await publisher.PublishAsync(new DayClosed(...), key: "bank", ct); // outbox row, tracked
-await context.SaveChangesAsync(ct);                               // both written in one transaction
-```
+| Failure | Result |
+| --- | --- |
+| The feature throws before step 4 | Nothing was written: no day change, no event |
+| The database commit in step 5 fails | Neither row exists: no day change, no event |
+| Kafka is down at step 9 | The row stays unsent (`Attempts` +1, `LastError` saved); the next poll tries again |
+| Crash after step 10, before step 11 | The row is still unsent, so it is sent **again**. The receiver's inbox ignores the duplicate (section 2.5) |
 
-#### `IEventPublisher` and `OutboxEventPublisher` (`IEventPublisher.cs`, `Outbox/OutboxEventPublisher.cs`)
+#### The classes, one by one
 
-`IEventPublisher` is the public interface from the stage file: `PublishAsync<T>(T @event, string key, CancellationToken ct)`. Its only implementation, `OutboxEventPublisher`, is internal and scoped, and receives the same `DbContext` instance as the feature. `PublishAsync`:
-
-1. checks that the key is not empty, and that the context has the messaging tables in its model;
-2. finds the record's `SchemaUri` through `EventSchemaUri`, using the event's runtime type, so it also works when called through `IIntegrationEvent`;
-3. serializes the event with `ContractJson.Options`, the same options the schemas were generated with;
-4. **adds** an `OutboxMessage` to the context.
-
-Nothing is written here. The feature's `SaveChangesAsync` writes the row together with the state change. If the feature throws before saving, neither is written. If it opens its own transaction and rolls it back, neither stays.
-
-#### `EventSchemaUri` (`Bank.Contracts/Schema/EventSchemaUri.cs`)
-
-A small helper that reads the `public const string SchemaUri` of an event record by reflection and caches it. The schema tool, the publisher and the handler registration share it.
-
-#### `TransportMessage` and `IMessageTransport` (`Transport/`)
-
-The **seam** between our messaging code and a broker.
-
-- `TransportMessage(MessageId, SchemaUri, Key, Payload, PerformedBy, OccurredOn)` is an event as it travels: the JSON plus the values that become the Kafka headers `message-id`, `schema-uri`, `performed-by` and `occurred-on`.
-- `IMessageTransport.SendAsync(message, ct)` sends one message. When it returns, the broker has the message. When it throws, the send failed.
-
-`Bank.Messaging` has no implementation of it. Slice 1.3 adds the Kafka one, and the tests use `InMemoryTransport`.
-
-#### `OutboxDispatcher` (`Outbox/OutboxDispatcher.cs`)
-
-One call to `DispatchBatchAsync` is one poll:
-
-1. Create **its own scope**, get the `DbContext`, and begin a transaction. One poll is its own unit of work, not part of any request.
-2. Load the batch with raw SQL, because LINQ has no row locking:
-   ```csharp
-   context.Set<OutboxMessage>()
-       .FromSql($"SELECT * FROM outbox_message WHERE sent_at IS NULL ORDER BY position LIMIT {batchSize} FOR UPDATE SKIP LOCKED")
-   ```
-   This locks up to 100 unsent rows. Rows locked by another dispatcher are skipped, not waited for. `{batchSize}` becomes a SQL parameter, not text. The rows come back as **tracked** entities.
-3. Send each row through `IMessageTransport`, in order, and set `SentAt` on each one sent.
-4. At the first failed send: increase `Attempts`, store `LastError`, and stop. The rest of the batch waits for the next poll.
-5. `SaveChangesAsync` (EF writes the changed rows) and commit. Return how many rows were sent.
-
-It is a public singleton, so tests can call it directly.
-
-#### `OutboxDispatcherService` (`Outbox/OutboxDispatcherService.cs`)
-
-The hosted background loop around the dispatcher. It calls `DispatchBatchAsync` repeatedly:
-
-- after a **full** batch, it polls again at once;
-- otherwise it waits `PollingInterval` (200 ms) using `TimeProvider`;
-- an exception, such as the database being down, is logged and the loop continues. The rows are safe in the outbox;
-- it stops when the host stops.
-
-#### `BankMessagingOptions` (`BankMessagingOptions.cs`)
+- **`IEventPublisher`**: the only thing a feature sees: `PublishAsync(event, key, ct)`. The feature does not know an outbox or Kafka exists.
+- **`OutboxEventPublisher`**: the implementation. It turns the event into an `OutboxMessage` (JSON with `ContractJson.Options`, plus its `SchemaUri` and key) and **adds** it to the feature's `DbContext`. It writes nothing; the feature's `SaveChangesAsync` does.
+- **`OutboxMessage`**: one row of `outbox_message`, the letter in the tray. `SentAt` empty means "not sent yet"; `Position` gives the send order.
+- **`EventSchemaUri`**: a small helper that reads an event record's `SchemaUri` constant, so the publisher knows which version it is storing.
+- **`OutboxDispatcher`**: one poll. It locks up to 100 unsent rows (`SKIP LOCKED` lets a second instance take other rows instead of waiting), sends them in order, marks each sent one, and stops at the first failure so that later messages do not overtake it.
+- **`OutboxDispatcherService`**: the timer around the dispatcher. It calls `DispatchBatchAsync` again at once after a full batch, otherwise after 200 ms, and keeps going after errors. It is separate so tests can call the dispatcher directly without waiting for a timer.
+- **`IMessageTransport` and `TransportMessage`**: the door to the broker. `TransportMessage` is the event as it travels (id, schema, key, JSON, headers); `SendAsync` returns only when the broker has it. Kafka implements it in slice 1.3; the tests use `InMemoryTransport`.
+- **`BankMessagingOptions`**: the settings, checked at startup:
 
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `ServiceName` | required | Such as `"operations"`; also names the topic `bank.<service>.events` in slice 1.3 |
 | `PollingInterval` | 200 ms | Wait after a poll that found less than a full batch |
 | `BatchSize` | 100 | Rows per poll |
-
-They are validated when the host starts.
 
 ### 2.5 The receiving side
 
