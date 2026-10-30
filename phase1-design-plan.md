@@ -148,7 +148,7 @@ Each row is an ADR and is also recorded as a separate file (`docs/adr/NNNN-title
 
 | # | Decision | Rationale | Rejected alternatives |
 | --- | --- | --- | --- |
-| 01 | .NET 10, ASP.NET Core Minimal API, EF Core | LTS release; the team's core expertise | — |
+| 01 | .NET 10, ASP.NET Core Minimal API, Dapper with hand-written SQL on Npgsql (changed from EF Core 2026-10-30, workspace ADR 0001) | LTS release; the team's core expertise; SQL stays visible, which matters for outbox, inbox, `FOR UPDATE SKIP LOCKED` and financial queries | EF Core (hides the SQL and the transaction boundary behind change tracking) |
 | 02 | Vertical slice style; DDD only at the strategic level (service boundaries); calculation logic in pure functions under `Logic/` | Simplicity; financial logic without dependencies, the main TDD target | Domain/Application/Infrastructure layering, aggregates, repositories |
 | 03 | Six services: Customers, Accounts, Cards, Lending, Ledger, Operations | Each has one responsibility and owns its data | Merging Cards into Accounts (different behavior and future) |
 | 04 | Services communicate only through events; no synchronous service-to-service calls | Independent deployment and failure | Internal REST calls |

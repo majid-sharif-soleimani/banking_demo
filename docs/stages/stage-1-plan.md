@@ -50,10 +50,10 @@ Claude draws the sequence diagram of one event's full path, with a "crash at thi
 ### 1.2 Outbox and inbox
 - **Projects:**
   - `src/Bank.Common`: `IBusinessClock`, `MoneyRounding`, `IFileStorage`, `IEmailSender`, `IExchangeRateProvider`, `IAccountNumberGenerator`, `PerformedBy` helpers, `Result<T>`
-  - `src/Bank.Messaging` (EF Core only): `IEventPublisher`, `IEventHandler<T>`, `AddOutboxAndInbox()`, `AddBankMessaging<TDbContext>()`, the outbox dispatcher, and the consumer pipeline with an in-process transport seam
+  - `src/Bank.Messaging` (Dapper on Npgsql): `IEventPublisher`, `IEventHandler<T>`, the SQL for `outbox_message` and `inbox_message`, `AddBankMessaging()`, the outbox dispatcher, and the consumer pipeline with an in-process transport seam
   - `src/Bank.Testing`: PostgreSQL and Kafka Testcontainers fixtures, `FakeBusinessClock`, `Eventually`, in-memory fakes
   - `tests/Bank.Messaging.UnitTests`: SchemaVer change classification
-  - `tests/Bank.Messaging.IntegrationTests`: two DbContexts in two schemas
+  - `tests/Bank.Messaging.IntegrationTests`: two schemas with two connections
 - **Tests first:**
   - The published event reaches the other side after commit
   - Rollback publishes nothing
@@ -63,6 +63,9 @@ Claude draws the sequence diagram of one event's full path, with a "crash at thi
 - **D1 (already decided, Majid reconfirms):**
   - How the dispatcher finds new rows: polling with `FOR UPDATE SKIP LOCKED` every 200 ms, LISTEN/NOTIFY, or Debezium CDC
   - Inbox key: `(MessageId, HandlerName)` or MessageId only
+- **D1 (new, from the switch to Dapper):**
+  - SQL migration runner: DbUp, FluentMigrator, or a small hand-written runner
+  - How `IEventPublisher` joins the feature's connection and transaction
 - **Learning document:** `docs/learning/stage-1/slice-1.2.md`
 
 ### 1.3 Kafka transport
@@ -107,6 +110,7 @@ Claude draws the sequence diagram of one event's full path, with a "crash at thi
 | Kafka message format and headers | bank-contracts/docs/adr |
 | Retry and dead-letter | bank-contracts/docs/adr |
 | One role and schema per service | bank-platform/docs/adr |
+| Use Dapper instead of EF Core (0001) | docs/adr |
 
 ## Done when
 
@@ -143,4 +147,5 @@ None. Non-blocking notes:
 ## Decisions made
 - 2026-10-30, slice 1.1 D1: schema/record sync by **reflection test**.
 - 2026-10-30, slice 1.1 D1 changed by Majid: the C# records are the source of truth; schemas are generated with `JsonSchemaExporter` and committed as snapshots; only ADDITION (optional fields) or MODEL bumps. ADR 0003 supersedes ADR 0002.
+- 2026-10-30 (Majid): use Dapper instead of EF Core for all data access. Workspace ADR 0001. No EF Core code existed yet, so only the docs changed.
 - 2026-10-30: in stage 1, Claude writes everything and a learning document per slice. Majid keeps the D1 decisions. Stages 2–8 are unchanged.

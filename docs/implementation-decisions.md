@@ -51,7 +51,7 @@ Claude always stops and asks when:
 | --- | --- |
 | `Bank.Contracts` | `Money`, `IIntegrationEvent`, all event records with `SchemaUri` constants, and the JSON Schemas generated from them as embedded resources |
 | `Bank.Common` | `IBusinessClock`, `MoneyRounding`, `IFileStorage`, `IEmailSender`, `IExchangeRateProvider`, `IAccountNumberGenerator` interfaces, `PerformedBy` helpers, a `Result<T>` type |
-| `Bank.Messaging` | `IEventPublisher`, `IEventHandler<T>`, outbox, inbox, dispatcher, consumer pipeline (EF Core, no Kafka) |
+| `Bank.Messaging` | `IEventPublisher`, `IEventHandler<T>`, outbox, inbox, dispatcher, consumer pipeline (Dapper on Npgsql, no Kafka) |
 | `Bank.Messaging.Kafka` | The only project that references Confluent.Kafka |
 | `Bank.Testing` | Test helpers: Testcontainers fixtures (PostgreSQL, Kafka), fake clock, polling `Eventually` helper, in-memory fakes for the interfaces in `Bank.Common` |
 
@@ -83,9 +83,11 @@ Claude always stops and asks when:
 ## Database
 
 - One PostgreSQL database `bank`. One schema and one login role per service (`operations`, `customers`, `accounts`, `cards`, `lending`, `ledger`). Each role can only use its own schema. The init script lives in `bank-platform`.
-- EF Core migrations per service, applied at startup in development and by the AppHost.
-- Snake-case table and column names (`EFCore.NamingConventions`).
-- `Version` column is a PostgreSQL `xmin`-style concurrency token (use `uint` mapped to `xmin`).
+- Data access is Dapper with hand-written SQL on Npgsql. No EF Core anywhere (changed by Majid on 2026-10-30, `docs/adr/0001-use-dapper-instead-of-ef-core.md`).
+- Schema changes are versioned SQL scripts per service, applied at startup in development and by the AppHost. The runner (DbUp, FluentMigrator, or a small hand-written runner) is a D1 decision in slice 1.2.
+- Snake-case table and column names, written by hand in SQL. Dapper maps them to PascalCase properties with `DefaultTypeMap.MatchNamesWithUnderscores = true`.
+- Optimistic concurrency on `Version`: PostgreSQL `xmin` read as `uint`; every update has `WHERE id = @Id AND xmin = @Version` and treats 0 affected rows as a concurrency conflict.
+- One `NpgsqlConnection` and one transaction per request or per handled message. Feature code, the outbox and the inbox all use that same transaction. How `IEventPublisher` receives it is a D1 decision in slice 1.2.
 
 ## APIs
 
@@ -97,7 +99,7 @@ Claude always stops and asks when:
 
 ## Reference and seed data
 
-Seeded by migrations so every environment starts the same. Values are demo values and can be changed in the seed files.
+Seeded by the SQL migration scripts so every environment starts the same. Values are demo values and can be changed in the seed files.
 
 **Currencies** (Operations): SEK (2 minor units, active), EUR (2, active), USD (2, active).
 
