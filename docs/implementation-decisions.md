@@ -126,7 +126,7 @@ Seeded by each service's EF Core migrations (`HasData`, or SQL inside a migratio
 
 **Standing order frequencies**: Weekly, Monthly, Quarterly. A monthly order on the 31st runs on the last day of shorter months.
 
-**Account numbers** (temporary until Majid decides the format): 10 digits, a sequence of 9 digits plus a Luhn check digit, behind `IAccountNumberGenerator`.
+**Account numbers** (decided by Majid on 2026-10-30, design plan section 2): 9 digits with no meaning. 8 random digits, the first one 1–9 so that no leading zero is lost, plus a Luhn (mod 10) check digit. Generated behind `IAccountNumberGenerator`; Accounts keeps a unique index on the number and draws again on a collision. Stored and sent as a string.
 
 ## External services
 

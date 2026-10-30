@@ -16,4 +16,4 @@ Updated by `/close-stage`. One row per stage from section 10 of `phase1-design-p
 
 ## Open questions
 
-- Account number format (Majid will decide later).
+- Account number format decided on 2026-10-30 (9 digits: 8 random plus Luhn). Its ADR is still to be written by Majid (workspace `docs/adr/0003`).

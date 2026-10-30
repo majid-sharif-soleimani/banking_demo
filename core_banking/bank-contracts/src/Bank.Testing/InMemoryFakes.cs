@@ -58,7 +58,7 @@ public sealed class FixedExchangeRateProvider : IExchangeRateProvider
         : throw new KeyNotFoundException($"No test rate from {from} to {to}.");
 }
 
-/// <summary>Numbers TEST-000001, TEST-000002, ...; the real format is still open.</summary>
+/// <summary>Numbers TEST-000001, TEST-000002, ...: predictable for tests. The real format (8 random digits plus Luhn) is built in Accounts.</summary>
 public sealed class SequentialAccountNumberGenerator : IAccountNumberGenerator
 {
     private int last;

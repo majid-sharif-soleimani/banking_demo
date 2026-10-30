@@ -30,7 +30,7 @@ The bank is assumed to operate in Sweden with SEK as the base currency, but curr
 | Registration | Through the API (called by the agent in phase 2), plus a bulk import of initial customers | The only system user for now is the agent |
 | KYC | None | Outside the learning goal |
 | Branches | None; customers, accounts, loans, employees and journal entries are not tied to a branch | Simplicity; can be added later as a dimension if needed |
-| Account number format | Decided later; for now a temporary identifier behind a number-generator interface | Format can change without touching business logic |
+| Account number format | 9 digits without meaning: 8 random digits (the first 1–9) plus a Luhn check digit, generated behind `IAccountNumberGenerator`; uniqueness by a unique index and a new draw on collision (decided by Majid on 2026-10-30) | Reveals nothing (not the number or order of accounts); Luhn is the Swedish standard and catches every single-digit typo and almost every swap of two neighbouring digits; the generator interface keeps the format out of business logic. Rejected: a serial number (reveals count and order), 7 digits, Damm and mod 11 check digits |
 | Currency | Every amount is always stored and transmitted with its currency (`Money`); each account has one currency; base currency is SEK | Multi-currency from day one, no later rewrite |
 | Exchange rates | Fetched from an external service at conversion time; rate, source and timestamp are stored on the transaction. Default source: the free Riksbank API (confirmed) | Auditable; free and official source |
 
@@ -314,4 +314,4 @@ All assumptions below were confirmed on 2026-10-29.
 - [x] Penalty is calculated from day six (after the 5-day grace period), not from day one
 - [x] A failed installment is retried from the account every business day; a failed standing order is not retried
 
-Out of scope for phase 1: the agent, branches, corporate customers, joint accounts and loans, guarantors and collateral, KYC, deposit interest, interbank transfers, real bank cards, variable rates, daily interest accrual, real authentication, PDF output, the final account number format, a full loan review workflow.
+Out of scope for phase 1: the agent, branches, corporate customers, joint accounts and loans, guarantors and collateral, KYC, deposit interest, interbank transfers, real bank cards, variable rates, daily interest accrual, real authentication, PDF output, a full loan review workflow.
