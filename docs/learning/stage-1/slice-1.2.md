@@ -428,7 +428,7 @@ Only the interfaces exist. Implementations come in the stages that need them.
 
 | Type | What it is |
 | --- | --- |
-| `PostgresFixture` | The one place in test code that uses Npgsql directly, because its job is PostgreSQL itself. Starts one `postgres:18-alpine` container. `CreateServiceSchemaAsync(prefix)` creates a login role and a schema it owns, with a random name and a password generated at run time, and returns a connection string with that schema as the search path. This mirrors the platform's "one role and schema per service" |
+| `PostgresFixture` | Uses Npgsql directly, because its job is PostgreSQL itself (the only other Npgsql use in tests is asserting on `PostgresException`). Starts one `postgres:18-alpine` container. `CreateServiceSchemaAsync(prefix)` creates a login role and a schema it owns, with a random name and a password generated at run time, and returns a connection string with that schema as the search path. This mirrors the platform's "one role and schema per service" |
 | `InMemoryTransport` | An `IMessageTransport` in memory. It records every sent message in `Sent` and hands it to each subscriber. As with a real broker, a failing subscriber does not fail the send; its exception goes to `DeliveryErrors`. `FailSends = true` simulates a broker outage |
 | `Eventually.AssertAsync` | Retries an assertion until it passes or a timeout ends, for work done by the background dispatcher |
 | `FakeBusinessClock` | A settable `Today` with `AdvanceDays` |
