@@ -74,12 +74,12 @@ Claude always stops and asks when:
 
 ## Messaging details
 
-- Kafka message value is the event JSON. Headers: `message-id`, `schema-uri`, `performed-by`, `occurred-on`.
+- Kafka message key is the entity id, value is the event JSON. Headers: `message-id`, `schema-uri`, `performed-by`, `occurred-on` (bank-contracts ADR 0014).
 - Consumers pick the handler by schema URI. Unknown MODEL versions go to the DLT; unknown ADDITION versions within a known MODEL are handled with the latest known record.
 - Inbox key is `(MessageId, HandlerName)`, so two handlers in one service can process the same event.
 - Outbox dispatcher: polling with `FOR UPDATE SKIP LOCKED`, interval configurable, default 200 ms.
-- Retries happen inside the consumer (3 attempts, backoff 200 ms, 1 s, 5 s), then the message goes to `<topic>.dlt` and the offset is committed. Blocking the partition during retries is accepted for this demo.
-- Consumer group per service: `bank.<service>`.
+- Retries happen inside the consumer: one first attempt plus three retries (backoff 200 ms, 1 s, 5 s, so four executions), then the message goes to `<topic>.dlt` and the offset is committed. Permanent failures (unknown MODEL, bad JSON, missing or malformed headers) go to the DLT without retries; a business-key violation is retried like any other failure. Blocking the partition during retries is accepted for this demo (confirmed by Majid in slice 1.3, bank-contracts ADR 0013).
+- Consumer group per service: `bank.<service>`. Each service lists the services it reads from in `Kafka:SubscribeTo` (decided by Majid in slice 1.3, bank-contracts ADR 0015).
 
 ## Database
 

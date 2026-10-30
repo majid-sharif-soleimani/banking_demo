@@ -15,6 +15,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Bank.Testing\Bank.Testing.csproj" />
     <ProjectReference Include="..\..\src\Bank.Toolkit.Data\Bank.Toolkit.Data.csproj" />
+    <ProjectReference Include="..\..\src\Bank.Messaging.Kafka\Bank.Messaging.Kafka.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Shouldly" />

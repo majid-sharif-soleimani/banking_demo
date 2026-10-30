@@ -1,6 +1,6 @@
 # bank-contracts
 
-Shared packages for every service: contracts (`Bank.Contracts`), and from slice 1.2 on `Bank.Common`, `Bank.Toolkit.Data`, `Bank.Messaging`, `Bank.Messaging.Kafka`, `Bank.Testing`. Data access is EF Core (workspace ADR 0002). `tools/Bank.Contracts.SchemaTool` is a developer tool and is never packed. Not a service: owns no tables and publishes no events.
+Shared packages for every service: contracts (`Bank.Contracts`), and from slice 1.2 on `Bank.Common`, `Bank.Toolkit.Data`, `Bank.Messaging`, `Bank.Messaging.Kafka` (slice 1.3), `Bank.Testing`. Data access is EF Core (workspace ADR 0002). `tools/Bank.Contracts.SchemaTool` is a developer tool and is never packed. Not a service: owns no tables and publishes no events.
 
 ## Contracts
 
@@ -30,6 +30,12 @@ Shared packages for every service: contracts (`Bank.Contracts`), and from slice 
 - The pipeline gives each handler its own scope, context and transaction: inbox row first (raw `ON CONFLICT DO NOTHING`), then the handler, then `SaveChangesAsync` and commit. Handlers change the context and publish, and never call `SaveChangesAsync`.
 - The dispatcher uses its own scope per poll and `FromSql(... FOR UPDATE SKIP LOCKED)`.
 
+## Kafka transport (Bank.Messaging.Kafka, ADRs 0013, 0014, 0015)
+
+- The only project that references Confluent.Kafka. A service calls `AddKafkaTransport(builder.Configuration)` next to `AddBankMessaging`. The broker address comes from `ConnectionStrings:kafka` (Aspire sets it); `Kafka:SubscribeTo` lists the **service names** it reads from (`["operations"]`, not topic names).
+- Topic `bank.<service>.events`, key = entity id, value = event JSON, headers `message-id`, `schema-uri`, `performed-by`, `occurred-on`. Consumer group `bank.<service>`. `KafkaTopicInitializer` creates the own and subscribed topics plus their `.dlt` topics at startup.
+- A failing message is retried in place (blocks its partition), four executions in total, then copied to `<topic>.dlt` with `dlt-*` headers. Permanent failures (`FailureClassification`) skip the retries. The offset is stored only after the pipeline returned or the DLT has the message.
+
 ## Gotchas
 
 - The `schemas` resource names use the build machine's path separator; always read them through `ContractSchemas`, never by raw resource name.
@@ -40,13 +46,15 @@ Shared packages for every service: contracts (`Bank.Contracts`), and from slice 
 - The handler class name is part of the inbox key: renaming a handler makes it treat old messages as new. Two handlers with the same class name in one service fail at startup.
 - The messaging column names are set explicitly in `ModelBuilderExtensions` because the dispatcher and the inbox use them in raw SQL; keep both in sync.
 - A business-key violation surfaces as `DbUpdateException` with an inner `PostgresException`.
-- `Bank.Messaging.IntegrationTests` and `Bank.Toolkit.Data.IntegrationTests` need Docker. Each test creates its own role and schema in one shared PostgreSQL container.
+- `Bank.Messaging.IntegrationTests` and `Bank.Toolkit.Data.IntegrationTests` need Docker. Each test creates its own role and schema in one shared PostgreSQL container. The Kafka tests share one broker per class and keep apart by unique service names (own topics and groups).
+- `KafkaOptions.RetryDelays` starts empty and gets its default after binding: the configuration binder appends configured array items to existing ones instead of replacing them.
+- Test code may read raw Kafka topics (`Support/KafkaTopicReader`) through the transitive Confluent.Kafka reference; no other `.csproj` may reference it directly.
 
 ## Commands
 
 ```bash
 dotnet build && dotnet test
-dotnet test tests/Bank.Messaging.IntegrationTests     # outbox and inbox against PostgreSQL (Docker)
+dotnet test tests/Bank.Messaging.IntegrationTests     # outbox, inbox and Kafka transport (Docker)
 dotnet test tests/Bank.Toolkit.Data.IntegrationTests  # DbContext registration and migrations on startup (Docker)
 dotnet run --project tools/Bank.Contracts.SchemaTool -- write   # writes missing schema snapshots
 dotnet pack -c Release -o ../.local-feed     # then bump the version in each consumer

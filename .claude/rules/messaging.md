@@ -11,5 +11,5 @@ paths:
 - Every event carries: `EventId`, `OccurredOn` (business date), `PerformedBy`, and Money as `{ amount, currency }`.
 - Handlers: check the inbox first, apply the effect, write any resulting events to the outbox, commit once. A handler that is replayed must change nothing.
 - Topic per publishing service (`bank.<service>.events`), message key = the entity id the event is about.
-- After three failed attempts a message goes to `<topic>.dlt`. Do not swallow exceptions to avoid this.
+- A failed message is retried three times (four executions in total), then goes to `<topic>.dlt`; permanent failures go there at once (bank-contracts ADR 0013). Do not swallow exceptions to avoid this.
 - Nothing outside `Bank.Messaging.Kafka` may reference Confluent.Kafka.

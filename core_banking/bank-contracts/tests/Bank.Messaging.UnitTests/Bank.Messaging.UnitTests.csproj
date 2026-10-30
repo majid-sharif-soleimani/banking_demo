@@ -10,7 +10,7 @@
     <PackageReference Include="Shouldly" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Bank.Messaging\Bank.Messaging.csproj" />
+    <ProjectReference Include="..\..\src\Bank.Messaging.Kafka\Bank.Messaging.Kafka.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Shouldly" />

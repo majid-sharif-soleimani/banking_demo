@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Bank.Contracts.Events;
 
 namespace Bank.Messaging.IntegrationTests.Support;
@@ -10,6 +11,14 @@ public sealed class HandlerBehaviour
     public bool FailAudit { get; set; }
 
     public bool PublishReply { get; set; }
+
+    /// <summary>Makes RecordTestEvent fail for the events it returns true for; it sees the call already counted in <see cref="Calls"/>.</summary>
+    public Func<TestEvent, bool>? FailWhen { get; set; }
+
+    /// <summary>Every call of RecordTestEvent, including failed ones, in call order.</summary>
+    public ConcurrentQueue<TestEvent> Calls { get; } = new();
+
+    public int CallsFor(TestEvent @event) => Calls.Count(e => e.EventId == @event.EventId);
 }
 
 /// <summary>The receiver's main handler: adds the effect, optionally publishes a follow-up event, optionally fails after both.</summary>
@@ -18,6 +27,7 @@ public sealed class RecordTestEvent(TestDbContext context, IEventPublisher publi
 {
     public async Task HandleAsync(TestEvent @event, CancellationToken ct)
     {
+        behaviour.Calls.Enqueue(@event);
         context.ReceivedTestEvents.Add(new ReceivedTestEvent
         {
             EventId = @event.EventId,
@@ -35,7 +45,7 @@ public sealed class RecordTestEvent(TestDbContext context, IEventPublisher publi
             await publisher.PublishAsync(reply, reply.Key, ct);
         }
 
-        if (behaviour.FailRecord)
+        if (behaviour.FailRecord || behaviour.FailWhen?.Invoke(@event) == true)
         {
             throw new InvalidOperationException("RecordTestEvent failed on purpose.");
         }

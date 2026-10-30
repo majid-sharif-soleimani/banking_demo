@@ -1,11 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <PackageId>Bank.Testing</PackageId>
-    <Description>Test helpers: PostgreSQL Testcontainers fixture, fake business clock, Eventually, in-memory fakes and transport.</Description>
+    <Description>Test helpers: PostgreSQL and Kafka Testcontainers fixtures, fake business clock, Eventually, in-memory fakes and transport.</Description>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Npgsql" />
     <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="Testcontainers.Kafka" />
     <PackageReference Include="xunit.v3.extensibility.core" />
   </ItemGroup>
   <ItemGroup>

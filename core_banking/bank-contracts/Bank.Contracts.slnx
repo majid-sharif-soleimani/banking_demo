@@ -3,6 +3,7 @@
     <Project Path="src/Bank.Common/Bank.Common.csproj" />
     <Project Path="src/Bank.Contracts/Bank.Contracts.csproj" />
     <Project Path="src/Bank.Messaging/Bank.Messaging.csproj" />
+    <Project Path="src/Bank.Messaging.Kafka/Bank.Messaging.Kafka.csproj" />
     <Project Path="src/Bank.Testing/Bank.Testing.csproj" />
     <Project Path="src/Bank.Toolkit.Data/Bank.Toolkit.Data.csproj" />
   </Folder>

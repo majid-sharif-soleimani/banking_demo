@@ -593,7 +593,7 @@ Passed!  - Failed: 0, Passed:  13 - Bank.Messaging.IntegrationTests
 
 - `outbox_message` and `inbox_message` grow without limit. A cleanup job (delete sent and old rows) is not built yet.
 - With more than one dispatcher instance, per-key order can break (ADR 0006).
-- Retries, the dead-letter topic and offset commits belong to the transport, in slice 1.3. Today an exception from `ProcessAsync` simply propagates.
+- Retries, the dead-letter topic and offset commits belong to the transport. An exception from `ProcessAsync` propagates to it; slice 1.3 (`slice-1.3.md`, ADR 0013) retries it and finally dead-letters it.
 - A change to the messaging entities needs a new migration in every service (ADR 0012).
 - A feature that calls `SaveChangesAsync` twice without a transaction is no longer atomic. Code review should catch it.
 
