@@ -30,6 +30,7 @@ This is a learning project. Majid builds it to learn solution and software engin
 - The first time you implement something that `docs/implementation-decisions.md` or the design plan already decided, explain it in two or three sentences: what problem it solves and what would break without it. `/explain` gives the longer version on request.
 - Business-rule gaps: ask; do not invent business rules.
 - Show evidence when you claim something works: the command you ran and its result.
+- IMPORTANT: every document you write follows `.claude/rules/documentation.md`: first the big picture (what we want to do and why), then the building blocks and how they connect, then why it is designed this way. This includes the per-slice learning documents.
 
 ## Replying in Persian
 
