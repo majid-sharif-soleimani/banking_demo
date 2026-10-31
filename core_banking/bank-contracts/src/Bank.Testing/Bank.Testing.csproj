@@ -1,13 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <PackageId>Bank.Testing</PackageId>
-    <Description>Test helpers: PostgreSQL and Kafka Testcontainers fixtures, fake business clock, Eventually, in-memory fakes and transport.</Description>
+    <Description>Test helpers: PostgreSQL and Kafka Testcontainers fixtures, fake business clock, Eventually, in-memory fakes and transport, and BankServiceApp (a service in memory on an in-memory broker).</Description>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Npgsql" />
     <PackageReference Include="Testcontainers.PostgreSql" />
     <PackageReference Include="Testcontainers.Kafka" />
     <PackageReference Include="xunit.v3.extensibility.core" />
+    <!-- BankServiceApp: the real service in memory, with WebApplicationFactory. -->
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Bank.Common\Bank.Common.csproj" />

@@ -8,6 +8,12 @@ public static class SampleFactory
     {
         ["Code"] = "SEK",
         ["Service"] = "accounts",
+        ["PreferredLanguage"] = "en",
+        ["AccountNumber"] = "123456782",
+        ["AccountType"] = "Current",
+        ["Currency"] = "SEK",
+        ["FxRate"] = "11.50",
+        ["Reason"] = "insufficient_funds",
     };
 
     public static object Create(Type recordType)

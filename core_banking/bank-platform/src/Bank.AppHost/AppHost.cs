@@ -34,7 +34,7 @@ foreach (var service in BankDatabase.Services)
 var kafka = builder.AddKafka("kafka")
     .WithKafkaUI();
 
-builder.AddMailPit("mailpit");
+var mailpit = builder.AddMailPit("mailpit");
 
 // The services. Each gets only its own "<service>-db" connection string and Kafka; it waits for both, then applies
 // its migrations on startup. /health tells the AppHost (and the tests) when it is ready.
@@ -43,6 +43,15 @@ builder.AddProject<Projects.Bank_Operations_Api>("operations")
     .WithReference(kafka)
     .WaitFor(postgres)
     .WaitFor(kafka)
+    .WithHttpHealthCheck("/health");
+
+builder.AddProject<Projects.Bank_Customers_Api>("customers")
+    .WithReference(serviceDatabases["customers"])
+    .WithReference(kafka)
+    .WithReference(mailpit)
+    .WaitFor(postgres)
+    .WaitFor(kafka)
+    .WaitFor(mailpit)
     .WithHttpHealthCheck("/health");
 
 builder.Build().Run();
