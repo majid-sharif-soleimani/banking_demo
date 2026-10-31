@@ -19,13 +19,17 @@ public sealed class DayCompletedHandler(
 {
     public async Task HandleAsync(DayCompleted @event, CancellationToken ct)
     {
+        // First lock the current day (ADR 0001). Two replies handled at the same moment would otherwise each see only
+        // their own completion and both stop (the day stays Closing forever), or both see both and open the next day twice.
+        // With the lock, the second handler waits until the first commits and then sees its completion.
+        var day = await db.BusinessDays.CurrentForUpdateAsync(ct);
+
         // The same fact again under a new message id (the inbox only stops the same message id): no extra effect.
         if (await db.BusinessDayCompletions.AnyAsync(c => c.Date == @event.Date && c.Service == @event.Service, ct))
         {
             return;
         }
 
-        var day = await db.BusinessDays.CurrentAsync(ct);
         if (day is null || day.Date != @event.Date || day.Status != BusinessDayStatus.Closing)
         {
             // Majid, 2026-10-30: a completion for any other day is an error, not a silent no-op. The consumer retries it,

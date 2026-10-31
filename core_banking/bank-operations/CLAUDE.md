@@ -22,6 +22,7 @@ Owns the bank's currencies and business date, and runs the end-of-day cycle (des
 
 ## Gotchas
 
+- `DayCompletedHandler` locks the current day first (`CurrentForUpdateAsync`, `FOR UPDATE`, ADR 0001). Anything else that changes the current day from a handler must take the same lock, or the lost-close race comes back.
 - Configuration arrays merge **by index** across sources: `Operations__EndOfDayParticipants__0=x` over `["accounts", "lending"]` gives `["x", "lending"]`. Override the whole list (every index) or edit `appsettings.json`. The test host removes the JSON sources for this reason.
 
 - `Logic/EndOfDay.IsComplete` throws on an empty participant list: "all of none" would close every day without end-of-day work.
