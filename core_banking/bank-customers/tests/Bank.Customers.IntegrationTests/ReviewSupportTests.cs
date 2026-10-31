@@ -25,6 +25,14 @@ public class ReviewSupportTests(PostgresFixture postgres)
         return (app, customer!);
     }
 
+    private static async Task<Guid> SubmittedApplicationAsync(CustomersApp app, Guid customerId)
+    {
+        var applicationId = Guid.NewGuid();
+        await app.DeliverAsync(new LoanApplicationSubmitted(Guid.NewGuid(), CustomersApp.Today, "customer", applicationId, customerId, "CAR",
+            new Money(200_000m, "SEK"), 36), applicationId.ToString());
+        return applicationId;
+    }
+
     private static async Task<string> Code(HttpResponseMessage response) =>
         (await response.Content.ReadFromJsonAsync<ProblemDetails>(Ct))!.Extensions["code"]!.ToString()!;
 
@@ -37,7 +45,7 @@ public class ReviewSupportTests(PostgresFixture postgres)
         using var form = new MultipartFormDataContent
         {
             { new StringContent("Upload"), "kind" },
-            { new StringContent(Guid.NewGuid().ToString()), "applicationId" },
+            { new StringContent((await SubmittedApplicationAsync(app, customer.Id)).ToString()), "applicationId" },
         };
         var file = new ByteArrayContent(bytes);
         file.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
@@ -132,10 +140,10 @@ public class ReviewSupportTests(PostgresFixture postgres)
         var slots = await app.GetJsonAsync<SlotResponse[]>($"/appointments/availability?date={Tomorrow:yyyy-MM-dd}");
         slots.Length.ShouldBe(35); // 7 slots × 5 employees
         var slot = slots.First(s => s.EmployeeId == "E002");
-        var booking = new AppointmentEndpoints.BookRequest(Guid.NewGuid(), customer.Id, slot.EmployeeId, slot.StartsAt);
+        var booking = new AppointmentEndpoints.BookRequest(await SubmittedApplicationAsync(app, customer.Id), customer.Id, slot.EmployeeId, slot.StartsAt);
 
         var first = await app.PostJsonAsync("/appointments", booking);
-        var second = await app.PostJsonAsync("/appointments", booking with { ApplicationId = Guid.NewGuid() });
+        var second = await app.PostJsonAsync("/appointments", booking with { ApplicationId = await SubmittedApplicationAsync(app, customer.Id) });
 
         first.StatusCode.ShouldBe(HttpStatusCode.Created);
         second.StatusCode.ShouldBe(HttpStatusCode.Conflict);
@@ -149,7 +157,7 @@ public class ReviewSupportTests(PostgresFixture postgres)
 
         var appointment = (await first.Content.ReadFromJsonAsync<AppointmentResponse>(Ct))!;
         (await app.CreateClient().DeleteAsync($"/appointments/{appointment.Id}", Ct)).StatusCode.ShouldBe(HttpStatusCode.OK);
-        (await app.PostJsonAsync("/appointments", booking with { ApplicationId = Guid.NewGuid() })).StatusCode.ShouldBe(HttpStatusCode.Created);
+        (await app.PostJsonAsync("/appointments", booking with { ApplicationId = await SubmittedApplicationAsync(app, customer.Id) })).StatusCode.ShouldBe(HttpStatusCode.Created);
     }
 
     [Fact]
@@ -157,11 +165,30 @@ public class ReviewSupportTests(PostgresFixture postgres)
     {
         var (app, customer) = await StartWithCustomerAsync(postgres);
         await using var _ = app;
+        var application = await SubmittedApplicationAsync(app, customer.Id);
         var today10 = new DateTimeOffset(CustomersApp.Today.ToDateTime(new TimeOnly(10, 0)), TimeSpan.FromHours(1));
         var tomorrow1030 = today10.AddDays(1).AddMinutes(30);
 
-        (await Code(await app.PostJsonAsync("/appointments", new AppointmentEndpoints.BookRequest(Guid.NewGuid(), customer.Id, "E001", today10)))).ShouldBe("invalid_slot");
-        (await Code(await app.PostJsonAsync("/appointments", new AppointmentEndpoints.BookRequest(Guid.NewGuid(), customer.Id, "E001", tomorrow1030)))).ShouldBe("invalid_slot");
+        (await Code(await app.PostJsonAsync("/appointments", new AppointmentEndpoints.BookRequest(application, customer.Id, "E001", today10)))).ShouldBe("invalid_slot");
+        (await Code(await app.PostJsonAsync("/appointments", new AppointmentEndpoints.BookRequest(application, customer.Id, "E001", tomorrow1030)))).ShouldBe("invalid_slot");
         (await app.CreateClient().GetAsync($"/appointments/availability?date={CustomersApp.Today:yyyy-MM-dd}", Ct)).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task A_customer_cannot_book_or_attach_to_another_customers_application()
+    {
+        // Review of 2026-10-31: the application must belong to the customer named in the request.
+        var (app, customer) = await StartWithCustomerAsync(postgres);
+        await using var _ = app;
+        var someoneElses = await SubmittedApplicationAsync(app, Guid.NewGuid());
+        var slot = (await app.GetJsonAsync<SlotResponse[]>($"/appointments/availability?date={Tomorrow:yyyy-MM-dd}"))[0];
+
+        var booking = await app.PostJsonAsync("/appointments", new AppointmentEndpoints.BookRequest(someoneElses, customer.Id, slot.EmployeeId, slot.StartsAt));
+        var note = await app.CreateClient().PostAsync($"/customers/{customer.Id}/interactions", new MultipartFormDataContent
+            { { new StringContent("Note"), "kind" }, { new StringContent("hello"), "content" }, { new StringContent(someoneElses.ToString()), "applicationId" } }, Ct);
+
+        booking.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        (await Code(note)).ShouldBe("application_not_found");
+        app.Published<AppointmentScheduled>().ShouldBeEmpty();
     }
 }

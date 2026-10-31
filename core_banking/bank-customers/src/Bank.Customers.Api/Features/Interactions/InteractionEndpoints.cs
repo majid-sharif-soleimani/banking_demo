@@ -50,6 +50,11 @@ public static class InteractionEndpoints
             return Problem("missing_content", interactionKind == InteractionKind.Upload ? "An upload needs a file." : "The text is required.");
         }
 
+        if (applicationId is { } application && !await db.Applications.AnyAsync(a => a.ApplicationId == application && a.CustomerId == id, ct))
+        {
+            return Problem("application_not_found", "The loan application does not belong to this customer.");
+        }
+
         if (file is { Length: > MaxFileBytes })
         {
             return Problem("file_too_large", "Files may be at most 10 MB.");
@@ -72,7 +77,16 @@ public static class InteractionEndpoints
             Content = content?.Trim(), ReceivedOn = clock.Today, CreatedAt = time.GetUtcNow(), PerformedBy = PerformedBy.From(http.Headers[PerformedBy.HeaderName]),
         };
         db.Interactions.Add(interaction);
-        await db.SaveChangesAsync(ct);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch when (key is not null)
+        {
+            // No orphan file when the row cannot be saved.
+            await files.DeleteAsync(key, CancellationToken.None);
+            throw;
+        }
         return Results.Created($"/customers/{id}/interactions/{interactionId}", ToResponse(interaction));
     }
 

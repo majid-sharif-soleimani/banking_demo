@@ -259,6 +259,10 @@ namespace Bank.Lending.Api.Data.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("grace_days");
 
+                    b.Property<DateOnly?>("LastEndOfDay")
+                        .HasColumnType("date")
+                        .HasColumnName("last_end_of_day");
+
                     b.Property<int?>("MaxStages")
                         .HasColumnType("integer")
                         .HasColumnName("max_stages");
@@ -275,9 +279,25 @@ namespace Bank.Lending.Api.Data.Migrations
                         .HasColumnType("numeric")
                         .HasColumnName("payoff_cap");
 
+                    b.Property<decimal?>("PayoffInterest")
+                        .HasColumnType("numeric")
+                        .HasColumnName("payoff_interest");
+
                     b.Property<decimal>("PayoffMinPercent")
                         .HasColumnType("numeric")
                         .HasColumnName("payoff_min_percent");
+
+                    b.Property<decimal?>("PayoffPenalty")
+                        .HasColumnType("numeric")
+                        .HasColumnName("payoff_penalty");
+
+                    b.Property<decimal?>("PayoffPrincipal")
+                        .HasColumnType("numeric")
+                        .HasColumnName("payoff_principal");
+
+                    b.Property<decimal?>("PayoffWaived")
+                        .HasColumnType("numeric")
+                        .HasColumnName("payoff_waived");
 
                     b.Property<decimal>("PenaltyDailyRate")
                         .HasColumnType("numeric")

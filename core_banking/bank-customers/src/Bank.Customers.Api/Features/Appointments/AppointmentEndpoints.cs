@@ -59,6 +59,12 @@ public static class AppointmentEndpoints
             return GetCustomer.NotFound();
         }
 
+        if (!await db.Applications.AnyAsync(a => a.ApplicationId == request.ApplicationId && a.CustomerId == request.CustomerId, ct))
+        {
+            return Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Loan application not found for this customer",
+                extensions: new Dictionary<string, object?> { ["code"] = "application_not_found" });
+        }
+
         if (!AppointmentSlots.IsSlot(request.StartsAt) || AppointmentSlots.LocalDate(request.StartsAt) <= clock.Today)
         {
             return Bad("invalid_slot", "Book a full hour from 09:00 to 15:00 Stockholm time, on a day after the current business date.");

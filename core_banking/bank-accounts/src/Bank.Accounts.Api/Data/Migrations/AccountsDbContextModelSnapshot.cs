@@ -163,6 +163,11 @@ namespace Bank.Accounts.Api.Data.Migrations
                     b.HasKey("Id")
                         .HasName("pk_account_entry");
 
+                    b.HasIndex("Reference")
+                        .IsUnique()
+                        .HasDatabaseName("ux_account_entry_loan_disbursement")
+                        .HasFilter("kind = 'LoanDisbursement'");
+
                     b.HasIndex("AccountId", "Sequence")
                         .HasDatabaseName("ix_account_entry_account_id_sequence");
 

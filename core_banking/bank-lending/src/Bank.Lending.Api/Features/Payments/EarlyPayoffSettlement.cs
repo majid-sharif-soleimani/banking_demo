@@ -17,11 +17,17 @@ internal static class EarlyPayoffSettlement
             throw new InvalidOperationException($"Payoff collection {e.CollectionId} is not the open payoff of loan {loan.Id}.");
         }
 
+        // Settle exactly the quote the payoff was requested with (stored on the loan), never a fresh one: a day passing
+        // between request and answer must not move money between interest and penalty (review of 2026-10-31).
         var rows = loan.Schedule.OrderBy(i => i.Number).ToList();
-        var quote = EarlyPayoff.Quote([.. rows.Select(r => r.ToLogic(loan.Currency))], loan.Terms, today);
-        var principal = quote.OutstandingPrincipal;
-        var penalty = quote.UnpaidPenalty;
-        var interest = e.Amount - principal - penalty;
+        var principal = new Money(loan.PayoffPrincipal!.Value, loan.Currency);
+        var penalty = new Money(loan.PayoffPenalty!.Value, loan.Currency);
+        var interest = new Money(loan.PayoffInterest!.Value, loan.Currency);
+        var waived = new Money(loan.PayoffWaived!.Value, loan.Currency);
+        if ((principal + penalty + interest).Amount != e.Amount.Amount)
+        {
+            throw new InvalidOperationException($"Payoff of loan {loan.Id} collected {e.Amount}, but the quote was {principal + penalty + interest}.");
+        }
 
         // Each item is settled as paid in full; interest beyond what was collected is waived (written down to what was paid).
         foreach (var row in rows.Where(r => r.Status != ScheduleItemStatus.Paid))
@@ -42,6 +48,7 @@ internal static class EarlyPayoffSettlement
         loan.Status = LoanStatus.PaidOffEarly;
         loan.Classification = LoanClassification.Current;
         loan.PendingPayoffCollectionId = null;
+        loan.PayoffPrincipal = loan.PayoffPenalty = loan.PayoffInterest = loan.PayoffWaived = null;
         loan.PerformedBy = e.PerformedBy;
         db.Payments.Add(new LoanPayment
         {
@@ -53,6 +60,6 @@ internal static class EarlyPayoffSettlement
         await publisher.PublishAsync(
             new LoanPaymentAllocated(Guid.NewGuid(), today, e.PerformedBy, loan.Id, e.CollectionId, nameof(PaymentSource.Payoff), principal, interest, penalty), key, ct);
         await publisher.PublishAsync(
-            new LoanPaidOffEarly(Guid.NewGuid(), today, e.PerformedBy, loan.Id, loan.CustomerId, e.Amount, quote.WaivedInterest), key, ct);
+            new LoanPaidOffEarly(Guid.NewGuid(), today, e.PerformedBy, loan.Id, loan.CustomerId, e.Amount, waived), key, ct);
     }
 }

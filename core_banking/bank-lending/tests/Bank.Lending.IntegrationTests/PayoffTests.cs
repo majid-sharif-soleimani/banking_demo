@@ -105,4 +105,37 @@ public class PayoffTests(PostgresFixture postgres)
 
         (await app.CreateClient().GetAsync($"/loans/{loan.Id}/payoff-quote?date=2026-01-01", Ct)).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
+
+    [Fact]
+    public async Task An_end_of_day_while_a_payoff_is_pending_neither_charges_penalty_nor_asks_for_installments()
+    {
+        // Review of 2026-10-31: the payoff settles exactly the quote it was requested with.
+        await using var app = await LendingApp.StartAsync(postgres);
+        var loan = await DisbursementTests.DisburseAsync(app, (await app.ApprovedAsync()).Id);
+        await app.MoveToAsync(Feb15.AddDays(10)); // item 1 is 10 days overdue, past grace
+        var quote = (await (await app.CreateClient().PostAsync($"/loans/{loan.Id}/payoff", null, Ct)).Content.ReadFromJsonAsync<PayoffQuoteResponse>(Ct))!;
+
+        await app.RunDayAsync(Feb15.AddDays(10));
+
+        app.Published<InstallmentDue>().ShouldBeEmpty();
+        app.Published<PenaltyAccrued>().ShouldBeEmpty();
+        await app.DeliverAsync(new PaymentCollected(Guid.NewGuid(), Feb15.AddDays(11), "system", loan.Id, quote.CollectionId!.Value, null, "Payoff", quote.Total), "k");
+        await app.OutboxDrainedAsync();
+        (await app.GetJsonAsync<LoanResponse>($"/loans/{loan.Id}")).Status.ShouldBe("PaidOffEarly");
+        var split = app.Published<LoanPaymentAllocated>().Single(a => a.Source == "Payoff");
+        (split.Principal + split.Interest + split.Penalty).ShouldBe(quote.Total);
+        split.Interest.ShouldBe(quote.InterestToDate + quote.MinimumInterest);
+    }
+
+    [Fact]
+    public async Task A_collection_for_a_settled_loan_is_never_booked_silently()
+    {
+        var (app, _, loan) = await AfterFirstInstallmentAsync(postgres, 1_000_000m);
+        await using var _a = app;
+        await app.CreateClient().PostAsync($"/loans/{loan.Id}/payoff", null, Ct);
+        await app.OutboxDrainedAsync();
+
+        await Should.ThrowAsync<InvalidOperationException>(() => app.DeliverAsync(
+            new PaymentCollected(Guid.NewGuid(), Mar1, "system", loan.Id, Guid.NewGuid(), 2, "Installment", Sek(6_170.85m)), "k"));
+    }
 }

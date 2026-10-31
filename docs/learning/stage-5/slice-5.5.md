@@ -64,3 +64,10 @@ bank-lending IntegrationTests 36 passed
 
 1. Why is a payoff refused while an installment collection is open?
 2. Where does the waived interest go in the schedule, and why does the interest the customer paid get booked on the next item?
+
+## Review changes (2026-10-31)
+
+- **The settlement uses the quote stored at request time** (`loan.payoff_principal`, `payoff_penalty`, `payoff_interest`, `payoff_waived`). If the collected amount differs, it throws. Before this fix, a re-quote at settlement time could move money between penalty and interest, and even make the interest negative, if an end of day ran in between.
+- **No penalties while a payoff is pending.**
+- **End of day writes `loan.last_end_of_day` every day.** A payoff request (which writes the loan row too) and an end-of-day installment request therefore conflict on `xmin`, and can never both be open.
+- **A collection for a loan that is no longer Active throws**, so it is never booked as silently unallocated money.

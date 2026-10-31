@@ -112,3 +112,20 @@ public sealed class Appointment
 
     public uint Version { get; set; }
 }
+
+/// <summary>
+/// Customers' copy of who owns a loan application, from LoanApplicationSubmitted. Bookings and interactions that name an
+/// application are checked against it, so a customer can never act on someone else's application (review of 2026-10-31).
+/// </summary>
+public sealed class ApplicationRef
+{
+    public Guid ApplicationId { get; init; }
+
+    public Guid CustomerId { get; init; }
+
+    public DateTimeOffset CreatedAt { get; init; }
+
+    public required string PerformedBy { get; init; }
+
+    public uint Version { get; set; }
+}

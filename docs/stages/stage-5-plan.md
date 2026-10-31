@@ -72,6 +72,17 @@ Interpretations (most conservative):
 - **A card payment** (stage 6) is allocated like an installment payment, oldest due items first.
 - **An appointment slot** is 60 minutes, 09:00–16:00 Europe/Stockholm, on a day after the current business date (`implementation-decisions.md`).
 
+## Close-out (2026-10-31)
+
+- Done-when: lending 1,567 + 38, customers 34 + 24, accounts 52 + 68, operations 17 + 44, platform 35, all green.
+- `banking-reviewer`: it hand-checked the payoff math. Three REQUIRED findings, all fixed:
+  1. The payoff now settles the **stored quote** (principal, penalty, interest, waived on the loan), and no penalty is charged while a payoff is pending.
+  2. A payoff and an end-of-day installment request can no longer both be open: end of day always writes `loan.last_end_of_day`, so the two conflict on `xmin`. A collection for a settled loan throws instead of being booked silently.
+  3. Customers keeps `application_ref` from `LoanApplicationSubmitted`, and refuses bookings and interactions on another customer's application.
+
+  OPTIONAL items applied: a unique index on disbursement credits; a warning log for unallocated money; no orphan upload files. Not applied: a Content-Type allowlist (downloads are attachments).
+- To review: bank-lending ADRs 0004 and 0005. `/retro 5` pending. Not merged; stage 6 continues on `stage-6-cards-ledger`.
+
 ## Done when
 
 ```bash

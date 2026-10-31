@@ -9,8 +9,8 @@ Updated by `/close-stage`. One row per stage from section 10 of `phase1-design-p
 | 2 | Operations | Ready for review | 2026-10-31 | Slices 2.1–2.4 done; 17+44 Operations, 29 platform, 185 contracts green; ADRs ops 0001 and contracts 0016 await Majid's sign-off; retro pending |
 | 3 | Lending pure logic (TDD) | Ready for review | 2026-10-31 | Slices 3.1–3.5; 1,491 tests green; lending ADRs 0001–0003 await Majid's review; retro pending |
 | 4 | Customers and Accounts | Ready for review | 2026-10-31 | Slices 4.1–4.5; customers 37, accounts 115, platform 33, contracts 221 green; accounts ADRs 0001–0003 and contracts 0017 await review; retro pending |
-| 5 | Lending service | In progress | | Slices 5.1–5.6 on delegation |
-| 6 | Cards and Ledger | Not started | | |
+| 5 | Lending service | Ready for review | 2026-10-31 | Slices 5.1–5.6; lending 1,605, customers 58, accounts 120, operations 61, platform 35 green; lending ADRs 0004–0005 await review; retro pending |
+| 6 | Cards and Ledger | In progress | | Slices 6.1–6.4 on delegation |
 | 7 | Gateway and data import | Not started | | |
 | 8 | End-to-end and AWS | Not started | | |
 

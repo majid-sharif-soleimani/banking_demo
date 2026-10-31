@@ -70,6 +70,10 @@ public static class Payoff
         var quote = Quote(loan, today);
         var actor = PerformedBy.From(http.Headers[PerformedBy.HeaderName]);
         loan.PendingPayoffCollectionId = Guid.CreateVersion7();
+        loan.PayoffPrincipal = quote.OutstandingPrincipal.Amount;
+        loan.PayoffPenalty = quote.UnpaidPenalty.Amount;
+        loan.PayoffInterest = (quote.InterestToDate + quote.MinimumInterest).Amount;
+        loan.PayoffWaived = quote.WaivedInterest.Amount;
         loan.PerformedBy = actor;
         await publisher.PublishAsync(
             new LoanPayoffRequested(Guid.NewGuid(), today, actor, loan.Id, loan.PendingPayoffCollectionId.Value, loan.RepaymentAccountId, quote.Total),

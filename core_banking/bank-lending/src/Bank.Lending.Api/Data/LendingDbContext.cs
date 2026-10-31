@@ -84,7 +84,8 @@ public sealed class LendingDbContext(DbContextOptions<LendingDbContext> options)
             loan.Property(l => l.ProductCode).HasMaxLength(16);
             loan.Property(l => l.Currency).HasMaxLength(3);
             foreach (var amount in new[] { nameof(Loan.Principal), nameof(Loan.AnnualRate), nameof(Loan.PenaltyDailyRate),
-                         nameof(Loan.PayoffMinPercent), nameof(Loan.PayoffCap) })
+                         nameof(Loan.PayoffMinPercent), nameof(Loan.PayoffCap), nameof(Loan.PayoffPrincipal), nameof(Loan.PayoffPenalty),
+                         nameof(Loan.PayoffInterest), nameof(Loan.PayoffWaived) })
             {
                 loan.Property(amount).HasColumnType("numeric");
             }

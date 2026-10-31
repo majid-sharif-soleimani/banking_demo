@@ -5,6 +5,7 @@ using Bank.Lending.Api.Data;
 using Bank.Lending.Api.Logic;
 using Bank.Messaging;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace Bank.Lending.Api.Features.Payments;
 
@@ -30,6 +31,12 @@ public sealed class PaymentCollectedHandler(LendingDbContext db, IEventPublisher
         }
 
         var loan = await LoanPayments.LoadAsync(db, e.LoanId, ct);
+        if (loan.Status != LoanStatus.Active)
+        {
+            // Money was taken for a loan that is already settled: never book it silently; the dead-letter topic shows it.
+            throw new InvalidOperationException($"PaymentCollected {e.CollectionId} for loan {loan.Id}, which is {loan.Status}.");
+        }
+
         if (e.Purpose == "Payoff")
         {
             await EarlyPayoffSettlement.SettleAsync(db, publisher, loan, e, clock.Today, time.GetUtcNow(), ct);
@@ -81,6 +88,12 @@ public sealed class PaymentFailedHandler(LendingDbContext db) : IEventHandler<Pa
     }
 }
 
+internal static partial class Log
+{
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Payment {SourceId} for loan {LoanId} left {Amount} unallocated; it needs a refund.")]
+    public static partial void Unallocated(ILogger logger, Guid loanId, Guid sourceId, string amount);
+}
+
 internal static class LoanPayments
 {
     public static async Task<Loan> LoadAsync(LendingDbContext db, Guid loanId, CancellationToken ct) =>
@@ -114,6 +127,13 @@ internal static class LoanPayments
         });
         await publisher.PublishAsync(
             new LoanPaymentAllocated(Guid.NewGuid(), today, actor, loan.Id, sourceId, source.ToString(), principal, interest, penalty), loan.Id.ToString(), ct);
+
+        if (result.Unallocated.Amount > 0m)
+        {
+            // Over-collection (for example a card payment on an item that was collected meanwhile): kept on the payment row
+            // and logged, so someone refunds it. There is no automatic refund in phase 1.
+            Log.Unallocated(db.GetService<ILoggerFactory>().CreateLogger("Bank.Lending.Payments"), loan.Id, sourceId, result.Unallocated.ToString());
+        }
 
         if (rows.All(r => r.Status == ScheduleItemStatus.Paid))
         {

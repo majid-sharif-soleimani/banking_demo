@@ -61,6 +61,8 @@ public sealed class AccountsDbContext(DbContextOptions<AccountsDbContext> option
             entry.ToTable("account_entry");
             entry.Property(e => e.Sequence).ValueGeneratedOnAdd();
             entry.HasIndex(e => new { e.AccountId, e.Sequence });
+            // One disbursement credit per loan, enforced by the database (non-negotiable: a unique business key on financial effects).
+            entry.HasIndex(e => e.Reference).IsUnique().HasFilter("kind = 'LoanDisbursement'").HasDatabaseName("ux_account_entry_loan_disbursement");
             entry.Property(e => e.Amount).HasColumnType("numeric");
             entry.Property(e => e.BalanceAfter).HasColumnType("numeric");
             entry.Property(e => e.Kind).HasConversion<string>().HasMaxLength(32);

@@ -26,12 +26,19 @@ public sealed class InformationRequestedHandler(CustomersDbContext db, IEmailSen
     }
 }
 
-/// <summary>LoanApplicationSubmitted → a note in the interaction history (design plan section 6).</summary>
+/// <summary>LoanApplicationSubmitted → application_ref (who owns it) and a note in the interaction history (design plan section 6).</summary>
 public sealed class LoanApplicationSubmittedHandler(CustomersDbContext db, TimeProvider time) : IEventHandler<LoanApplicationSubmitted>
 {
-    public Task HandleAsync(LoanApplicationSubmitted e, CancellationToken ct) =>
-        History.RecordAsync(db, time, e.CustomerId, e.ApplicationId, e.EventId, e.OccurredOn, e.PerformedBy,
+    public async Task HandleAsync(LoanApplicationSubmitted e, CancellationToken ct)
+    {
+        if (!await db.Applications.AnyAsync(a => a.ApplicationId == e.ApplicationId, ct))
+        {
+            db.Applications.Add(new ApplicationRef { ApplicationId = e.ApplicationId, CustomerId = e.CustomerId, CreatedAt = time.GetUtcNow(), PerformedBy = e.PerformedBy });
+        }
+
+        await History.RecordAsync(db, time, e.CustomerId, e.ApplicationId, e.EventId, e.OccurredOn, e.PerformedBy,
             $"Applied for {e.ProductCode}: {e.RequestedAmount} over {e.TermMonths} months.", ct);
+    }
 }
 
 /// <summary>LoanApplicationStatusChanged → a note in the interaction history.</summary>

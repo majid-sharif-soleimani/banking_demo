@@ -26,6 +26,8 @@ public sealed class CustomersDbContext(DbContextOptions<CustomersDbContext> opti
 
     public DbSet<Appointment> Appointments => Set<Appointment>();
 
+    public DbSet<ApplicationRef> Applications => Set<ApplicationRef>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.AddBankMessaging();
@@ -105,7 +107,17 @@ public sealed class CustomersDbContext(DbContextOptions<CustomersDbContext> opti
                 .HasFilter("status = 'Scheduled'").HasDatabaseName(AppointmentSlotIndex);
             Audit(appointment);
         });
+
+        ConfigureApplications(modelBuilder);
     }
+
+    private static void ConfigureApplications(ModelBuilder modelBuilder) =>
+        modelBuilder.Entity<ApplicationRef>(application =>
+        {
+            application.ToTable("application_ref");
+            application.HasKey(a => a.ApplicationId);
+            Audit(application);
+        });
 
     private static void Audit<T>(Microsoft.EntityFrameworkCore.Metadata.Builders.EntityTypeBuilder<T> entity) where T : class
     {

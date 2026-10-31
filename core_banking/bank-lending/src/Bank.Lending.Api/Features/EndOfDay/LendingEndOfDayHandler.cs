@@ -82,10 +82,14 @@ public sealed class LendingEndOfDayHandler(LendingDbContext db, IEventPublisher 
             }
         }
 
-        // 2. One day of penalties.
+        // 2. One day of penalties, except while a payoff is pending: the payoff settles the quoted amount (review of 2026-10-31).
         var items = rows.Select(r => r.ToLogic(loan.Currency)).ToList();
         var before = items.Sum(i => i.PenaltyDue.Amount);
-        items = [.. Penalties.ForDay(items, loan.Terms, date)];
+        if (loan.PendingPayoffCollectionId is null)
+        {
+            items = [.. Penalties.ForDay(items, loan.Terms, date)];
+        }
+
         var added = items.Sum(i => i.PenaltyDue.Amount) - before;
         foreach (var (row, item) in rows.Zip(items))
         {
@@ -109,6 +113,8 @@ public sealed class LendingEndOfDayHandler(LendingDbContext db, IEventPublisher 
             loan.PerformedBy = PerformedBy.System;
         }
 
+        // Always writes the loan row: a payoff requested meanwhile conflicts on xmin, and this day reruns once, sees the payoff, and asks for no installment.
+        loan.LastEndOfDay = date;
         db.LoanDayRuns.Add(new LoanDayRun { LoanId = loan.Id, Date = date, CreatedAt = now, PerformedBy = PerformedBy.System });
         await db.SaveChangesAsync(ct);
     }

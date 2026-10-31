@@ -157,6 +157,24 @@ public sealed class Loan
     /// <summary>The open payoff request, if any; at most one at a time.</summary>
     public Guid? PendingPayoffCollectionId { get; set; }
 
+    /// <summary>
+    /// The quote the payoff was requested with, settled exactly as quoted (review of 2026-10-31): principal, penalty,
+    /// interest (to date + minimum), waived interest. Null without an open payoff.
+    /// </summary>
+    public decimal? PayoffPrincipal { get; set; }
+
+    public decimal? PayoffPenalty { get; set; }
+
+    public decimal? PayoffInterest { get; set; }
+
+    public decimal? PayoffWaived { get; set; }
+
+    /// <summary>
+    /// The last business date this loan's end of day ran. Writing it on the loan row every end of day makes a concurrent
+    /// payoff request (which also writes the loan row) conflict on xmin, so the two can never both open a collection.
+    /// </summary>
+    public DateOnly? LastEndOfDay { get; set; }
+
     public DateTimeOffset CreatedAt { get; init; }
 
     public required string PerformedBy { get; set; }
