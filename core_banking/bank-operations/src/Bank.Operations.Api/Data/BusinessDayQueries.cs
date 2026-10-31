@@ -14,6 +14,9 @@ public static class BusinessDayQueries
     /// <summary>
     /// The current business day, locked (FOR UPDATE) until the caller's transaction ends: a second caller waits here
     /// and then sees everything the first one committed (ADR 0001). Needs an open transaction, such as a handler's.
+    /// Under READ COMMITTED a waiting caller re-checks the WHERE after the wait: if the first caller closed the day, this
+    /// returns null (LIMIT 1 does not look for the newly inserted day). DayCompletedHandler relies on its duplicate check
+    /// running before its date check for that case; keep that order.
     /// </summary>
     public static Task<BusinessDay?> CurrentForUpdateAsync(this DbSet<BusinessDay> days, CancellationToken ct) =>
         // LINQ has no FOR UPDATE. xmin is a system column, so SELECT * leaves it out; the Version property needs it named.

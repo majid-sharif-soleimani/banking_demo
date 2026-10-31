@@ -74,6 +74,42 @@ public class DataModelTests(PostgresFixture postgres)
     }
 
     [Fact]
+    public async Task Only_one_business_day_can_be_current()
+    {
+        var database = await OperationsDatabase.CreateAsync(postgres);
+        await using (var first = database.NewContext())
+        {
+            first.BusinessDays.Add(NewDay(new DateOnly(2026, 1, 1), BusinessDayStatus.Closing));
+            await first.SaveChangesAsync(Ct);
+        }
+
+        await using var second = database.NewContext();
+        second.BusinessDays.Add(NewDay(new DateOnly(2026, 1, 2), BusinessDayStatus.Open));
+
+        var error = await Should.ThrowAsync<DbUpdateException>(() => second.SaveChangesAsync(Ct));
+        error.InnerException.ShouldBeOfType<PostgresException>().SqlState.ShouldBe(PostgresErrorCodes.ExclusionViolation);
+    }
+
+    [Fact]
+    public async Task Closing_a_day_and_opening_the_next_in_one_save_is_allowed()
+    {
+        // The constraint is checked at commit, so the order of UPDATE and INSERT inside one save does not matter.
+        var database = await OperationsDatabase.CreateAsync(postgres);
+        await using (var setup = database.NewContext())
+        {
+            setup.BusinessDays.Add(NewDay(new DateOnly(2026, 1, 1), BusinessDayStatus.Closing));
+            await setup.SaveChangesAsync(Ct);
+        }
+
+        await using var context = database.NewContext();
+        context.BusinessDays.Add(NewDay(new DateOnly(2026, 1, 2), BusinessDayStatus.Open));
+        (await context.BusinessDays.SingleAsync(d => d.Date == new DateOnly(2026, 1, 1), Ct)).Status = BusinessDayStatus.Closed;
+        await context.SaveChangesAsync(Ct);
+
+        (await database.ScalarAsync<long>("SELECT count(*) FROM business_day WHERE status <> 'Closed'")).ShouldBe(1);
+    }
+
+    [Fact]
     public async Task A_service_completes_a_date_only_once()
     {
         var database = await OperationsDatabase.CreateAsync(postgres);

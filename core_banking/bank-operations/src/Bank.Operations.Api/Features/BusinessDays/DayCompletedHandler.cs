@@ -25,6 +25,9 @@ public sealed class DayCompletedHandler(
         var day = await db.BusinessDays.CurrentForUpdateAsync(ct);
 
         // The same fact again under a new message id (the inbox only stops the same message id): no extra effect.
+        // This check must stay before the date check: a handler that waited on the lock while the day closed gets null.
+        // A non-participant that loses the race against the last participant finds the day closed and throws (DLT);
+        // one that wins is recorded. Both are consistent with the rule; which one happens depends on timing.
         if (await db.BusinessDayCompletions.AnyAsync(c => c.Date == @event.Date && c.Service == @event.Service, ct))
         {
             return;

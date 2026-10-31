@@ -34,4 +34,6 @@ The lock turns a race into a queue at the one place where the decision is made: 
 - The handler needs an open transaction. The inbox pipeline always provides one (bank-contracts ADR 0012); calling the handler outside the pipeline would lock nothing.
 - `FOR UPDATE` needs raw SQL (`FromSql`), and the query must name `xmin`, a gotcha already known from the outbox dispatcher.
 - Under READ COMMITTED, a waiting `FOR UPDATE` re-checks its `WHERE`. If the first handler closed the day, the waiting one gets no row. It then either finds its completion as a duplicate (no-op) or throws `UnexpectedDayCompletedException`, which is the rule for a completion of another day.
+- A non-participant's `DayCompleted` racing the last participant's is either recorded (it took the lock first) or rejected as "another day" (it waited and the day closed). Both follow the rule; which one happens depends on timing.
+- A deferred exclusion constraint (`ex_business_day_one_current`, review of 2026-10-31) makes the database refuse a second current day, independent of the lock.
 - `ExactlyOnceTests` runs the race 15 times in one test. Without the lock it fails on the first race; with it, it has passed every run.

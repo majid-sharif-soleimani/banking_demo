@@ -39,6 +39,7 @@ The code lives in `Bank.Messaging`, namespace `Bank.Messaging.BusinessDays`:
 
 - `Bank.Messaging` now carries one piece of business vocabulary (the business date). Keep it to that. Anything bigger belongs in its own package.
 - `Today` is a synchronous property, so the first access in a scope runs one small synchronous query. That is acceptable for one indexed `max(date)`.
+- `Today` counts a Closed day too: between `DayClosed(D)` and `BusinessDayOpened(D+1)` the business date is still D, because the end-of-day work for D runs then. Lending (stage 5) relies on this.
 - Until the first `BusinessDayOpened` arrives, `Today` throws, with a hint to check `Kafka:SubscribeTo`. A service started without Operations fails loudly, not with a wrong date.
 - Operations does not use this. It owns the date and reads its own `business_day` table (`BusinessDayQueries` in bank-operations).
 - Tests use `FakeBusinessClock` from `Bank.Testing` for logic, and the real consumer in integration tests.

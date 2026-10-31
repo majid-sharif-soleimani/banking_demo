@@ -22,6 +22,8 @@ Owns the bank's currencies and business date, and runs the end-of-day cycle (des
 
 ## Gotchas
 
+- Running the whole system with the AppHost before stage 4: the default participants (`accounts`, `lending`) do not exist yet, so a close leaves the day Closing. Expected until those services reply.
+- `business_day` has a deferred exclusion constraint `ex_business_day_one_current`: at most one day is not Closed, checked at commit.
 - `DayCompletedHandler` locks the current day first (`CurrentForUpdateAsync`, `FOR UPDATE`, ADR 0001). Anything else that changes the current day from a handler must take the same lock, or the lost-close race comes back.
 - Configuration arrays merge **by index** across sources: `Operations__EndOfDayParticipants__0=x` over `["accounts", "lending"]` gives `["x", "lending"]`. Override the whole list (every index) or edit `appsettings.json`. The test host removes the JSON sources for this reason.
 
