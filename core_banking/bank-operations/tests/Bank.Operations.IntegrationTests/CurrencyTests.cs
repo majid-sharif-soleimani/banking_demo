@@ -1,7 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
 using Bank.Contracts.Events;
-using Bank.Operations.Api.Data;
 using Bank.Operations.Api.Features.Currencies;
 using Bank.Operations.IntegrationTests.Support;
 using Bank.Testing;
@@ -43,7 +42,7 @@ public class CurrencyTests(PostgresFixture postgres)
             activated.PerformedBy.ShouldBe("E001");
             return Task.CompletedTask;
         });
-        app.Broker.Sent.ShouldHaveSingleItem().Key.ShouldBe("SEK");
+        app.Broker.Sent.Single(m => m.SchemaUri == CurrencyActivated.SchemaUri).Key.ShouldBe("SEK");
         (await app.Database.ScalarAsync<string>("SELECT performed_by FROM currency WHERE code = 'SEK'")).ShouldBe("E001");
     }
 
@@ -94,7 +93,8 @@ public class CurrencyTests(PostgresFixture postgres)
         response.Content.Headers.ContentType!.MediaType.ShouldBe("application/problem+json");
         var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(Ct);
         problem!.Extensions["code"]!.ToString().ShouldBe("currency_not_found");
-        (await app.Database.ScalarAsync<long>("SELECT count(*) FROM outbox_message")).ShouldBe(0);
+        (await app.Database.ScalarAsync<long>(
+            $"SELECT count(*) FROM outbox_message WHERE schema_uri = '{CurrencyActivated.SchemaUri}'")).ShouldBe(0);
     }
 
     [Fact]
@@ -109,10 +109,6 @@ public class CurrencyTests(PostgresFixture postgres)
         currencies.Where(c => c.Code != "SEK").ShouldAllBe(c => !c.IsActive);
     }
 
-    private async Task<OperationsApp> StartWithOpenDayAsync()
-    {
-        var app = await OperationsApp.StartAsync(postgres);
-        await app.AddBusinessDayAsync(Today, BusinessDayStatus.Open);
-        return app;
-    }
+    // The service opens Operations:StartDate (2026-01-01 in the tests) when it starts.
+    private Task<OperationsApp> StartWithOpenDayAsync() => OperationsApp.StartAsync(postgres);
 }

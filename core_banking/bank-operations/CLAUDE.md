@@ -5,22 +5,24 @@ Owns the bank's currencies and business date, and runs the end-of-day cycle (des
 ## Tables
 
 - `currency`: code (PK), minor_units, is_active. SEK, EUR, USD seeded **inactive** (ADR 0002); a currency becomes active only through `POST /currencies/{code}/activate` (idempotent; xmin separates concurrent calls).
-- `business_day`: date (PK), status (`Open`, `Closing`, `Closed`, stored as text), opened_at, closed_at. Empty after the migration; the service opens `Operations:StartDate` on its first start (slice 2.3a).
+- `business_day`: date (PK), status (`Open`, `Closing`, `Closed`, stored as text), opened_at, closed_at. Empty after the migration; `OpenFirstBusinessDay` opens `Operations:StartDate` at startup and publishes `BusinessDayOpened`. The current day is the one not Closed.
 - `business_day_completion`: (date, service) as primary key, so a service counts once per date.
 - `outbox_message`, `inbox_message` from `modelBuilder.AddBankMessaging()`.
 
 ## Events
 
 - Publishes: `CurrencyActivated`, `DayClosed`, `BusinessDayOpened`.
-- Consumes: `DayCompleted` from the services in `Kafka:SubscribeTo`.
+- Consumes: `DayCompleted` from the end-of-day participants (`DayCompletedHandler`; a completion for any day other than the current Closing day throws and ends in the DLT, a repeated (date, service) is a no-op). Event key of day events: the date `yyyy-MM-dd`.
 
 ## Configuration
 
-- `Operations:EndOfDayParticipants`: services that must send `DayCompleted` before the next day opens (`["accounts", "lending"]`). Validated at startup: at least one, lower case, no duplicates. Keep `Kafka:SubscribeTo` in step with it.
+- `Operations:EndOfDayParticipants`: services that must send `DayCompleted` before the next day opens (`["accounts", "lending"]`). Validated at startup: at least one, lower case, no duplicates. `Kafka:SubscribeTo` is derived from it in `Program.cs`; do not set it.
 - `Operations:StartDate`: first business date when `business_day` is empty (default `2026-01-01`).
 - `ConnectionStrings:operations-db` and `ConnectionStrings:kafka` come from the AppHost. No secret lives in this folder.
 
 ## Gotchas
+
+- Configuration arrays merge **by index** across sources: `Operations__EndOfDayParticipants__0=x` over `["accounts", "lending"]` gives `["x", "lending"]`. Override the whole list (every index) or edit `appsettings.json`. The test host removes the JSON sources for this reason.
 
 - `Logic/EndOfDay.IsComplete` throws on an empty participant list: "all of none" would close every day without end-of-day work.
 - References the shared packages and `Bank.ServiceDefaults` from `../.local-feed` at exact versions. After changing `bank-contracts` or `bank-platform/src/Bank.ServiceDefaults`, pack them and bump the version here. CI packs both from the same commit before restoring.

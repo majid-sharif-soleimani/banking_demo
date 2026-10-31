@@ -2,8 +2,11 @@ using Bank.Messaging;
 using Bank.Messaging.Kafka;
 using Bank.Operations.Api;
 using Bank.Operations.Api.Data;
+using Bank.Contracts.Events;
+using Bank.Operations.Api.Features.BusinessDays;
 using Bank.Operations.Api.Features.Currencies;
 using Bank.Toolkit.Data;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,6 +26,12 @@ builder.Services.AddMigrationsOnStartup<OperationsDbContext>();
 builder.Services.AddBankMessaging(o => o.ServiceName = "operations");
 builder.Services.AddKafkaTransport(builder.Configuration);
 OperationsOptions.AddTo(builder.Services, builder.Configuration);
+// Operations reads exactly the topics of its end-of-day participants: one list, so they cannot drift apart.
+builder.Services.AddOptions<KafkaOptions>()
+    .PostConfigure<IOptions<OperationsOptions>>((kafka, operations) => kafka.SubscribeTo = operations.Value.EndOfDayParticipants);
+builder.Services.AddEventHandler<DayCompleted, DayCompletedHandler>();
+// After the migrations (they run in IHostedLifecycleService.StartingAsync, before any StartAsync).
+builder.Services.AddHostedService<OpenFirstBusinessDay>();
 builder.Services.AddOpenApi();
 // RFC 9457 problem details for every error response, including unhandled exceptions.
 builder.Services.AddProblemDetails();
@@ -35,6 +44,8 @@ app.MapDefaultEndpoints();
 
 ListCurrencies.Map(app);
 ActivateCurrency.Map(app);
+GetCurrentBusinessDay.Map(app);
+CloseBusinessDay.Map(app);
 
 app.Run();
 

@@ -9,6 +9,7 @@ using Bank.Operations.Api.Data;
 using Bank.Testing;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Configuration.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
@@ -75,6 +76,15 @@ public sealed class OperationsApp : WebApplicationFactory<Program>
         }
 
         builder.UseEnvironment("Testing");
+        // Configuration arrays merge by index: EndOfDayParticipants:0 = "stub" over appsettings.json's
+        // ["accounts", "lending"] would give ["stub", "lending"]. The tests set every value they need themselves.
+        builder.ConfigureAppConfiguration((_, configuration) =>
+        {
+            foreach (var json in configuration.Sources.OfType<JsonConfigurationSource>().ToList())
+            {
+                configuration.Sources.Remove(json);
+            }
+        });
         builder.ConfigureServices(services =>
         {
             // No Kafka: drop its consumer and topic initializer and send through an in-memory broker.
@@ -95,11 +105,11 @@ public sealed class OperationsApp : WebApplicationFactory<Program>
             || descriptor.ImplementationFactory?.Method.ReturnType.Assembly.GetName().Name == "Bank.Messaging.Kafka");
 
     /// <summary>Hands an event to the service as its Kafka consumer would, through the inbox pipeline.</summary>
-    public Task DeliverAsync<T>(T @event, string schemaUri, string key) where T : IIntegrationEvent =>
+    public Task<ProcessOutcome> DeliverAsync<T>(T @event, string schemaUri, string key, CancellationToken? ct = null) where T : IIntegrationEvent =>
         Services.GetRequiredService<MessagePipeline>().ProcessAsync(
             new TransportMessage(@event.EventId, schemaUri, key, JsonSerializer.Serialize(@event, ContractJson.Options),
                 @event.PerformedBy, @event.OccurredOn),
-            Ct);
+            ct ?? Ct);
 
     /// <summary>The events of one type the service has sent so far.</summary>
     public IReadOnlyList<T> Published<T>(string schemaUri) =>
