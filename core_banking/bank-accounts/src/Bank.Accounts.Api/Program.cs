@@ -58,6 +58,7 @@ OpenAccount.Map(app);
 GetAccounts.Map(app);
 CashMovements.Map(app);
 TransferEndpoints.Map(app);
+Statements.Map(app);
 
 app.Run();
 
