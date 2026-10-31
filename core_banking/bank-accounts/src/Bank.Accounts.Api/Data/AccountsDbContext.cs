@@ -25,6 +25,12 @@ public sealed class AccountsDbContext(DbContextOptions<AccountsDbContext> option
 
     public DbSet<Transfer> Transfers => Set<Transfer>();
 
+    public DbSet<StandingOrder> StandingOrders => Set<StandingOrder>();
+
+    public DbSet<StandingOrderRun> StandingOrderRuns => Set<StandingOrderRun>();
+
+    public DbSet<EndOfDayRun> EndOfDayRuns => Set<EndOfDayRun>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.AddBankMessaging();
@@ -78,6 +84,38 @@ public sealed class AccountsDbContext(DbContextOptions<AccountsDbContext> option
             transfer.HasIndex(t => t.ToAccountId);
             transfer.Property(t => t.PerformedBy).HasMaxLength(PerformedBy.MaxLength);
             transfer.Property(t => t.Version).HasColumnName("xmin").HasColumnType("xid").IsRowVersion();
+        });
+
+        modelBuilder.Entity<StandingOrder>(order =>
+        {
+            order.ToTable("standing_order");
+            order.Property(o => o.Amount).HasColumnType("numeric");
+            order.Property(o => o.Currency).HasMaxLength(3);
+            order.Property(o => o.Frequency).HasConversion<string>().HasMaxLength(16);
+            order.Property(o => o.Status).HasConversion<string>().HasMaxLength(16);
+            order.Ignore(o => o.Schedule);
+            // End of day reads the active orders due on a date.
+            order.HasIndex(o => new { o.Status, o.NextRunDate });
+            order.Property(o => o.PerformedBy).HasMaxLength(PerformedBy.MaxLength);
+            order.Property(o => o.Version).HasColumnName("xmin").HasColumnType("xid").IsRowVersion();
+        });
+
+        modelBuilder.Entity<StandingOrderRun>(run =>
+        {
+            run.ToTable("standing_order_run");
+            run.HasIndex(r => new { r.StandingOrderId, r.RunDate }).IsUnique();
+            run.Property(r => r.Status).HasConversion<string>().HasMaxLength(16);
+            run.Property(r => r.Reason).HasMaxLength(64);
+            run.Property(r => r.PerformedBy).HasMaxLength(PerformedBy.MaxLength);
+            run.Property(r => r.Version).HasColumnName("xmin").HasColumnType("xid").IsRowVersion();
+        });
+
+        modelBuilder.Entity<EndOfDayRun>(run =>
+        {
+            run.ToTable("end_of_day_run");
+            run.HasKey(r => r.Date);
+            run.Property(r => r.PerformedBy).HasMaxLength(PerformedBy.MaxLength);
+            run.Property(r => r.Version).HasColumnName("xmin").HasColumnType("xid").IsRowVersion();
         });
 
         modelBuilder.Entity<CustomerRef>(customer =>

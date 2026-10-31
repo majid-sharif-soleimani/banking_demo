@@ -7,12 +7,13 @@ Accounts and money movements: accounts, deposits and withdrawals, transfers (wit
 - `account`: 9-digit `number` (unique, Luhn), stored `balance` (ADR 0002, check `balance >= 0`), `xmin` on every change.
 - `account_entry`: append-only, signed `amount`, `balance_after`, `business_date`, `sequence` (identity, order).
 - `transfer`: amount and currency, converted amount and target currency, `fx_rate`, `fx_source`, `fx_observed_on`, `fx_at`, optional `standing_order_id`.
+- `standing_order` (next run date, status Active/Cancelled/Completed), `standing_order_run` (unique (order, run date), Succeeded/Failed + reason), `end_of_day_run` (one row per business date Accounts completed).
 - `idempotency_record`: (operation, key) → request hash + stored response as text (ADR 0003).
 - `customer_ref`, `currency_ref` (local copies), `business_day` (consumer), outbox, inbox.
 
 ## Events
 
-- Publishes `AccountOpened`, `MoneyDeposited`, `MoneyWithdrawn` (key = account id), `MoneyTransferred` (key = transfer id; `FxRate` as a decimal string, `Fee` always null).
+- Publishes `AccountOpened`, `MoneyDeposited`, `MoneyWithdrawn` (key = account id), `MoneyTransferred` (key = transfer id; `FxRate` as a decimal string, `Fee` always null), `StandingOrderFailed` (key = order id), `DayCompleted(D, "accounts")`.
 - Consumes `CustomerRegistered` (customers), `CurrencyActivated`, `BusinessDayOpened`, `DayClosed` (operations).
 
 ## Rules in code
@@ -21,6 +22,12 @@ Accounts and money movements: accounts, deposits and withdrawals, transfers (wit
 - Every money POST runs through `IdempotentCommand.RunAsync`: Idempotency-Key required; one retry on an xmin conflict, then 409.
 - A customer missing from `customer_ref` → 422 `customer_not_found` (ADR 0001); the caller retries.
 - `X-Customer-Id` for another customer → 404.
+
+## End of day
+
+- `AccountsEndOfDayHandler` on `DayClosed(D)`: every active order with next run ≤ D, each in its own scope and transaction (one rerun on an xmin conflict); failures are recorded and published, never retried; next run date advances either way; then `end_of_day_run` + `DayCompleted` with the inbox row. A second `DayClosed(D)` (new id) is a no-op.
+- Its class name is an inbox key and must differ from the consumer's `LocalDayClosedHandler`.
+- `Logic/StandingOrders.NextRunDate` counts every run from the start date (31st → last day of shorter months, then back to the 31st).
 
 ## Exchange rates
 

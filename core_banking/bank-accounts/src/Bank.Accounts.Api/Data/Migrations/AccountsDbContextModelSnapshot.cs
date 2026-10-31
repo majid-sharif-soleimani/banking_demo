@@ -237,6 +237,38 @@ namespace Bank.Accounts.Api.Data.Migrations
                     b.ToTable("customer_ref", (string)null);
                 });
 
+            modelBuilder.Entity("Bank.Accounts.Api.Data.EndOfDayRun", b =>
+                {
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date")
+                        .HasColumnName("date");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("PerformedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("performed_by");
+
+                    b.Property<int>("StandingOrdersRun")
+                        .HasColumnType("integer")
+                        .HasColumnName("standing_orders_run");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Date")
+                        .HasName("pk_end_of_day_run");
+
+                    b.ToTable("end_of_day_run", (string)null);
+                });
+
             modelBuilder.Entity("Bank.Accounts.Api.Data.IdempotencyRecord", b =>
                 {
                     b.Property<string>("Operation")
@@ -284,6 +316,140 @@ namespace Bank.Accounts.Api.Data.Migrations
                         .HasName("pk_idempotency_record");
 
                     b.ToTable("idempotency_record", (string)null);
+                });
+
+            modelBuilder.Entity("Bank.Accounts.Api.Data.StandingOrder", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("numeric")
+                        .HasColumnName("amount");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("currency");
+
+                    b.Property<Guid>("CustomerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("customer_id");
+
+                    b.Property<DateOnly?>("EndDate")
+                        .HasColumnType("date")
+                        .HasColumnName("end_date");
+
+                    b.Property<string>("Frequency")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("frequency");
+
+                    b.Property<Guid>("FromAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("from_account_id");
+
+                    b.Property<DateOnly?>("NextRunDate")
+                        .HasColumnType("date")
+                        .HasColumnName("next_run_date");
+
+                    b.Property<string>("PerformedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("performed_by");
+
+                    b.Property<DateOnly>("StartDate")
+                        .HasColumnType("date")
+                        .HasColumnName("start_date");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("ToAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("to_account_id");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_standing_order");
+
+                    b.HasIndex("Status", "NextRunDate")
+                        .HasDatabaseName("ix_standing_order_status_next_run_date");
+
+                    b.ToTable("standing_order", (string)null);
+                });
+
+            modelBuilder.Entity("Bank.Accounts.Api.Data.StandingOrderRun", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("PerformedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("performed_by");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("reason");
+
+                    b.Property<DateOnly>("RunDate")
+                        .HasColumnType("date")
+                        .HasColumnName("run_date");
+
+                    b.Property<Guid>("StandingOrderId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("standing_order_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("status");
+
+                    b.Property<Guid?>("TransferId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("transfer_id");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_standing_order_run");
+
+                    b.HasIndex("StandingOrderId", "RunDate")
+                        .IsUnique()
+                        .HasDatabaseName("ix_standing_order_run_standing_order_id_run_date");
+
+                    b.ToTable("standing_order_run", (string)null);
                 });
 
             modelBuilder.Entity("Bank.Accounts.Api.Data.Transfer", b =>
