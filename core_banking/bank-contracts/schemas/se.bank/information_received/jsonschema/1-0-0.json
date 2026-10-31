@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "self": {
+    "vendor": "se.bank",
+    "name": "information_received",
+    "format": "jsonschema",
+    "version": "1-0-0"
+  },
+  "description": "The customer delivered the requested information; Lending returns the application to UnderReview.",
+  "type": "object",
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique id of this event; the consumer inbox key."
+    },
+    "occurredOn": {
+      "type": "string",
+      "format": "date",
+      "description": "Business date on which the event happened."
+    },
+    "performedBy": {
+      "type": "string",
+      "description": "Actor id that caused the event, 'system' by default.",
+      "minLength": 1
+    },
+    "informationRequestId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Id of the request."
+    },
+    "applicationId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Id of the application."
+    }
+  },
+  "required": [
+    "eventId",
+    "occurredOn",
+    "performedBy",
+    "informationRequestId",
+    "applicationId"
+  ]
+}

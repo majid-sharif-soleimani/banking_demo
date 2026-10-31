@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "self": {
+    "vendor": "se.bank",
+    "name": "loan_disbursed",
+    "format": "jsonschema",
+    "version": "1-0-0"
+  },
+  "description": "Lending disbursed a loan; Accounts credits the repayment account and Ledger posts the loan.",
+  "type": "object",
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique id of this event; the consumer inbox key."
+    },
+    "occurredOn": {
+      "type": "string",
+      "format": "date",
+      "description": "Business date on which the event happened."
+    },
+    "performedBy": {
+      "type": "string",
+      "description": "Actor id that caused the event, 'system' by default.",
+      "minLength": 1
+    },
+    "loanId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Id of the loan."
+    },
+    "applicationId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Id of the application."
+    },
+    "customerId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Borrower."
+    },
+    "repaymentAccountId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Account credited now and debited for installments."
+    },
+    "principal": {
+      "type": "object",
+      "description": "Amount disbursed.",
+      "properties": {
+        "amount": {
+          "type": "string",
+          "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        }
+      },
+      "required": [
+        "amount",
+        "currency"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "eventId",
+    "occurredOn",
+    "performedBy",
+    "loanId",
+    "applicationId",
+    "customerId",
+    "repaymentAccountId",
+    "principal"
+  ]
+}

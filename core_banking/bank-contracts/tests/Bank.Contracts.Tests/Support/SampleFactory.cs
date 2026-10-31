@@ -14,6 +14,14 @@ public static class SampleFactory
         ["Currency"] = "SEK",
         ["FxRate"] = "11.50",
         ["Reason"] = "insufficient_funds",
+        ["ProductCode"] = "CAR",
+        ["FromStatus"] = "Submitted",
+        ["ToStatus"] = "UnderReview",
+        ["EmployeeId"] = "E001",
+        ["Purpose"] = "Installment",
+        ["Source"] = "Account",
+        ["FromClassification"] = "Current",
+        ["ToClassification"] = "Overdue",
     };
 
     public static object Create(Type recordType)

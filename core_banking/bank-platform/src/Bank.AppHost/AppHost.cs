@@ -61,6 +61,13 @@ builder.AddProject<Projects.Bank_Accounts_Api>("accounts")
     .WaitFor(kafka)
     .WithHttpHealthCheck("/health");
 
+builder.AddProject<Projects.Bank_Lending_Api>("lending")
+    .WithReference(serviceDatabases["lending"])
+    .WithReference(kafka)
+    .WaitFor(postgres)
+    .WaitFor(kafka)
+    .WithHttpHealthCheck("/health");
+
 builder.Build().Run();
 
 internal static class BankDatabase
