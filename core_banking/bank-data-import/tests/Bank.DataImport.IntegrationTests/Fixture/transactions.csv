@@ -1,0 +1,10 @@
+id,account_id,date,kind,amount,target_account_id
+T1,A1,2019-05-01,deposit,5000,
+T2,A2,2019-05-01,deposit,2000,
+T3,A3,2019-05-01,deposit,800,
+T4,A4,2019-05-01,deposit,100,
+T5,A1,2019-05-02,transfer,300,A2
+T6,A3,2019-05-02,withdrawal,50,
+T7,A4,2019-05-03,withdrawal,9999,
+T8,A2,2019-05-03,transfer,100,EXT9
+T9,A5,2019-05-03,deposit,1200,

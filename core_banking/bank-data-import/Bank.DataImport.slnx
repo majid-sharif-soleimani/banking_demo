@@ -1,0 +1,17 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Bank.DataImport/Bank.DataImport.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Bank.DataImport.IntegrationTests/Bank.DataImport.IntegrationTests.csproj" />
+    <Project Path="tests/Bank.DataImport.UnitTests/Bank.DataImport.UnitTests.csproj" />
+  </Folder>
+  <Project Path="../bank-accounts/src/Bank.Accounts.Api/Bank.Accounts.Api.csproj" />
+  <Project Path="../bank-cards/src/Bank.Cards.Api/Bank.Cards.Api.csproj" />
+  <Project Path="../bank-customers/src/Bank.Customers.Api/Bank.Customers.Api.csproj" />
+  <Project Path="../bank-gateway/src/Bank.Gateway/Bank.Gateway.csproj" />
+  <Project Path="../bank-ledger/src/Bank.Ledger.Api/Bank.Ledger.Api.csproj" />
+  <Project Path="../bank-lending/src/Bank.Lending.Api/Bank.Lending.Api.csproj" />
+  <Project Path="../bank-operations/src/Bank.Operations.Api/Bank.Operations.Api.csproj" />
+  <Project Path="../bank-platform/src/Bank.AppHost/Bank.AppHost.csproj" />
+</Solution>

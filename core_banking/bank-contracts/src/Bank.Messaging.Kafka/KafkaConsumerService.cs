@@ -50,6 +50,9 @@ internal sealed class KafkaConsumerService(
             // Offsets are committed in the background, but only those stored below, after a message is done.
             EnableAutoCommit = true,
             EnableAutoOffsetStore = false,
+            // A subscribed topic that is missing from the metadata is looked up again only at the next refresh
+            // (5 minutes by default). The initializer waits for its topics; this bounds the wait if one goes missing later.
+            TopicMetadataRefreshIntervalMs = 10_000,
         };
 
         using var consumer = new ConsumerBuilder<byte[], byte[]>(config)

@@ -19,3 +19,7 @@ appsettings.*.local.json
 
 # Local uploaded files (LocalFileStorage, Files:Root)
 .data/
+
+# Data import: the dataset export and the generated report (personal-looking sample data)
+core_banking/bank-data-import/data/raw/
+core_banking/bank-data-import/data/import-report.md
