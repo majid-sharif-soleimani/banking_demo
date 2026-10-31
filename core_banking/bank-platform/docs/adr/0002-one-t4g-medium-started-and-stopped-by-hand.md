@@ -12,13 +12,14 @@ The bank runs on AWS only for demos. The whole system (six services, the gateway
 
 ## Decision
 
-- **One t4g.medium** (2 ARM vCPUs, 4 GB RAM), as the stage file and the design plan suggest. The root volume is 30 GB of gp3 (encrypted), which holds the PostgreSQL and Kafka data, so the data survives a stop.
+- **One t4g.medium** (2 ARM vCPUs, 4 GB RAM), as the stage file and the design plan suggest. Kafka's heap is capped at 512 MB.
+- **The data survives a stop, and a replacement.** The root volume is 30 GB of gp3 (encrypted) and holds PostgreSQL's and Kafka's data volumes (Kafka's log directory is set to its volume explicitly). The volume is kept even if the instance is terminated (`DeleteOnTermination = false`). The AMI is **pinned** (`bank:amiId`), because a changed image id makes CloudFormation replace the instance on the next deploy.
 - **Started and stopped by hand:** `deploy/start.sh` starts the instance and prints the new address, and `deploy/stop.sh` stops it. Majid runs both with his own credentials. No schedule.
 - **No Elastic IP:** the public address changes at every start, and `start.sh` prints it.
 
 ## Rationale
 
-- Eight .NET processes at about 150–250 MB each, plus PostgreSQL and a single-node Kafka, need about 3 GB. 4 GB leaves headroom; 2 GB (t4g.small) would swap. ARM (Graviton) costs about 20 % less than the same x86 size.
+- Seven .NET services and the dashboard at about 150–250 MB each, PostgreSQL, Kafka (512 MB heap) and Kafka UI (a JVM, about 250 MB) need about 3–3.5 GB. 4 GB is tight but enough; 2 GB (t4g.small) would not start. If memory runs short, drop Kafka UI on AWS first. ARM (Graviton) costs about 20 % less than the same x86 size.
 - A demo is a planned event, so starting by hand costs one command. A forgotten instance costs about a dollar a day, which is visible on the next bill and not dangerous.
 - An Elastic IP is charged while the instance is stopped, which is exactly the instance's normal state.
 
@@ -33,3 +34,5 @@ The bank runs on AWS only for demos. The whole system (six services, the gateway
 - Majid must remember `stop.sh` after a demo. The stage report gives the cost of forgetting.
 - The address changes at every start; bookmarks need the new one.
 - The bank needs a few minutes after `start.sh` (pull, migrations, Kafka) before the gateway answers.
+- Upgrading the operating system is a deliberate step: take a backup, deploy with a new `bank:amiId`, restore if needed.
+- These points were added after the stage 8 review, which found the unpinned AMI and Kafka's data outside its volume.

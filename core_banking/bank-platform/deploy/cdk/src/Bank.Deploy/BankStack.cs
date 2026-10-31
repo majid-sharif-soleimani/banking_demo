@@ -18,6 +18,12 @@ public sealed class BankStackProps : StackProps
 
     /// <summary>The GHCR image tag the instance runs.</summary>
     public required string ImageTag { get; init; }
+
+    /// <summary>
+    /// A pinned Amazon Linux 2023 ARM AMI id. Pinned, because a changed image id replaces the instance on the next
+    /// deploy. Empty only for "cdk synth"; the stack then warns and uses the latest image.
+    /// </summary>
+    public required string AmiId { get; init; }
 }
 
 /// <summary>
@@ -78,7 +84,11 @@ public sealed class BankStack : Stack
             Description = "The demo bank instance: its bucket, its secret, and Session Manager",
             ManagedPolicies = [ManagedPolicy.FromAwsManagedPolicyName("AmazonSSMManagedInstanceCore")],
         });
-        bucket.GrantReadWrite(role);
+        // Only what each use needs: documents under files/ (Customers), and writing new backups under backups/
+        // (backup-db.sh). Nothing on the instance can read or delete a backup. Only the Customers container can reach
+        // the role at all; start-bank.sh blocks the metadata service for every other container (ADR 0004).
+        bucket.GrantReadWrite(role, "files/*");
+        bucket.GrantPut(role, "backups/*");
         secret.GrantRead(role);
 
         // The files the instance needs, uploaded by "cdk deploy" to the CDK bootstrap bucket and fetched at boot.
@@ -113,12 +123,24 @@ public sealed class BankStack : Stack
             "systemctl daemon-reload",
             "systemctl enable --now bank.service bank-backup.timer");
 
+        IMachineImage machineImage;
+        if (props.AmiId == "")
+        {
+            // Fine for synth. Deploying like this would replace the instance whenever AWS publishes a new image.
+            machineImage = MachineImage.LatestAmazonLinux2023(new AmazonLinux2023ImageSsmParameterProps { CpuType = AmazonLinuxCpuType.ARM_64 });
+            Annotations.Of(this).AddWarningV2("bank:amiId", "Set bank:amiId before 'cdk deploy' (deploy/README.md): an unpinned image replaces the instance on a later deploy.");
+        }
+        else
+        {
+            machineImage = MachineImage.GenericLinux(new Dictionary<string, string> { [props.Env!.Region!] = props.AmiId });
+        }
+
         var instance = new Instance_(this, "Bank", new InstanceProps
         {
             Vpc = vpc,
             VpcSubnets = new SubnetSelection { SubnetType = SubnetType.PUBLIC },
             InstanceType = InstanceType.Of(InstanceClass.T4G, InstanceSize.MEDIUM),
-            MachineImage = MachineImage.LatestAmazonLinux2023(new AmazonLinux2023ImageSsmParameterProps { CpuType = AmazonLinuxCpuType.ARM_64 }),
+            MachineImage = machineImage,
             SecurityGroup = firewall,
             Role = role,
             UserData = userData,
@@ -132,7 +154,8 @@ public sealed class BankStack : Stack
                 {
                     DeviceName = "/dev/xvda",
                     // PostgreSQL and Kafka data live here and survive stop/start.
-                    Volume = BlockDeviceVolume.Ebs(30, new EbsDeviceOptions { VolumeType = EbsDeviceVolumeType.GP3, Encrypted = true }),
+                    // Kept if the instance is ever terminated or replaced, so the data can still be recovered.
+                    Volume = BlockDeviceVolume.Ebs(30, new EbsDeviceOptions { VolumeType = EbsDeviceVolumeType.GP3, Encrypted = true, DeleteOnTermination = false }),
                 },
             ],
         });

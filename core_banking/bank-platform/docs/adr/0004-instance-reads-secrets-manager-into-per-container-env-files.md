@@ -21,7 +21,8 @@ On AWS the passwords (PostgreSQL admin, six service roles, optionally a GHCR tok
 ## Rationale
 
 - The services stay unaware of AWS: local and AWS differ only in where the environment variables come from (secrets rule: "local and AWS differ only in configuration").
-- Per-container files keep the database boundary of ADR 0001: a service that is compromised cannot read another role's password from its environment.
+- Per-container files keep the database boundary of ADR 0001 for the environment: a service sees only its own password.
+- **The instance role is the other way to the secret.** Any container that reaches the instance metadata service gets the role's credentials. So `start-bank.sh` blocks the metadata address (169.254.169.254) for all containers in Docker's `DOCKER-USER` chain, except Customers. Customers has a fixed address on the `bank` network and needs the role for S3. The role itself can only read and write `files/*`, put new objects under `backups/*` (never read or delete them), and read this one secret.
 - Reading at boot means a rotated password takes effect at the next restart with no redeploy.
 
 ## Alternatives considered
@@ -33,4 +34,6 @@ On AWS the passwords (PostgreSQL admin, six service roles, optionally a GHCR tok
 ## Consequences
 
 - The passwords exist in plain text on the instance's encrypted EBS volume, readable by root. Acceptable for a demo instance that only Majid can reach.
-- If a key is missing in the secret, `start-bank.sh` stops with the key's name and the bank does not start.
+- **Remaining risk:** a compromised Customers container can use the role and so read the whole secret. Closing that needs a role per container (ECS task roles, or a credentials sidecar), which is beyond one EC2 instance. It is accepted for the demo and noted here.
+- The values must be letters and digits, at least 24 characters, because they go into env files and connection strings.
+- If a key is missing, empty or malformed, `start-bank.sh` stops with the key's name before writing any file, so the database never creates a role with an empty password. (The stage 8 review found that the first version wrote empty values instead.)

@@ -13,6 +13,7 @@ name: bank
 
 x-service: &service
   restart: unless-stopped
+  networks: [bank]
   depends_on:
     postgres:
       condition: service_healthy
@@ -54,6 +55,10 @@ services:
       Files__Prefix: files/
     # ConnectionStrings__customers-db (with its password), written by start-bank.sh.
     env_file: [{ path: env/customers.env, required: false }]
+    networks:
+      # The fixed address start-bank.sh lets through to the instance metadata service (the role, for S3). Every other
+      # container is blocked from it (bank-platform ADR 0004).
+      bank: { ipv4_address: 172.30.0.10 }
 
   accounts:
     <<: *service
@@ -92,6 +97,7 @@ services:
     env_file: [{ path: env/ledger.env, required: false }]
 
   gateway:
+    networks: [bank]
     image: ghcr.io/<owner>/bank-gateway:${BANK_IMAGE_TAG:-latest}
     restart: unless-stopped
     environment:
@@ -118,6 +124,7 @@ services:
       ledger: { condition: service_healthy }
 
   postgres:
+    networks: [bank]
     image: postgres:18.3
     restart: unless-stopped
     environment:
@@ -137,6 +144,7 @@ services:
       retries: 20
 
   kafka:
+    networks: [bank]
     image: confluentinc/confluent-local:8.2.0
     restart: unless-stopped
     environment:
@@ -144,6 +152,11 @@ services:
       KAFKA_LISTENERS: PLAINTEXT://localhost:29092,CONTROLLER://localhost:29093,PLAINTEXT_INTERNAL://0.0.0.0:9093
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:29092,PLAINTEXT_INTERNAL://kafka:9093
+      # confluent-local keeps its data in /tmp/kraft-combined-logs by default; put it on the volume so topics and
+      # consumer offsets survive a recreated container.
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      # The default 1 GB heap is too much on a 4 GB instance shared with eight .NET processes.
+      KAFKA_HEAP_OPTS: -Xms384m -Xmx512m
     volumes:
       - kafka-data:/var/lib/kafka/data
     healthcheck:
@@ -153,6 +166,7 @@ services:
       retries: 20
 
   kafka-ui:
+    networks: [bank]
     image: kafbat/kafka-ui:v1.5.0
     restart: unless-stopped
     environment:
@@ -164,12 +178,14 @@ services:
       kafka: { condition: service_healthy }
 
   mailpit:
+    networks: [bank]
     image: axllent/mailpit:v1.31.2
     restart: unless-stopped
     ports:
       - "127.0.0.1:8025:8025" # web UI, through the SSH tunnel
 
   dashboard:
+    networks: [bank]
     # The standalone Aspire dashboard: logs, traces and metrics over OTLP. Check that this tag exists for the Aspire
     # version in use before the first deployment.
     image: mcr.microsoft.com/dotnet/aspire-dashboard:13.6
@@ -179,6 +195,12 @@ services:
       ASPIRE_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS: "true"
     ports:
       - "127.0.0.1:18888:18888"
+
+networks:
+  bank:
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
 
 volumes:
   postgres-data:

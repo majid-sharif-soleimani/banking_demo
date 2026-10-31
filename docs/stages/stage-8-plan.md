@@ -55,6 +55,39 @@ Interpretations:
 - **The images are built with the .NET SDK container support** (`dotnet publish /t:PublishContainer`), with no Dockerfiles, for linux-arm64 to match the instance.
 - **The end-to-end scenarios check the books more directly than the trial balance alone.** Customer deposits in the ledger must equal the account balances, and loans receivable must be zero after a payoff.
 
+## Close-out (2026-10-31)
+
+- Done-when: end-to-end 5 of 5 (about 4.5 minutes), `cdk synth` without an AWS account, `docker compose ... config` valid. Also customers 34 + 29 (5 new S3 tests on LocalStack) and platform 47.
+- **The first runs found:**
+  - Money's amount must be a JSON string (the fixture now keeps every service's log, which showed it);
+  - each service's business date follows Operations a moment later, so `DaysPastDue` is read with `Eventually`;
+  - Mailpit pages search results (50 by default).
+- `banking-reviewer`: it recomputed the S3 penalty (about 1.30 SEK at due+6) and confirmed the scenarios are not vacuous. Five REQUIRED findings, all fixed:
+  1. `start-bank.sh` wrote empty passwords for a missing key. It now validates every key before writing anything.
+  2. Every container could reach the instance role. Only Customers can now, and the bucket grants are narrowed to `files/*` and put-only `backups/*`.
+  3. An unpinned AMI would replace the instance. It is now pinned with `bank:amiId`, and the root volume is kept on termination.
+  4. The README asked for your IP in the tracked `cdk.json`. It is now passed with `-c`.
+  5. Kafka's data was outside its volume. `KAFKA_LOG_DIRS` is set, also in the local compose file.
+
+  OPTIONAL items applied:
+  - the exact penalty amount, and classification unchanged until end of day (S3);
+  - exactly two classification warnings (S4);
+  - password rules, and the secret file kept outside the repository;
+  - a backup temp file that only root can read and that is always removed;
+  - `backup.sh` shows errors;
+  - the scripts require `AWS_REGION`;
+  - the Kafka heap is capped;
+  - CI paths include contracts and ServiceDefaults.
+
+  Not applied (in "What to watch later"):
+  - refreshing the deployed files at each boot;
+  - a Compose plugin checksum;
+  - `/health`-based compose health checks;
+  - skipping the SSH rule without a key pair;
+  - a test of the provider selection.
+- **Not deployed:** no `cdk deploy`, no `aws` command, no image push. The estimated cost is in `deploy/README.md`: about $4–6 a month at 8 hours a week, and $31–53 running all month. Confirm it in the AWS Pricing Calculator.
+- To review: bank-platform ADRs 0002–0004, scenario 3 (your item, written on delegation), and the CDK stack with `/explain` before any deployment. `/retro 8` pending. Not merged.
+
 ## Done when
 
 ```bash

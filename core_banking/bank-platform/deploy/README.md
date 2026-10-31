@@ -18,23 +18,34 @@ Why it is built this way: bank-platform ADRs 0002 (instance and start/stop), 000
 
 1. **Review the stack with `/explain`** before anything else (stage 8 file).
 2. **Images.** Set the repository variable `PUBLISH_IMAGES` to `true` (GitHub → Settings → Variables), merge to `master`, and let each service workflow push its image. Make the packages public on GHCR, or put a token with `read:packages` in the secret as `GHCR_TOKEN`.
-3. **Configure** `cdk/cdk.json`:
-   - `bank:allowedCidr`: your own IP with `/32`. The placeholder `203.0.113.10/32` is a documentation address, so nobody can connect until you change it;
-   - `bank:region`: the region (default `eu-north-1`);
-   - `bank:keyPairName`: an existing EC2 key pair for SSH. Leave it empty to use Session Manager only.
+3. **Choose the values that stay off the repository.** Your IP and the AMI id are passed on the command line, never written to `cdk.json`. Your IP is personal data (`.claude/rules/secrets.md`), and the AMI must be pinned: a changed image id replaces the instance on the next deploy.
+   ```bash
+   export AWS_REGION=eu-north-1      # the scripts and the CLI use it
+   MY_CIDR="$(curl -s https://checkip.amazonaws.com)/32"
+   AMI=$(aws ssm get-parameter --name /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-arm64 --query Parameter.Value --output text)
+   ```
+   Optional: `-c bank:keyPairName=<existing key pair>` for SSH. Without it, use Session Manager. Without your CIDR the security group allows only a documentation address, so nobody can connect.
 4. **Deploy:**
    ```bash
    cd core_banking/bank-platform/deploy/cdk
    npx aws-cdk@2.1145.0 bootstrap      # once per account and region
-   npx aws-cdk@2.1145.0 deploy
+   npx aws-cdk@2.1145.0 deploy -c bank:allowedCidr="$MY_CIDR" -c bank:amiId="$AMI"
    ```
-5. **Set the secret** named in the `SecretName` output. You set it once, and it is never committed. Then restart the instance (`stop.sh`, `start.sh`), or run `sudo systemctl restart bank` on it.
+   Pass the **same AMI** on every later deploy (keep it in your notes, or in the gitignored `cdk.context.json`). Upgrade it only on purpose, after a backup. The root volume is kept even if the instance is replaced (`DeleteOnTermination = false`).
+5. **Set the secret** named in the `SecretName` output, once. Write the JSON to a temporary file **outside the repository**, then delete it:
    ```bash
-   aws secretsmanager put-secret-value --secret-id <SecretName> --secret-string file://bank-secret.json
+   f=$(mktemp) && $EDITOR "$f"
+   aws secretsmanager put-secret-value --secret-id <SecretName> --secret-string "file://$f" && rm -f "$f"
    ```
-   `bank-secret.json` is a local file that you delete afterwards. It holds these keys, each with a strong random value:
-   - `POSTGRES_PASSWORD`, plus `OPERATIONS_DB_PASSWORD`, `CUSTOMERS_DB_PASSWORD`, `ACCOUNTS_DB_PASSWORD`, `CARDS_DB_PASSWORD`, `LENDING_DB_PASSWORD` and `LEDGER_DB_PASSWORD`;
+   Then restart the instance (`stop.sh`, `start.sh`), or run `sudo systemctl restart bank` on it. The JSON holds:
+   - `POSTGRES_PASSWORD`, plus `OPERATIONS_DB_PASSWORD`, `CUSTOMERS_DB_PASSWORD`, `ACCOUNTS_DB_PASSWORD`, `CARDS_DB_PASSWORD`, `LENDING_DB_PASSWORD` and `LEDGER_DB_PASSWORD`. Each must be **at least 24 letters and digits**, with no symbols: the values go into env files and connection strings. For example, `openssl rand -hex 16` for each;
    - optionally `GHCR_TOKEN` and `GHCR_USER`.
+
+   `start-bank.sh` refuses to start, and writes nothing, while a key is missing, empty or malformed. The database creates its roles only once, so a wrong first value would be permanent.
+
+### Changing the deployed files later
+
+User data runs only at the first boot. After a change to `docker-compose.aws.yml`, `deploy/instance/` or `db/init`, `cdk deploy` uploads the new files but the running instance keeps the old ones. Either copy the changed file to `/opt/bank/deploy` over Session Manager and run `sudo systemctl restart bank`, or rebuild the instance from a backup. New images only need `BANK_IMAGE_TAG` and a restart.
 
 ## Secrets to set
 
@@ -43,6 +54,8 @@ Why it is built this way: bank-platform ADRs 0002 (instance and start/stop), 000
 | `POSTGRES_PASSWORD` | the stack's Secrets Manager secret | PostgreSQL admin (init only) |
 | `<SERVICE>_DB_PASSWORD` (six) | the same secret | the init script creates each role with it; each service connects with its own |
 | `GHCR_TOKEN`, `GHCR_USER` (optional) | the same secret | `docker login ghcr.io` for private images |
+
+Only the Customers container can reach the instance role (for S3); `start-bank.sh` blocks the metadata service for every other container. The role can read the secret, so a compromised Customers container could too (bank-platform ADR 0004).
 
 ## Every demo
 

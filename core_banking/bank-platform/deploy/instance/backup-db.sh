@@ -6,7 +6,10 @@ cd /opt/bank/deploy
 # shellcheck disable=SC1091
 source stack.env
 file="bank-$(date -u +%Y-%m-%dT%H%M%SZ).sql.gz"
-docker compose -f docker-compose.aws.yml exec -T postgres pg_dumpall -U postgres | gzip > "/tmp/$file"
-aws s3 cp --region "$AWS_REGION" "/tmp/$file" "s3://$BANK_BUCKET/backups/$file"
-rm -f "/tmp/$file"
+# The dump holds all customer data and the role password hashes: root only, and removed even when the upload fails.
+umask 077
+tmp=$(mktemp)
+trap 'rm -f "$tmp"' EXIT
+docker compose -f docker-compose.aws.yml exec -T postgres pg_dumpall -U postgres | gzip > "$tmp"
+aws s3 cp --region "$AWS_REGION" "$tmp" "s3://$BANK_BUCKET/backups/$file"
 echo "Backup written to s3://$BANK_BUCKET/backups/$file"

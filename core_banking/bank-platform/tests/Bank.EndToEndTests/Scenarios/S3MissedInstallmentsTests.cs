@@ -28,10 +28,14 @@ public sealed class S3MissedInstallmentsTests(BankFixture bank) : IClassFixture<
         loan.Classification.ShouldBe("Overdue");
         loan.Schedule[0].PenaltyDue.Amount.ShouldBe(0m);
 
-        // End of day for due+6: the first penalty day.
+        // End of day for due+6: the first penalty day, one day of the product's daily rate on the unpaid principal and
+        // interest (penalty is never part of the base), rounded to öre.
         await bank.CloseDayAsync();
         loan = await bank.LoanAsync(loanId);
-        loan.Schedule[0].PenaltyDue.Amount.ShouldBeGreaterThan(0m);
+        var rate = (await bank.Staff.GetAsync<List<ProductView>>("/api/lending/loan-products")).Single(p => p.Code == "CAR").PenaltyDailyRate;
+        var item = loan.Schedule[0];
+        var basis = item.PrincipalDue.Amount + item.InterestDue.Amount - item.PaidPrincipal.Amount - item.PaidInterest.Amount;
+        item.PenaltyDue.Amount.ShouldBe(Math.Round(basis * rate, 2, MidpointRounding.AwayFromZero));
         loan.OverdueAmount.Amount.ShouldBe(loan.Schedule[0].Unpaid);
 
         // The customer pays the overdue amount, penalty included, with the test card that always approves.
@@ -42,6 +46,7 @@ public sealed class S3MissedInstallmentsTests(BankFixture bank) : IClassFixture<
         payment.Status.ShouldBe("Captured");
         loan = await Eventually.Value(() => bank.LoanAsync(loanId), l => l.Schedule[0].Status == "Paid", "the card payment allocated");
         loan.OverdueAmount.Amount.ShouldBe(0m);
+        loan.Classification.ShouldBe("Overdue"); // unchanged until end of day
 
         // The classification is recomputed at end of day.
         await bank.CloseDayAsync();

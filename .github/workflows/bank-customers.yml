@@ -4,10 +4,14 @@ on:
   push:
     paths:
       - "core_banking/bank-customers/**"
+      - "core_banking/bank-contracts/**"
+      - "core_banking/bank-platform/src/Bank.ServiceDefaults/**"
       - ".github/workflows/bank-customers.yml"
   pull_request:
     paths:
       - "core_banking/bank-customers/**"
+      - "core_banking/bank-contracts/**"
+      - "core_banking/bank-platform/src/Bank.ServiceDefaults/**"
       - ".github/workflows/bank-customers.yml"
 
 permissions:

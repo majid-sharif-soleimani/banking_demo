@@ -2,6 +2,8 @@
 # Starts the demo instance and prints the gateway address (it changes after every stop/start).
 # Run by Majid on his own machine, with his own AWS credentials. Usage: deploy/start.sh [stack-name]
 set -euo pipefail
+# The AWS CLI takes the region from AWS_REGION, which must be the stack's region.
+: "${AWS_REGION:?Set AWS_REGION to the region of the stack, for example eu-north-1}"
 stack=${1:-BankDemo}
 output() { aws cloudformation describe-stacks --stack-name "$stack" --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue" --output text; }
 id=$(output InstanceId)

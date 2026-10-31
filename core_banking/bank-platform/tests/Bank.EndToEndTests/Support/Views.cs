@@ -68,6 +68,8 @@ public sealed record ScheduleItemView(
 public sealed record LoanView(
     Guid Id, string Status, string Classification, Money OutstandingPrincipal, Money OverdueAmount, int DaysPastDue, List<ScheduleItemView> Schedule);
 
+public sealed record ProductView(string Code, decimal PenaltyDailyRate);
+
 public sealed record PayoffQuoteView(Money Total, Money WaivedInterest);
 
 public sealed record InformationRequestView(Guid Id, string Status);

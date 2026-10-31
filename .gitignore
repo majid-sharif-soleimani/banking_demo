@@ -30,3 +30,6 @@ core_banking/bank-platform/deploy/env/
 # AWS CDK output and local context (.claude/rules/secrets.md)
 cdk.out/
 cdk.context.json
+
+# The secret JSON while Majid sets it (deploy/README.md); belongs outside the repository anyway
+bank-secret.json

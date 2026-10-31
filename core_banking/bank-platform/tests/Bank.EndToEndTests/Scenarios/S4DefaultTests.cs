@@ -27,8 +27,10 @@ public sealed class S4DefaultTests(BankFixture bank) : IClassFixture<BankFixture
         var loan = await Eventually.Value(() => bank.LoanAsync(loanId), l => l.DaysPastDue == 92, "Lending at due+92");
         loan.Classification.ShouldBe("Default");
 
+        // One warning per worse classification (Overdue, then Default), and the failed collections along the way.
         var subjects = await Eventually.Value(() => bank.EmailSubjectsAsync(dan.Email),
             s => s.Count(x => x == "Your loan payments are late") >= 2, "the Overdue and Default emails");
+        subjects.Count(x => x == "Your loan payments are late").ShouldBe(2);
         subjects.ShouldContain("A loan payment could not be collected");
     }
 }

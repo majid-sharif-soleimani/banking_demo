@@ -12,7 +12,7 @@ Updated by `/close-stage`. One row per stage from section 10 of `phase1-design-p
 | 5 | Lending service | Ready for review | 2026-10-31 | Slices 5.1–5.6; lending 1,605, customers 58, accounts 120, operations 61, platform 35 green; lending ADRs 0004–0005 await review; retro pending |
 | 6 | Cards and Ledger | Ready for review | 2026-10-31 | Slices 6.1–6.4; cards 13, ledger 28, lending 1,611, customers 58, platform 39 green; ledger ADRs 0001–0002 and lending 0006 await review; retro pending |
 | 7 | Gateway and data import | Ready for review | 2026-10-31 | Slices 7.1–7.5; gateway 9, data-import 33+1, platform 47 green; Bank.Messaging.Kafka 0.6.1 fix (all services moved to 0.6.1); data-import ADR 0001 awaits review; real export's column names unchecked; retro pending |
-| 8 | End-to-end and AWS | Not started | | |
+| 8 | End-to-end and AWS | Ready for review | 2026-10-31 | Slices 8.1–8.5; e2e 5/5, cdk synth and compose config pass, customers 34+29, platform 47; nothing deployed; platform ADRs 0002–0004, scenario 3 and the CDK review (/explain) await Majid; retro pending |
 
 ## Open questions
 

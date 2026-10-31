@@ -102,6 +102,12 @@ flowchart LR
 ### How the design changed
 
 - **Secrets in the compose file:** the first version interpolated `${OPERATIONS_DB_PASSWORD}` and so on. Then `docker compose config` (the done-when check) fails without the secrets, and every service could read every password. The per-container env files fix both.
+- **The banking review found five more things, all fixed:**
+  - `start-bank.sh` wrote empty passwords when a key was missing: `exit` inside `$(...)` ends only the subshell, and `set -e` does not see a failure inside an `echo` argument. Since the database creates its roles once, an empty password would have been permanent. All keys are now checked first, non-empty, letters and digits, at least 24 characters, before anything is written;
+  - the hop limit of 2 let **every** container reach the instance role, including the gateway and third-party images. Now only Customers (fixed address 172.30.0.10) passes the `DOCKER-USER` rule, and the role can only use `files/*`, put to `backups/*`, and read the secret;
+  - an unpinned AMI would replace the instance (and its data) on a later deploy. The AMI is now pinned with `bank:amiId`, and the root volume is kept on termination;
+  - the README told you to write your own IP into the tracked `cdk.json`. Your IP and the AMI are now passed with `-c` on the command line;
+  - Kafka's data was not on its volume: confluent-local writes to `/tmp/kraft-combined-logs` unless `KAFKA_LOG_DIRS` says otherwise. It is set now, in both compose files.
 - **IMDS:** a separate launch template for the hop limit clashed with the instance's own IMDSv2 setting. The instance now sets `HttpTokens` and `HttpPutResponseHopLimit` itself.
 
 Patterns: infrastructure as code, immutable images from CI, twelve-factor configuration (environment only), least privilege, cost-driven design, secrets injected at runtime.
@@ -119,6 +125,8 @@ Not tested: the images on arm64, the user data on a real instance, and the scrip
 
 ## 5. What to watch later
 
+- A compromised Customers container can still read the whole secret through the role (ADR 0004, accepted for the demo).
+- User data runs once; changed deploy files must be copied to the instance by hand (README).
 - Check two versions before the first deployment: the Compose plugin (`v2.29.7` in the user data) and the dashboard image tag (`aspire-dashboard:13.6`).
 - `cdk.json` must get your CIDR before `cdk deploy`.
 - The estimated cost is in `deploy/README.md`. The listings disagree for eu-north-1, so confirm in the AWS Pricing Calculator.
