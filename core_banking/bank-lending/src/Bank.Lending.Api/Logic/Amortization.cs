@@ -39,6 +39,79 @@ public static class Amortization
     }
 
     /// <summary>
+    /// Agreed stages. Each stage repays its principal share plus interest on the principal outstanding before it,
+    /// Actual/365 from the previous due date (or disbursement) to this one: I = outstanding · R · days / 365, rounded.
+    /// A leap year still divides by 365 (design plan section 2). The plan must have 1..MaxStages stages in the loan
+    /// currency, positive shares summing exactly to the principal, and dates strictly after disbursement, increasing,
+    /// and not after disbursement + term.
+    /// </summary>
+    public static Result<IReadOnlyList<ScheduleItem>> BuildStaged(LoanTerms terms, StagePlan plan)
+    {
+        if ((Validate(terms, RepaymentType.Staged) ?? ValidatePlan(terms, plan)) is { } error)
+        {
+            return error;
+        }
+
+        var items = new List<ScheduleItem>(plan.Stages.Count);
+        var outstanding = terms.Principal;
+        var previous = terms.DisbursedOn;
+        foreach (var (stage, index) in plan.Stages.Select((stage, index) => (stage, index)))
+        {
+            var interest = Round(outstanding * (terms.AnnualRate * Days(previous, stage.DueDate) / 365m), terms);
+            items.Add(ScheduleItem.New(index + 1, stage.DueDate, stage.PrincipalShare, interest));
+            outstanding -= stage.PrincipalShare;
+            previous = stage.DueDate;
+        }
+
+        return items;
+    }
+
+    /// <summary>Actual days from <paramref name="from"/> to <paramref name="to"/>.</summary>
+    internal static int Days(DateOnly from, DateOnly to) => to.DayNumber - from.DayNumber;
+
+    private static Error? ValidatePlan(LoanTerms terms, StagePlan plan)
+    {
+        var stages = plan.Stages;
+        if (stages.Count == 0)
+        {
+            return LoanErrors.NoStages;
+        }
+
+        if (terms.MaxStages is { } max && stages.Count > max)
+        {
+            return LoanErrors.TooManyStages;
+        }
+
+        if (stages.Any(s => s.PrincipalShare.Currency != terms.Currency))
+        {
+            return LoanErrors.CurrencyMismatch;
+        }
+
+        if (stages.Any(s => s.PrincipalShare.Amount <= 0m))
+        {
+            return LoanErrors.ShareNotPositive;
+        }
+
+        var previous = terms.DisbursedOn;
+        foreach (var stage in stages)
+        {
+            if (stage.DueDate <= previous)
+            {
+                return LoanErrors.DatesNotIncreasing;
+            }
+
+            previous = stage.DueDate;
+        }
+
+        if (stages[^1].DueDate > terms.MaturityLimit)
+        {
+            return LoanErrors.StagePastTerm;
+        }
+
+        return stages.Sum(s => s.PrincipalShare.Amount) != terms.Principal.Amount ? LoanErrors.SharesDoNotSumToPrincipal : null;
+    }
+
+    /// <summary>
     /// Due date of item <paramref name="number"/>, always counted from the anchor date, never from the previous due date:
     /// disbursed 31 Jan gives 29 Feb (leap year), 31 Mar, 30 Apr. An explicit first due date is the anchor instead.
     /// </summary>
