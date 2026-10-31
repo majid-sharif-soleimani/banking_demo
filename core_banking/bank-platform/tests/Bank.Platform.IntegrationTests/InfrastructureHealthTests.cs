@@ -15,6 +15,7 @@ public sealed class InfrastructureHealthTests(PlatformFixture platform)
     [InlineData("accounts")]
     [InlineData("lending")]
     [InlineData("cards")]
+    [InlineData("ledger")]
     public async Task Resource_becomes_healthy(string resourceName)
     {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
