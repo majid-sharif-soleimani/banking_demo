@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <!-- Only an id: local secrets live in the user profile, never in the repo. -->
+    <UserSecretsId>bank-ledger-api</UserSecretsId>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Bank.Contracts" />
+    <PackageReference Include="Bank.Common" />
+    <PackageReference Include="Bank.Toolkit.Data" />
+    <PackageReference Include="Bank.Messaging" />
+    <PackageReference Include="Bank.Messaging.Kafka" />
+    <PackageReference Include="Bank.ServiceDefaults" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <!-- Only for dotnet ef migrations add. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Bank.Ledger.UnitTests" />
+    <InternalsVisibleTo Include="Bank.Ledger.IntegrationTests" />
+  </ItemGroup>
+</Project>
