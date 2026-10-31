@@ -20,5 +20,7 @@ public static class LoanErrors
     public static readonly Error DatesNotIncreasing = new("dates_not_increasing", "Stage dates must be after the disbursement date and strictly increasing.");
     public static readonly Error StagePastTerm = new("stage_past_term", "A stage falls after the end of the term.");
     public static readonly Error CurrencyMismatch = new("currency_mismatch", "Every amount must be in the loan currency.");
+    public static readonly Error AmountNotInMinorUnits = new("amount_not_in_minor_units", "An amount has more decimals than the currency allows.");
+    public static readonly Error InvalidTerms = new("invalid_terms", "Penalty rate, grace days, classification thresholds or payoff percent are out of range.");
     public static readonly Error PaymentNotPositive = new("payment_not_positive", "The payment must be greater than zero.");
 }

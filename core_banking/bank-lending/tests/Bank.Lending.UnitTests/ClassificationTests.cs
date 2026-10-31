@@ -68,4 +68,29 @@ public class ClassificationTests
         Classification.For(Car36, strict, Feb15.AddDays(10)).ShouldBe(LoanClassification.Overdue);
         Classification.For(Car36, strict, Feb15.AddDays(30)).ShouldBe(LoanClassification.Default);
     }
+
+    [Fact]
+    public void For_MortgageProduct_DefaultsAfterExactly90Days()
+    {
+        // Item 1 due 15 Feb 2026. 15 Feb → 15 May = 28 + 31 + 30 = 89 days → Overdue; 16 May = 90 days → Default.
+        var terms = Mortgage();
+        var schedule = Annuity(terms);
+
+        Classification.For(schedule, terms, new DateOnly(2026, 5, 15)).ShouldBe(LoanClassification.Overdue);
+        Classification.For(schedule, terms, new DateOnly(2026, 5, 16)).ShouldBe(LoanClassification.Default);
+    }
+
+    [Fact]
+    public void For_PurchaseProduct_CountsFromTheStageDueDate()
+    {
+        // Stage 1 due 15 Apr 2026. 16 Apr = 1 day → Overdue; 15 Apr → 14 Jul = 30 + 31 + 29 = 90 days → Default.
+        var terms = Purchase();
+        var schedule = Amortization.BuildStaged(terms, new StagePlan([
+            new Stage(new DateOnly(2026, 4, 15), Sek(25_000m)), new Stage(new DateOnly(2026, 10, 15), Sek(75_000m))])).Value;
+
+        Classification.For(schedule, terms, new DateOnly(2026, 4, 15)).ShouldBe(LoanClassification.Current);
+        Classification.For(schedule, terms, new DateOnly(2026, 4, 16)).ShouldBe(LoanClassification.Overdue);
+        Classification.For(schedule, terms, new DateOnly(2026, 7, 13)).ShouldBe(LoanClassification.Overdue);
+        Classification.For(schedule, terms, new DateOnly(2026, 7, 14)).ShouldBe(LoanClassification.Default);
+    }
 }

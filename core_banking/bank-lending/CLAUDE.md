@@ -11,6 +11,8 @@ Loans: products, applications, disbursement, schedules, payments, penalties, cla
 
 ## Gotchas
 
+- `Penalties.ForDay` charges one day per call and is not idempotent by itself. Stage 5 must run it once per (loan, business date), with a unique key, so a replayed `DayClosed` does not charge twice.
+
 - `DateOnly.AddMonths` clamps to the month's last day; counting from the previous due date would drift (31 Jan → 29 Feb → 29 Mar). Always count from the anchor.
 - Test names follow `Method_Scenario_ExpectedResult`; hand-calculated values show the arithmetic in a comment (financial-logic rule).
 

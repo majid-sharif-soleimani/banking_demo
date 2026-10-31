@@ -123,4 +123,53 @@ public class EarlyPayoffTests
 
         EarlyPayoff.Quote(paid, terms, new DateOnly(2026, 2, 20)).Total.ShouldBe(Sek(0m));
     }
+
+    [Fact]
+    public void Quote_MortgageMidPeriod_MatchesHandCalculation()
+    {
+        // MORTGAGE, item 1 paid (principal 2,755.47). Payoff on 1 Mar 2026, 14 days into item 2's period.
+        // Outstanding principal = 2,000,000 − 2,755.47 = 1,997,244.53
+        // Item 2 interest = round(1,997,244.53 × 0.0425 / 12) = 7,073.57; to date = 7,073.57 × 14 / 30 = 3,300.9993 → 3,301.00
+        // Remaining scheduled = items 2–360 (1,541,966.48 − 7,083.33 = 1,534,883.15) − 3,301.00 = 1,531,582.15
+        // Minimum = min(1% × 2,000,000 = 20,000, cap 20,000) = 20,000; waived = 1,511,582.15
+        // Total = 1,997,244.53 + 3,301.00 + 20,000 = 2,020,545.53
+        var terms = Mortgage();
+        var paid = Allocation.Apply(Annuity(terms), Sek(9_838.80m), new DateOnly(2026, 2, 15)).Value.Schedule;
+
+        var quote = EarlyPayoff.Quote(paid, terms, new DateOnly(2026, 3, 1));
+
+        quote.ShouldBe(new PayoffQuote(Sek(1_997_244.53m), Sek(0m), Sek(3_301.00m), Sek(20_000m), Sek(1_511_582.15m), Sek(2_020_545.53m)));
+    }
+
+    [Fact]
+    public void Quote_ZeroRate_IsTheOutstandingPrincipalWithoutMinimum()
+    {
+        // No interest at all: remaining scheduled interest 0, so minimum = min(10, 5,000, 0) = 0 and nothing is waived.
+        var terms = Car(principal: 1_000m, months: 3) with { AnnualRate = 0m };
+
+        var quote = EarlyPayoff.Quote(Annuity(terms), terms, new DateOnly(2026, 2, 1));
+
+        quote.Total.ShouldBe(Sek(1_000m));
+        quote.MinimumInterest.ShouldBe(Sek(0m));
+        quote.WaivedInterest.ShouldBe(Sek(0m));
+    }
+
+    [Fact]
+    public void Quote_BeforeDisbursement_AccruesNothing()
+    {
+        var quote = EarlyPayoff.Quote(Car36, CarTerms, new DateOnly(2026, 1, 10));
+
+        quote.InterestToDate.ShouldBe(Sek(0m));
+        quote.Total.ShouldBeGreaterThanOrEqualTo(quote.OutstandingPrincipal);
+    }
+
+    [Fact]
+    public void Quote_FirstPeriodLongerThanAMonth_AccruesAtMostOnePeriod()
+    {
+        // First due date 15 Apr for a loan disbursed 15 Jan: on 10 Apr (85 days) the accrual is capped at 30/30 of item 1's interest.
+        var terms = Car(months: 12) with { FirstDueDate = new DateOnly(2026, 4, 15) };
+        var schedule = Annuity(terms);
+
+        EarlyPayoff.Quote(schedule, terms, new DateOnly(2026, 4, 10)).InterestToDate.ShouldBe(schedule[0].InterestDue);
+    }
 }

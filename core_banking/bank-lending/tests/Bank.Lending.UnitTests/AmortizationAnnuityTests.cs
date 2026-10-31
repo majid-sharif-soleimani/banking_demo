@@ -144,4 +144,21 @@ public class AmortizationAnnuityTests
         (item with { PaidInterest = Sek(10m), PaidPrincipal = Sek(100m) }).Status.ShouldBe(ScheduleItemStatus.Paid);
         (item with { PaidInterest = Sek(10m), PaidPrincipal = Sek(100m), PenaltyDue = Sek(1m) }).Status.ShouldBe(ScheduleItemStatus.PartiallyPaid);
     }
+
+    [Fact]
+    public void BuildAnnuity_PrincipalWithMoreDecimalsThanTheCurrency_IsRejected() =>
+        Amortization.BuildAnnuity(Car(principal: 1_000.005m)).Error.ShouldBe(LoanErrors.AmountNotInMinorUnits);
+
+    [Theory]
+    [InlineData(-0.0001, 5, 1, 90, 0.01)]  // negative penalty rate
+    [InlineData(0.0005, -1, 1, 90, 0.01)]  // negative grace
+    [InlineData(0.0005, 5, 0, 90, 0.01)]   // overdue threshold below one day
+    [InlineData(0.0005, 5, 91, 90, 0.01)]  // overdue after default
+    [InlineData(0.0005, 5, 1, 90, 1.5)]    // payoff percent above 100%
+    public void BuildAnnuity_InconsistentProductParameters_AreRejected(double penalty, int grace, int overdue, int @default, double payoff) =>
+        Amortization.BuildAnnuity(Car() with
+        {
+            PenaltyDailyRate = (decimal)penalty, GraceDays = grace, OverdueAfterDays = overdue, DefaultAfterDays = @default,
+            PayoffMinPercent = (decimal)payoff,
+        }).Error.ShouldBe(LoanErrors.InvalidTerms);
 }

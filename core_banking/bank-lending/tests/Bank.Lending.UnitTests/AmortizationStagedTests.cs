@@ -110,4 +110,9 @@ public class AmortizationStagedTests
         Amortization.BuildStaged(Purchase() with { MaxStages = null }, Plan(
                 ("2026-03-15", 20_000m), ("2026-05-15", 20_000m), ("2026-07-15", 20_000m), ("2026-09-15", 20_000m), ("2026-11-15", 20_000m)))
             .IsSuccess.ShouldBeTrue();
+
+    [Fact]
+    public void BuildStaged_ShareWithMoreDecimalsThanTheCurrency_IsRejected() =>
+        Amortization.BuildStaged(Purchase(), Plan(("2026-04-15", 49_999.995m), ("2026-07-15", 50_000.005m)))
+            .Error.ShouldBe(LoanErrors.AmountNotInMinorUnits);
 }

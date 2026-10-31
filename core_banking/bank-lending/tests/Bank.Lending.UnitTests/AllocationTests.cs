@@ -131,6 +131,32 @@ public class AllocationTests
     public void Apply_AmountInAnotherCurrency_IsRejected() =>
         Allocation.Apply(Car36, new Money(100m, "EUR"), Feb15).Error.ShouldBe(LoanErrors.CurrencyMismatch);
 
+    [Fact]
+    public void Apply_MortgageProduct_PartialPaymentPaysInterestFirst()
+    {
+        // MORTGAGE item 1 due 15 Feb: interest 7,083.33, principal 2,755.47. 8,000 pays interest 7,083.33 and principal 8,000 − 7,083.33 = 916.67.
+        var result = Allocation.Apply(Annuity(Mortgage()), Sek(8_000m), Feb15).Value;
+
+        result.Allocations.ShouldHaveSingleItem().ShouldBe(new ItemAllocation(1, Sek(0m), Sek(7_083.33m), Sek(916.67m)));
+        result.Schedule[0].UnpaidPrincipal.ShouldBe(Sek(1_838.80m));
+    }
+
+    [Fact]
+    public void Apply_PurchaseProduct_PaysTheStageAndReturnsTheRest()
+    {
+        // PURCHASE stage 1 due 15 Apr: 25,000 principal + 2,095.89 interest = 27,095.89. 30,000 on 15 Apr pays it in full;
+        // stage 2 (15 Jul) is not due, so 30,000 − 27,095.89 = 2,904.11 is returned.
+        var terms = Purchase();
+        var schedule = Amortization.BuildStaged(terms, new StagePlan([
+            new Stage(new DateOnly(2026, 4, 15), Sek(25_000m)), new Stage(new DateOnly(2026, 7, 15), Sek(75_000m))])).Value;
+
+        var result = Allocation.Apply(schedule, Sek(30_000m), new DateOnly(2026, 4, 15)).Value;
+
+        result.Allocations.ShouldHaveSingleItem().ShouldBe(new ItemAllocation(1, Sek(0m), Sek(2_095.89m), Sek(25_000m)));
+        result.Unallocated.ShouldBe(Sek(2_904.11m));
+        result.Schedule[1].Status.ShouldBe(ScheduleItemStatus.Unpaid);
+    }
+
     internal static IReadOnlyList<ScheduleItem> Replace(IReadOnlyList<ScheduleItem> schedule, int index, ScheduleItem item) =>
         [.. schedule.Select((existing, i) => i == index ? item : existing)];
 }

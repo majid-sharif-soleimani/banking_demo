@@ -52,7 +52,8 @@ public static class EarlyPayoff
 
     private static Money Accrual(LoanTerms terms, List<ScheduleItem> later, DateOnly periodStart, DateOnly date)
     {
-        var days = Amortization.Days(periodStart, date);
+        // A quote dated before disbursement accrues nothing (never negative interest).
+        var days = Math.Max(0, Amortization.Days(periodStart, date));
         return terms.RepaymentType == RepaymentType.Annuity
             ? Amortization.Round(later[0].UnpaidInterest * (Math.Min(days, 30) / 30m), terms)
             : Amortization.Round(Sum(later.Select(i => i.UnpaidPrincipal), Money.Zero(terms.Currency)) * (terms.AnnualRate * days / 365m), terms);

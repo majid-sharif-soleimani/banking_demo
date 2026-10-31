@@ -26,6 +26,9 @@ The design plan and the stage file state the loan rules in one or two lines each
    - remaining scheduled interest = later items' interest − that accrual;
    - minimum = min(percent × original principal, cap), lowered to the remaining scheduled interest when that is smaller (then waived = 0, "no discount");
    - waived = remaining − minimum.
+   - the annuity accrual counts **actual** days since the last due date, capped at 30 (review of 2026-10-31). Annuity interest itself is 30/360, so a 28-day February accrues 28/30 at most, then jumps to the full item on its due date. 30E/360 day counting would smooth this; it was not chosen, because the stage file says days/30.
+   - a quote dated before disbursement accrues nothing.
+10. **Amounts must fit the currency.** A principal, cap or stage share with more decimals than the currency's minor unit is rejected (`amount_not_in_minor_units`). Inconsistent copied product parameters are rejected as `invalid_terms` (review of 2026-10-31).
 
 ## Rationale
 

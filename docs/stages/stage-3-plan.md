@@ -55,6 +55,13 @@ bank-lending 0001, 0002, 0003 above, all written by Claude, marked for Majid's r
 
 None. Gaps are resolved conservatively and listed above.
 
+## Close-out (2026-10-31)
+
+- Done-when: `dotnet build` (0 warnings) and `dotnet test`: 1,491 passed (91 examples, 1,400 invariant cases).
+- `banking-reviewer`: no logic defect, and every hand-calculated value was independently confirmed. REQUIRED, fixed: worked examples per seed product for allocation (MORTGAGE, PURCHASE), classification (MORTGAGE, PURCHASE) and payoff (MORTGAGE). OPTIONAL, applied: a payoff before disbursement accrues nothing; amounts must fit the minor units; copied product parameters are sanity-checked; zero-rate and long-first-period payoff tests; the actual-days annuity accrual is recorded in ADR 0003; a penalty idempotency note for stage 5.
+- To review: ADRs bank-lending 0001–0003 (D1 on delegation; ADR 0003 points 5, 6 and 9 are business choices).
+- `/retro 3` needs Majid: pending. Not merged; stage 4 continues on `stage-4-customers-accounts`.
+
 ## Done when
 
 ```bash

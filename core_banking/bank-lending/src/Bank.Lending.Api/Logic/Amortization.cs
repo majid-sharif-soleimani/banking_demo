@@ -92,6 +92,11 @@ public static class Amortization
             return LoanErrors.ShareNotPositive;
         }
 
+        if (stages.Any(s => !FitsMinorUnits(s.PrincipalShare, terms)))
+        {
+            return LoanErrors.AmountNotInMinorUnits;
+        }
+
         var previous = terms.DisbursedOn;
         foreach (var stage in stages)
         {
@@ -120,6 +125,8 @@ public static class Amortization
 
     internal static Money Round(Money money, LoanTerms terms) => MoneyRounding.Round(money, terms.MinorUnits);
 
+    private static bool FitsMinorUnits(Money money, LoanTerms terms) => Round(money, terms).Amount == money.Amount;
+
     private static Error? Validate(LoanTerms terms, RepaymentType expected)
     {
         if (terms.RepaymentType != expected)
@@ -145,6 +152,18 @@ public static class Amortization
         if (terms.PayoffCap.Currency != terms.Currency)
         {
             return LoanErrors.CurrencyMismatch;
+        }
+
+        if (!FitsMinorUnits(terms.Principal, terms) || !FitsMinorUnits(terms.PayoffCap, terms))
+        {
+            return LoanErrors.AmountNotInMinorUnits;
+        }
+
+        // The product's parameters are copied onto the loan, so this is the last cheap place to catch an inconsistent copy.
+        if (terms.PenaltyDailyRate < 0m || terms.GraceDays < 0 || terms.OverdueAfterDays < 1
+            || terms.DefaultAfterDays < terms.OverdueAfterDays || terms.PayoffMinPercent is < 0m or > 1m || terms.PayoffCap.Amount < 0m)
+        {
+            return LoanErrors.InvalidTerms;
         }
 
         return expected == RepaymentType.Annuity && terms.EffectiveFirstDueDate <= terms.DisbursedOn
