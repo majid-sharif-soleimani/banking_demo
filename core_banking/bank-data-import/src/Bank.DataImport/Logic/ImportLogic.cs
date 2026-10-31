@@ -68,14 +68,50 @@ public static class Amounts
 
 public static class LoanTypes
 {
-    /// <summary>The dataset's loan type text → product code by keyword; anything else is PURCHASE (stage 7 file, step 4).</summary>
+    /// <summary>
+    /// The dataset's loan type text → product code by whole keyword ("Credit card" is not a car); anything else is
+    /// PURCHASE (stage 7 file, step 4).
+    /// </summary>
     public static string Map(string? text)
     {
-        var t = (text ?? "").ToLowerInvariant();
-        return t.Contains("car") || t.Contains("auto") || t.Contains("vehicle") ? "CAR"
-            : t.Contains("mortgage") || t.Contains("home") || t.Contains("house") ? "MORTGAGE"
+        var words = Words.Of(text);
+        return words.Overlaps(["car", "auto", "vehicle"]) ? "CAR"
+            : words.Overlaps(["mortgage", "home", "house"]) ? "MORTGAGE"
             : "PURCHASE";
     }
+}
+
+/// <summary>
+/// The dataset's account type → Accounts' type. Only the obvious words are mapped; anything else is null, and the row is
+/// skipped and reported rather than guessed (stage 7 plan: skip and report, never invent).
+/// </summary>
+public static class AccountTypes
+{
+    public static string? Map(string? text)
+    {
+        var words = Words.Of(text);
+        return words.Overlaps(["savings", "saving"]) ? "Savings"
+            : words.Overlaps(["current", "checking"]) ? "Current"
+            : null;
+    }
+}
+
+/// <summary>The dataset's standing-order frequency → one Accounts supports (Weekly, Monthly, Quarterly), or null to skip and report.</summary>
+public static class Frequencies
+{
+    public static string? Map(string? text) => (text ?? "").Trim().ToLowerInvariant() switch
+    {
+        "weekly" => "Weekly",
+        "monthly" => "Monthly",
+        "quarterly" => "Quarterly",
+        _ => null,
+    };
+}
+
+internal static class Words
+{
+    public static HashSet<string> Of(string? text) =>
+        [.. System.Text.RegularExpressions.Regex.Split((text ?? "").ToLowerInvariant(), "[^a-z]+").Where(w => w.Length > 0)];
 }
 
 public static class IdempotencyKeys

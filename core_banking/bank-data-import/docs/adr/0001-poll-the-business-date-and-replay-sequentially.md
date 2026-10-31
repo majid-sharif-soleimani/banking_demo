@@ -13,7 +13,7 @@ The import replays one to two years of history through the gateway, one business
 ## Decision
 
 - **Wait by polling:** after `POST /api/operations/business-days/current/close`, poll `GET /api/operations/business-days/current` every 200 ms until it shows a later date with status Open. A timeout (default 2 minutes per day) fails the import with the date and status it saw.
-- **Run sequentially:** one day after another, and within a day one request after another in source order. Calls that depend on events another service must receive first (an account for a just-registered customer, a loan for a just-opened account) are retried on their 422 code for a few seconds.
+- **Run sequentially:** one day after another, and within a day one request after another in source order. Calls that depend on events another service must receive first (an account for a just-registered customer, a loan for a just-opened account) are retried on their 422 code for up to a minute, with the same Idempotency-Key. A code that is really final (such as `repayment_account_invalid` for a wrong account) therefore costs that minute before the row is skipped.
 
 ## Rationale
 

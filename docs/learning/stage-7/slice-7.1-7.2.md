@@ -39,15 +39,21 @@ Patterns: API gateway / reverse proxy; correlation id for distributed tracing; a
 
 ## 4. What was tested
 
-- **Gateway** (6 tests, the real gateway plus a stub service on a random port):
+- **Gateway** (9 tests, the real gateway plus a stub service on a random port):
   - routing without the prefix, with the headers forwarded and a correlation id created and echoed;
   - a given correlation id is kept;
-  - no identity gives 401, and a malformed customer id 400;
+  - no identity, or a blank `X-Performed-By`, gives 401, and a malformed customer id 400;
+  - a correlation id that is too long or has unsafe characters is replaced (added after the review);
   - the OpenAPI index;
   - `/health` is unhealthy when a downstream service is down, while `/alive` stays OK.
 - **Platform** (8 new tests): through the real AppHost, each of the six services answers through the gateway (products, currencies, OpenAPI documents), and anonymous calls are refused. 47 tests in total.
 
-## 5. Check your understanding
+## 5. What to watch later
+
+- **The correlation id is forwarded and echoed, but no service logs it yet.** Following one call through every log needs a logging scope or a trace tag in the services (`Bank.ServiceDefaults`).
+- **Identity is simulated.** Any caller can send `X-Performed-By` without `X-Customer-Id` and act as staff. The stage file allows this for now; it must change before the bank is reachable from outside (stage 8 opens only the gateway port, so keep the instance's security group narrow).
+
+## 6. Check your understanding
 
 1. Why does the gateway check *that* a caller identifies itself, but not *whether* the caller may see a resource?
 2. How does the gateway find the lending service without a hard-coded address?

@@ -36,9 +36,22 @@ var options = new ImportOptions(
 
 using var http = new HttpClient { BaseAddress = new Uri(gateway), Timeout = TimeSpan.FromMinutes(2) };
 var importer = new Importer(http, options, Console.Out);
-var report = await importer.RunAsync(source, CancellationToken.None);
 var reportPath = configuration["Import:Report"] ?? "data/import-report.md";
 Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(reportPath))!);
+try
+{
+    await importer.RunAsync(source, CancellationToken.None);
+}
+catch (Exception ex) when (ex is InvalidOperationException or TimeoutException or HttpRequestException)
+{
+    // The report so far still tells what was imported before the stop.
+    importer.Report.VerificationErrors.Add($"import stopped: {ex.Message}");
+    await File.WriteAllTextAsync(reportPath, importer.Report.ToMarkdown());
+    Console.Error.WriteLine($"Import stopped: {ex.Message} Partial report written to {reportPath}.");
+    return 4;
+}
+
+var report = importer.Report;
 await File.WriteAllTextAsync(reportPath, report.ToMarkdown());
 Console.WriteLine($"Report written to {reportPath}. Verification {(report.Verified ? "passed" : "FAILED")}.");
 return report.Verified ? 0 : 1;

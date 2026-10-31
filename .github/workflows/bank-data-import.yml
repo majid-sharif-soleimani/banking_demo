@@ -1,13 +1,20 @@
 name: bank-data-import
 
 on:
+  # The integration test runs the whole AppHost, so a change in any service, the gateway or the platform can break it.
   push:
     paths:
       - "core_banking/bank-data-import/**"
+      - "core_banking/bank-*/src/**"
+      - "core_banking/bank-platform/**"
+      - "core_banking/bank-contracts/**"
       - ".github/workflows/bank-data-import.yml"
   pull_request:
     paths:
       - "core_banking/bank-data-import/**"
+      - "core_banking/bank-*/src/**"
+      - "core_banking/bank-platform/**"
+      - "core_banking/bank-contracts/**"
       - ".github/workflows/bank-data-import.yml"
 
 permissions:

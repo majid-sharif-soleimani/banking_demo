@@ -43,5 +43,14 @@ public sealed class ImportThroughAppHostTests
         report.Skipped.ShouldContain(s => s.StartsWith("transaction T7") && s.Contains("insufficient_funds"));
         report.Skipped.ShouldContain(s => s.StartsWith("loan L3") && s.Contains("amount_out_of_range"));
         report.ToMarkdown().ShouldContain("Verification: passed");
+        report.Selection.ShouldContain("with a loan: 3 (target 30) — BELOW TARGET: the dataset has too few inside the window");
+
+        // A second run is refused before it writes anything or closes a day.
+        var dayBefore = await gateway.GetStringAsync("/api/operations/business-days/current", timeout.Token);
+        var again = new Importer(gateway, new ImportOptions(Customers: 100, DayTimeout: TimeSpan.FromMinutes(2)), TextWriter.Null);
+        var refused = await Should.ThrowAsync<InvalidOperationException>(() => again.RunAsync(source, timeout.Token));
+        refused.Message.ShouldContain("already exists");
+        again.Report.Customers.ShouldBe(0);
+        (await gateway.GetStringAsync("/api/operations/business-days/current", timeout.Token)).ShouldBe(dayBefore);
     }
 }

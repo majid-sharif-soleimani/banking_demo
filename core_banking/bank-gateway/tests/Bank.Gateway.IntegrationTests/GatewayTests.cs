@@ -96,6 +96,20 @@ public sealed class GatewayTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_blank_performed_by_is_401() =>
+        (await Client(performedBy: " ").GetAsync("/api/lending/loan-products", Ct)).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+
+    [Theory]
+    [InlineData("has spaces and <script>")]
+    [InlineData("a-very-long-id-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")]
+    public async Task An_unsafe_correlation_id_is_replaced(string given)
+    {
+        var echo = await (await Client(performedBy: "import", correlation: given).GetAsync("/api/lending/loans", Ct)).Content.ReadFromJsonAsync<Echo>(Ct);
+
+        Guid.TryParse(echo!.Correlation, out _).ShouldBeTrue();
+    }
+
+    [Fact]
     public async Task A_malformed_customer_id_is_400() =>
         (await Client(customer: "alice").GetAsync("/api/lending/loans", Ct)).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
 

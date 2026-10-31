@@ -5,7 +5,7 @@ The single entry point (design plan ADR 12): YARP in front of every service. No 
 ## Behaviour
 
 - `/api/<service>/{**rest}` → `http://<service>/{rest}`; the address comes from Aspire service discovery (`services:<service>:http:0`). Services listed in `Gateway:Services`.
-- Every `/api` call needs `X-Customer-Id` (a GUID) or `X-Performed-By`; otherwise 401 `missing_identity` (400 for a malformed customer id). Both are forwarded; `X-Correlation-Id` is kept or created and echoed in the response.
+- Every `/api` call needs `X-Customer-Id` (a GUID) or `X-Performed-By`; otherwise 401 `missing_identity` (400 for a malformed customer id). A blank header counts as missing. Both are forwarded; `X-Correlation-Id` is kept (at most 128 plain characters, otherwise replaced) or created, and echoed in the response. The services do not log it yet.
 - `/openapi`: list of each service's document URL through the gateway. `/health`: the gateway plus every downstream `/health` (tag `ready`); `/alive`: the gateway only.
 
 ## Gotchas

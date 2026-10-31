@@ -77,7 +77,28 @@ public class ConversionAndMappingTests
     [InlineData("House purchase", "MORTGAGE")]
     [InlineData("Personal", "PURCHASE")]
     [InlineData("", "PURCHASE")]
-    public void LoanType_MapsByKeyword(string text, string product) => LoanTypes.Map(text).ShouldBe(product);
+    [InlineData("Credit card", "PURCHASE")] // whole words only: "card" is not "car"
+    [InlineData("Carpet financing", "PURCHASE")]
+    [InlineData("Home-loan", "MORTGAGE")]
+    public void LoanType_MapsByWholeKeyword(string text, string product) => LoanTypes.Map(text).ShouldBe(product);
+
+    [Theory]
+    [InlineData("savings", "Savings")]
+    [InlineData("Saving account", "Savings")]
+    [InlineData("current", "Current")]
+    [InlineData("Checking", "Current")]
+    [InlineData("business", null)]
+    [InlineData("", null)]
+    public void AccountType_MapsKnownWordsOnly(string text, string? type) => AccountTypes.Map(text).ShouldBe(type);
+
+    [Theory]
+    [InlineData("weekly", "Weekly")]
+    [InlineData("Monthly", "Monthly")]
+    [InlineData("QUARTERLY", "Quarterly")]
+    [InlineData("yearly", null)]
+    [InlineData("bi-weekly", null)]
+    [InlineData("daily", null)]
+    public void Frequency_MapsSupportedOnesOnly(string text, string? frequency) => Frequencies.Map(text).ShouldBe(frequency);
 
     [Fact]
     public void IdempotencyKey_IsStablePerSourceRowAndDiffersBetweenRows()

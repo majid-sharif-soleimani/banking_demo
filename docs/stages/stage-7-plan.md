@@ -42,6 +42,21 @@ Interpretations and gaps:
 - An amount or term outside the product range is **skipped and reported**, never clamped.
 - A PURCHASE loan gets equal stages: at most `MaxStages`, about one per quarter, the last one at maturity.
 
+## Close-out (2026-10-31)
+
+- Done-when: gateway 9, data-import 33 + 1, platform 47, all green. The import integration test passed 5 runs in a row after the Kafka fix (about 40 s each).
+- **A messaging bug surfaced here and was fixed in `bank-contracts` 0.6.1:** a consumer that subscribed to a just-created topic could miss it for 5 minutes (librdkafka's default metadata refresh). `KafkaTopicInitializer` now waits until its topics have partition leaders, and the consumer refreshes metadata every 10 s. All six services moved to the 0.6.1 packages, and their tests are green.
+- `banking-reviewer`: five REQUIRED findings, all fixed:
+  1. A second run (or `--force`) closed every day without registering anyone, aging imported loans into default. It is now refused at the first existing customer; no account opened means no day closed; verification fails with no account checked; the test runs the import twice.
+  2. Selection traits now count only rows inside the two-year window; the report shows the reached count against each target.
+  3. Loan types map by whole word.
+  4. The PURCHASE stage cap comes from the product (`GET /loan-products`).
+  5. Unknown frequencies and account types are skipped and reported, not guessed.
+
+  OPTIONAL items applied: a partial report when the import stops; loans before transactions within a day; one date anchor; the gateway refuses a blank `X-Performed-By` and replaces an unsafe correlation id; the ADR's retry wording; CI paths for data-import. Not applied (listed under "What to watch later" in the learning docs): a GL-to-subledger reconciliation, the mismatch check's reference amount, correlation-id logging in the services, tests for the Kafka fix.
+- More interpretations to review: standing orders that started before the cut-off are skipped, not started at the first kept day; "one stage per quarter" for PURCHASE.
+- To review: bank-data-import ADR 0001. `/retro 7` pending. Not merged; stage 8 continues on `stage-8-e2e-aws`.
+
 ## Done when
 
 ```bash

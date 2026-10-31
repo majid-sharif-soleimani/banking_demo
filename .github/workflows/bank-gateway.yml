@@ -28,5 +28,5 @@ jobs:
       - run: dotnet pack ../bank-platform/src/Bank.ServiceDefaults -c Release -o ../.local-feed
       - run: dotnet restore
       - run: dotnet build --no-restore -c Release
-      # Integration tests start PostgreSQL with Testcontainers (Docker is preinstalled on ubuntu-latest).
+      # Integration tests run the gateway in front of a stub service; no Docker needed.
       - run: dotnet test --no-build -c Release

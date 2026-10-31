@@ -18,6 +18,7 @@ public sealed class ImportReport
     public int Accounts { get; set; }
     public int Days { get; set; }
     public Dictionary<string, int> Applied { get; } = [];
+    public List<string> Selection { get; } = [];
     public List<string> Skipped { get; } = [];
     public List<string> Mismatches { get; } = [];
     public List<string> VerificationErrors { get; } = [];
@@ -43,6 +44,9 @@ public sealed class ImportReport
             text.AppendLine($"| {what} | {count} |");
         }
 
+        text.AppendLine().AppendLine("## Selection").AppendLine();
+        Selection.ForEach(s => text.AppendLine($"- {s}"));
+
         text.AppendLine().AppendLine($"## Skipped rows ({Skipped.Count})").AppendLine();
         Skipped.ForEach(s => text.AppendLine($"- {s}"));
         text.AppendLine().AppendLine($"## Payment amount mismatches ({Mismatches.Count})").AppendLine();
@@ -57,7 +61,8 @@ public sealed class ImportReport
 /// Replays the selected history day by day through the gateway (stage 7 file, steps 0 and 5–8), so every rule, event and
 /// journal entry runs as in real operations. One request after another, one day after another (ADR 0001); after each day
 /// it closes the business day and polls until the next one is open. Every money request carries an Idempotency-Key from
-/// its source row, so a re-run repeats instead of duplicating.
+/// its source row, so a retry within a run repeats instead of duplicating. A second run is refused: customers cannot be
+/// found again by their source id, so it could only replay empty days (stage 7 file: fresh database only).
 /// </summary>
 public sealed class Importer(HttpClient gateway, ImportOptions options, TextWriter log)
 {
@@ -65,6 +70,7 @@ public sealed class Importer(HttpClient gateway, ImportOptions options, TextWrit
     private readonly Dictionary<string, Guid> customers = [];
     private readonly Dictionary<string, Guid> accounts = [];
     private readonly Dictionary<string, (Guid LoanId, Guid AccountId)> loans = [];
+    private readonly Dictionary<string, int?> maxStages = [];
 
     public ImportReport Report { get; } = new();
 
@@ -89,12 +95,18 @@ public sealed class Importer(HttpClient gateway, ImportOptions options, TextWrit
             await SendAsync(HttpMethod.Post, $"/api/operations/currencies/{code}/activate", null, null, ct);
         }
 
+        // One anchor: the replay starts on the bank's current business date, and the history is shifted onto it.
         var current = await CurrentDayAsync(ct);
-        var startDate = options.StartDate ?? current.Date;
-        if ((current.Date != startDate || current.Status != "Open") && !options.Force)
+        var startDate = current.Date;
+        if (current.Status != "Open" || (options.StartDate is { } expected && expected != current.Date && !options.Force))
         {
             throw new InvalidOperationException(
-                $"The bank is at {current.Date:yyyy-MM-dd} ({current.Status}), not a fresh {startDate:yyyy-MM-dd}. Import into a fresh database, or pass --force.");
+                $"The bank is at {current.Date:yyyy-MM-dd} ({current.Status}), not a fresh {options.StartDate:yyyy-MM-dd}. Import into a fresh database, or pass --force.");
+        }
+
+        foreach (var product in await Gateway.GetFromJsonAsync<List<ProductView>>("/api/lending/loan-products", Json, ct) ?? [])
+        {
+            maxStages[product.Code] = product.MaxStages;
         }
 
         var data = Prepare(source, startDate);
@@ -102,8 +114,13 @@ public sealed class Importer(HttpClient gateway, ImportOptions options, TextWrit
         log.WriteLine($"Importing {data.Customers.Count} customers over {lastDay.DayNumber - startDate.DayNumber + 1} days.");
 
         (Report.From, Report.To) = (startDate, lastDay);
-        await RegisterAsync(data, startDate, ct);
-        for (var day = current.Date; day <= lastDay; day = day.AddDays(1))
+        await RegisterAsync(data, ct);
+        if (Report.Accounts == 0)
+        {
+            throw new InvalidOperationException("No account was opened, so there is nothing to replay; no business day was closed.");
+        }
+
+        for (var day = startDate; day <= lastDay; day = day.AddDays(1))
         {
             foreach (var step in data.Days.GetValueOrDefault(day) ?? [])
             {
@@ -122,11 +139,27 @@ public sealed class Importer(HttpClient gateway, ImportOptions options, TextWrit
 
     private Prepared Prepare(SourceData source, DateOnly startDate)
     {
-        var lateCustomers = source.LoanPayments.Where(p => p.Late).Select(p => source.Loans.FirstOrDefault(l => l.Id == p.LoanId)?.CustomerId).ToHashSet();
+        // The two-year window comes first, over the whole dataset, so a customer counts as "with a loan" only for a loan
+        // that will be imported: one that starts inside the window.
+        var allDates = source.Transactions.Select(t => t.Date).Concat(source.Loans.Select(l => l.StartDate))
+            .Concat(source.LoanPayments.Select(p => p.Date)).Concat(source.StandingOrders.Select(o => o.StartDate)).ToList();
+        var latest = allDates.DefaultIfEmpty(startDate).Max();
+        var cutoff = latest.AddYears(-MaxYears);
+        var keptLoans = source.Loans.Where(l => l.StartDate >= cutoff).ToDictionary(l => l.Id, l => l.CustomerId);
+        var lateCustomers = source.LoanPayments.Where(p => p.Late && p.Date >= cutoff && keptLoans.ContainsKey(p.LoanId)).Select(p => keptLoans[p.LoanId]).ToHashSet();
+        var loanCustomers = keptLoans.Values.ToHashSet();
         var accountOwner = source.Accounts.ToDictionary(a => a.Id, a => a.CustomerId);
-        var orderCustomers = source.StandingOrders.Select(o => accountOwner.GetValueOrDefault(o.AccountId)).ToHashSet();
-        var candidates = source.Customers.Select(c => new Candidate(c.Id, source.Loans.Any(l => l.CustomerId == c.Id), lateCustomers.Contains(c.Id), orderCustomers.Contains(c.Id))).ToList();
-        var selected = Selection.Select(candidates, new SelectionTargets(options.Customers, 30, 10, 15), options.Seed).ToHashSet();
+        var orderCustomers = source.StandingOrders.Where(o => o.StartDate >= cutoff).Select(o => accountOwner.GetValueOrDefault(o.AccountId)).ToHashSet();
+        var candidates = source.Customers.Select(c => new Candidate(c.Id, loanCustomers.Contains(c.Id), lateCustomers.Contains(c.Id), orderCustomers.Contains(c.Id))).ToList();
+        var targets = new SelectionTargets(options.Customers, 30, 10, 15);
+        var selected = Logic.Selection.Select(candidates, targets, options.Seed).ToHashSet();
+        var chosen = candidates.Where(c => selected.Contains(c.Id)).ToList();
+        void Reached(string what, int count, int target) =>
+            Report.Selection.Add($"{what}: {count} (target {target}){(count < target ? " — BELOW TARGET: the dataset has too few inside the window" : "")}");
+        Reached("customers", chosen.Count, targets.Total);
+        Reached("with a loan", chosen.Count(c => c.HasLoan), targets.WithLoan);
+        Reached("with late payments", chosen.Count(c => c.HasLatePayments), targets.WithLatePayments);
+        Reached("with standing orders", chosen.Count(c => c.HasStandingOrder), targets.WithStandingOrder);
         var selectedAccounts = source.Accounts.Where(a => selected.Contains(a.CustomerId)).ToList();
         var accountIds = selectedAccounts.Select(a => a.Id).ToHashSet();
 
@@ -137,7 +170,8 @@ public sealed class Importer(HttpClient gateway, ImportOptions options, TextWrit
         var orders = source.StandingOrders.Where(o => accountIds.Contains(o.AccountId)).ToList();
 
         var dates = transactions.Select(t => t.Date).Concat(selectedLoans.Select(l => l.StartDate)).Concat(payments.Select(p => p.Date)).Concat(orders.Select(o => o.StartDate)).ToList();
-        var shift = dates.Count == 0 ? new DateShift(startDate, 0) : DateShift.Compute(dates.Min(), dates.Max(), startDate, maxYears: 2);
+        // Shifted from the selected history's first kept day, never earlier than the dataset-wide cut-off.
+        var shift = dates.Count == 0 ? new DateShift(startDate, 0) : DateShift.Compute(dates.Min(), latest, startDate, MaxYears);
         var days = new Dictionary<DateOnly, List<Func<CancellationToken, Task>>>();
         void On(DateOnly date, Func<CancellationToken, Task> step, string skippedWhy)
         {
@@ -151,6 +185,12 @@ public sealed class Importer(HttpClient gateway, ImportOptions options, TextWrit
             (days.TryGetValue(day, out var list) ? list : days[day] = []).Add(step);
         }
 
+        // Within a day: loans first, so money disbursed that day can be spent that day; then transactions and standing orders.
+        foreach (var l in selectedLoans)
+        {
+            On(l.StartDate, ct => LoanAsync(l, ct), $"loan {l.Id}");
+        }
+
         foreach (var t in transactions.OrderBy(t => t.Date).ThenBy(t => t.Id, StringComparer.Ordinal))
         {
             On(t.Date, ct => TransactionAsync(t, accountIds, ct), $"transaction {t.Id}");
@@ -161,11 +201,6 @@ public sealed class Importer(HttpClient gateway, ImportOptions options, TextWrit
             On(o.StartDate, ct => StandingOrderAsync(o, shift, ct), $"standing order {o.Id}");
         }
 
-        foreach (var l in selectedLoans)
-        {
-            On(l.StartDate, ct => LoanAsync(l, ct), $"loan {l.Id}");
-        }
-
         foreach (var p in payments.OrderBy(p => p.Date))
         {
             On(p.Date, ct => LoanPaymentAsync(p, ct), $"loan payment {p.Id}");
@@ -174,7 +209,7 @@ public sealed class Importer(HttpClient gateway, ImportOptions options, TextWrit
         return new Prepared([.. source.Customers.Where(c => selected.Contains(c.Id))], selectedAccounts, days);
     }
 
-    private async Task RegisterAsync(Prepared data, DateOnly startDate, CancellationToken ct)
+    private async Task RegisterAsync(Prepared data, CancellationToken ct)
     {
         foreach (var c in data.Customers)
         {
@@ -188,6 +223,12 @@ public sealed class Importer(HttpClient gateway, ImportOptions options, TextWrit
                 customers[c.Id] = (await response.Content.ReadFromJsonAsync<IdOnly>(Json, ct))!.Id;
                 Report.Customers++;
             }
+            else if (response.StatusCode == HttpStatusCode.Conflict && !options.Force)
+            {
+                // The customer is already in the bank: an earlier import ran. Stop before anything else is written.
+                throw new InvalidOperationException(
+                    $"Customer {c.Id} already exists (national id IMP-{c.Id}): this bank already holds imported customers. Import into a fresh database, or pass --force.");
+            }
             else
             {
                 Report.Skipped.Add($"customer {c.Id}: {(int)response.StatusCode} {await Code(response, ct)}");
@@ -196,7 +237,12 @@ public sealed class Importer(HttpClient gateway, ImportOptions options, TextWrit
 
         foreach (var a in data.Accounts.Where(a => customers.ContainsKey(a.CustomerId)))
         {
-            var type = a.Type.Contains("sav", StringComparison.OrdinalIgnoreCase) ? "Savings" : "Current";
+            if (AccountTypes.Map(a.Type) is not { } type)
+            {
+                Report.Skipped.Add($"account {a.Id}: unknown account type '{a.Type}'");
+                continue;
+            }
+
             // CustomerRegistered reaches Accounts a moment later: retry customer_not_found (accounts ADR 0001).
             var response = await RetryAsync(() => SendAsync(HttpMethod.Post, "/api/accounts/accounts", new { customerId = customers[a.CustomerId], type, currency = "SEK" }, null, ct), ct);
             if (response.StatusCode == HttpStatusCode.Created)
@@ -209,8 +255,6 @@ public sealed class Importer(HttpClient gateway, ImportOptions options, TextWrit
                 Report.Skipped.Add($"account {a.Id}: {(int)response.StatusCode} {await Code(response, ct)}");
             }
         }
-
-        _ = startDate;
     }
 
     private async Task TransactionAsync(SourceTransaction t, HashSet<string> imported, CancellationToken ct)
@@ -249,7 +293,12 @@ public sealed class Importer(HttpClient gateway, ImportOptions options, TextWrit
             return;
         }
 
-        var frequency = o.Frequency.ToLowerInvariant() switch { var f when f.StartsWith('w') => "Weekly", var f when f.StartsWith('q') => "Quarterly", _ => "Monthly" };
+        if (Frequencies.Map(o.Frequency) is not { } frequency)
+        {
+            Report.Skipped.Add($"standing order {o.Id}: unsupported frequency '{o.Frequency}'");
+            return;
+        }
+
         await ApplyAsync(HttpMethod.Post, "/api/accounts/standing-orders", new
         {
             fromAccountId = from, toAccountId = to, amount = Amounts.ToSek(o.Amount, options.AmountFactor), frequency,
@@ -268,7 +317,8 @@ public sealed class Importer(HttpClient gateway, ImportOptions options, TextWrit
         var product = LoanTypes.Map(l.Type);
         var principal = Amounts.ToSek(l.Amount, options.AmountFactor);
         var today = (await CurrentDayAsync(ct)).Date;
-        var stages = product == "PURCHASE" ? StagePlanner.Equal(principal, today, l.TermMonths, 4).Select(s => new { dueDate = s.DueDate, principalShare = s.Share }).ToList() : null;
+        // The stage cap is the product's (no hard-coded caps); a product without one takes a single stage.
+        var stages = product == "PURCHASE" ? StagePlanner.Equal(principal, today, l.TermMonths, maxStages.GetValueOrDefault(product) ?? 1).Select(s => new { dueDate = s.DueDate, principalShare = s.Share }).ToList() : null;
         var submitted = await RetryAsync(() => SendAsync(HttpMethod.Post, "/api/lending/loan-applications", new
         {
             customerId = customer, productCode = product, amount = principal, termMonths = l.TermMonths, repaymentAccountId = account,
@@ -377,6 +427,11 @@ public sealed class Importer(HttpClient gateway, ImportOptions options, TextWrit
 
     private async Task VerifyOnceAsync(DateOnly from, DateOnly to, CancellationToken ct)
     {
+        if (accounts.Count == 0)
+        {
+            Report.VerificationErrors.Add("no account was imported, so nothing was verified");
+        }
+
         foreach (var (source, id) in accounts)
         {
             var account = await Gateway.GetFromJsonAsync<AccountView>($"/api/accounts/accounts/{id}", Json, ct);
@@ -465,7 +520,10 @@ public sealed class Importer(HttpClient gateway, ImportOptions options, TextWrit
         }
     }
 
+    private const int MaxYears = 2;
+
     private sealed record IdOnly(Guid Id);
+    private sealed record ProductView(string Code, int? MaxStages);
     private sealed record DayView(DateOnly Date, string Status);
     private sealed record AccountView(Money Balance);
     private sealed record LineView(Money Amount);
