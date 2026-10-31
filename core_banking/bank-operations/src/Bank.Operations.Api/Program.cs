@@ -2,6 +2,7 @@ using Bank.Messaging;
 using Bank.Messaging.Kafka;
 using Bank.Operations.Api;
 using Bank.Operations.Api.Data;
+using Bank.Operations.Api.Features.Currencies;
 using Bank.Toolkit.Data;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -23,11 +24,17 @@ builder.Services.AddBankMessaging(o => o.ServiceName = "operations");
 builder.Services.AddKafkaTransport(builder.Configuration);
 OperationsOptions.AddTo(builder.Services, builder.Configuration);
 builder.Services.AddOpenApi();
+// RFC 9457 problem details for every error response, including unhandled exceptions.
+builder.Services.AddProblemDetails();
 
 var app = builder.Build();
 
+app.UseExceptionHandler();
 app.MapOpenApi();
 app.MapDefaultEndpoints();
+
+ListCurrencies.Map(app);
+ActivateCurrency.Map(app);
 
 app.Run();
 

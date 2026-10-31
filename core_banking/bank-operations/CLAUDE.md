@@ -4,7 +4,7 @@ Owns the bank's currencies and business date, and runs the end-of-day cycle (des
 
 ## Tables
 
-- `currency`: code (PK), minor_units, is_active. SEK, EUR, USD seeded **inactive** by the first migration (ADR 0002, slice 2.2); a currency becomes active only through the API.
+- `currency`: code (PK), minor_units, is_active. SEK, EUR, USD seeded **inactive** (ADR 0002); a currency becomes active only through `POST /currencies/{code}/activate` (idempotent; xmin separates concurrent calls).
 - `business_day`: date (PK), status (`Open`, `Closing`, `Closed`, stored as text), opened_at, closed_at. Empty after the migration; the service opens `Operations:StartDate` on its first start (slice 2.3a).
 - `business_day_completion`: (date, service) as primary key, so a service counts once per date.
 - `outbox_message`, `inbox_message` from `modelBuilder.AddBankMessaging()`.
@@ -32,3 +32,8 @@ Owns the bank's currencies and business date, and runs the end-of-day cycle (des
 dotnet build && dotnet test                         # integration tests need Docker
 dotnet tool restore && dotnet ef migrations add <Name> --project src/Bank.Operations.Api --output-dir Data/Migrations
 ```
+
+## Tests
+
+- `tests/.../Support/OperationsApp` runs the real `Program.cs` (WebApplicationFactory) on a fresh schema with `InMemoryTransport` instead of Kafka. Settings go through `UseSetting`, because `Program.cs` reads the connection string while it builds.
+- `DeliverAsync` hands an incoming event to the inbox pipeline; `Published<T>` reads what the outbox dispatcher sent; `OutboxDrainedAsync` before asserting "nothing more".
