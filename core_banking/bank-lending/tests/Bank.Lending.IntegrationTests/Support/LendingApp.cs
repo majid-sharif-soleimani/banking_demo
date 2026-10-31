@@ -43,6 +43,14 @@ public sealed class LendingApp(string connectionString, Action<IServiceCollectio
         await OpenBusinessDayAsync(date);
     }
 
+    /// <summary>Opens the business date and runs its end of day, then waits until every event and answer has gone through.</summary>
+    public async Task RunDayAsync(DateOnly date)
+    {
+        await MoveToAsync(date);
+        await DeliverAsync(new DayClosed(Guid.NewGuid(), date, "system", date), date.ToString("yyyy-MM-dd"));
+        await OutboxDrainedAsync();
+    }
+
     public Task<HttpResponseMessage> SubmitAsync(string product = "CAR", decimal amount = 200_000m, int term = 36, IReadOnlyList<StageRequest>? stages = null, Guid? account = null) =>
         PostJsonAsync("/loan-applications", new ApplicationEndpoints.SubmitRequest(
             CustomerId, product, new Money(amount, "SEK"), term, account ?? AccountId, "A car", stages));

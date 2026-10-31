@@ -3,6 +3,8 @@ using Bank.Lending.Api.Data;
 using Bank.Lending.Api.Features.Applications;
 using Bank.Lending.Api.Features.Reference;
 using Bank.Lending.Api.Features.Loans;
+using Bank.Lending.Api.Features.EndOfDay;
+using Bank.Lending.Api.Features.Payments;
 using Bank.Messaging;
 using Bank.Messaging.BusinessDays;
 using Bank.Messaging.Kafka;
@@ -28,6 +30,11 @@ builder.Services.AddEventHandler<AccountOpened, AccountOpenedHandler>();
 builder.Services.AddEventHandler<CurrencyActivated, CurrencyActivatedHandler>();
 builder.Services.AddEventHandler<InformationReceived, InformationReceivedHandler>();
 builder.Services.AddEventHandler<AppointmentScheduled, AppointmentScheduledHandler>();
+// End of day: Lending is a participant (Operations:EndOfDayParticipants lists "lending").
+builder.Services.AddEventHandler<DayClosed, LendingEndOfDayHandler>();
+builder.Services.AddEventHandler<PaymentCollected, PaymentCollectedHandler>();
+builder.Services.AddEventHandler<PaymentFailed, PaymentFailedHandler>();
+builder.Services.AddEventHandler<CardPaymentCaptured, CardPaymentCapturedHandler>();
 
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();

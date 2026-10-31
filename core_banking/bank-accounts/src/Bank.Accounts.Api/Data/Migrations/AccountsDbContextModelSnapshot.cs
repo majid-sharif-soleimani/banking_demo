@@ -318,6 +318,81 @@ namespace Bank.Accounts.Api.Data.Migrations
                     b.ToTable("idempotency_record", (string)null);
                 });
 
+            modelBuilder.Entity("Bank.Accounts.Api.Data.LoanCollection", b =>
+                {
+                    b.Property<Guid>("CollectionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("collection_id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("numeric")
+                        .HasColumnName("amount");
+
+                    b.Property<DateOnly>("BusinessDate")
+                        .HasColumnType("date")
+                        .HasColumnName("business_date");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("currency");
+
+                    b.Property<Guid>("LoanId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("loan_id");
+
+                    b.Property<string>("PerformedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("performed_by");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("purpose");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("reason");
+
+                    b.Property<int?>("ScheduleItemNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("schedule_item_number");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("status");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("CollectionId")
+                        .HasName("pk_loan_collection");
+
+                    b.HasIndex("LoanId")
+                        .HasDatabaseName("ix_loan_collection_loan_id");
+
+                    b.ToTable("loan_collection", (string)null);
+                });
+
             modelBuilder.Entity("Bank.Accounts.Api.Data.StandingOrder", b =>
                 {
                     b.Property<Guid>("Id")
