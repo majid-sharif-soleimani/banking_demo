@@ -38,14 +38,14 @@ var mailpit = builder.AddMailPit("mailpit");
 
 // The services. Each gets only its own "<service>-db" connection string and Kafka; it waits for both, then applies
 // its migrations on startup. /health tells the AppHost (and the tests) when it is ready.
-builder.AddProject<Projects.Bank_Operations_Api>("operations")
+var operations = builder.AddProject<Projects.Bank_Operations_Api>("operations")
     .WithReference(serviceDatabases["operations"])
     .WithReference(kafka)
     .WaitFor(postgres)
     .WaitFor(kafka)
     .WithHttpHealthCheck("/health");
 
-builder.AddProject<Projects.Bank_Customers_Api>("customers")
+var customers = builder.AddProject<Projects.Bank_Customers_Api>("customers")
     .WithReference(serviceDatabases["customers"])
     .WithReference(kafka)
     .WithReference(mailpit)
@@ -54,32 +54,41 @@ builder.AddProject<Projects.Bank_Customers_Api>("customers")
     .WaitFor(mailpit)
     .WithHttpHealthCheck("/health");
 
-builder.AddProject<Projects.Bank_Accounts_Api>("accounts")
+var accounts = builder.AddProject<Projects.Bank_Accounts_Api>("accounts")
     .WithReference(serviceDatabases["accounts"])
     .WithReference(kafka)
     .WaitFor(postgres)
     .WaitFor(kafka)
     .WithHttpHealthCheck("/health");
 
-builder.AddProject<Projects.Bank_Cards_Api>("cards")
+var cards = builder.AddProject<Projects.Bank_Cards_Api>("cards")
     .WithReference(serviceDatabases["cards"])
     .WithReference(kafka)
     .WaitFor(postgres)
     .WaitFor(kafka)
     .WithHttpHealthCheck("/health");
 
-builder.AddProject<Projects.Bank_Ledger_Api>("ledger")
+var ledger = builder.AddProject<Projects.Bank_Ledger_Api>("ledger")
     .WithReference(serviceDatabases["ledger"])
     .WithReference(kafka)
     .WaitFor(postgres)
     .WaitFor(kafka)
     .WithHttpHealthCheck("/health");
 
-builder.AddProject<Projects.Bank_Lending_Api>("lending")
+var lending = builder.AddProject<Projects.Bank_Lending_Api>("lending")
     .WithReference(serviceDatabases["lending"])
     .WithReference(kafka)
     .WaitFor(postgres)
     .WaitFor(kafka)
+    .WithHttpHealthCheck("/health");
+
+// The single entry point (design plan ADR 12): all external traffic goes through the gateway, which finds each service
+// through the references below (Aspire service discovery).
+builder.AddProject<Projects.Bank_Gateway>("gateway")
+    .WithReference(operations).WithReference(customers).WithReference(accounts)
+    .WithReference(cards).WithReference(ledger).WithReference(lending)
+    .WaitFor(operations).WaitFor(customers).WaitFor(accounts).WaitFor(cards).WaitFor(ledger).WaitFor(lending)
+    .WithExternalHttpEndpoints()
     .WithHttpHealthCheck("/health");
 
 builder.Build().Run();
