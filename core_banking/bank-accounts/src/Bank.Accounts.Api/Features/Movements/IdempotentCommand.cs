@@ -79,7 +79,14 @@ public static class IdempotentCommand
                 // Another request changed the account between our read and our write: run once more on fresh data.
                 db.ChangeTracker.Clear();
             }
-            catch (DbUpdateConcurrencyException)
+            catch (DbUpdateException ex) when (attempt == 1 && ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.DeadlockDetected })
+            {
+                // Two transfers in opposite directions locked the same two accounts in opposite order; PostgreSQL
+                // aborted this one. Like a version conflict: run once more on fresh data.
+                db.ChangeTracker.Clear();
+            }
+            catch (Exception ex) when (ex is DbUpdateConcurrencyException
+                || ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.DeadlockDetected })
             {
                 db.ChangeTracker.Clear();
                 return Problems.Of(StatusCodes.Status409Conflict, "concurrency_conflict", "The account changed twice meanwhile; try again.");

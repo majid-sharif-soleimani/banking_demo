@@ -150,6 +150,14 @@ public class BankServiceApp<TProgram> : WebApplicationFactory<TProgram>
 
     public async Task<T> GetJsonAsync<T>(string path) => (await CreateClient().GetFromJsonAsync<T>(path, Ct))!;
 
+    /// <summary>Stops the host and closes its pooled connections, so finished tests do not hold database connections.</summary>
+    public override async ValueTask DisposeAsync()
+    {
+        await base.DisposeAsync();
+        NpgsqlConnection.ClearPool(new NpgsqlConnection(ConnectionString));
+        GC.SuppressFinalize(this);
+    }
+
     private static string SchemaOf<T>() =>
         EventSchemaUri.Find(typeof(T)) ?? throw new InvalidOperationException($"{typeof(T).Name} declares no SchemaUri.");
 }

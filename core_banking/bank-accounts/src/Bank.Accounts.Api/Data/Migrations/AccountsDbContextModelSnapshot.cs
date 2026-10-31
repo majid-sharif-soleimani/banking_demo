@@ -286,6 +286,100 @@ namespace Bank.Accounts.Api.Data.Migrations
                     b.ToTable("idempotency_record", (string)null);
                 });
 
+            modelBuilder.Entity("Bank.Accounts.Api.Data.Transfer", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("numeric")
+                        .HasColumnName("amount");
+
+                    b.Property<DateOnly>("BusinessDate")
+                        .HasColumnType("date")
+                        .HasColumnName("business_date");
+
+                    b.Property<decimal>("ConvertedAmount")
+                        .HasColumnType("numeric")
+                        .HasColumnName("converted_amount");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("currency");
+
+                    b.Property<Guid>("FromAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("from_account_id");
+
+                    b.Property<DateTimeOffset?>("FxAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("fx_at");
+
+                    b.Property<DateOnly?>("FxObservedOn")
+                        .HasColumnType("date")
+                        .HasColumnName("fx_observed_on");
+
+                    b.Property<decimal?>("FxRate")
+                        .HasColumnType("numeric")
+                        .HasColumnName("fx_rate");
+
+                    b.Property<string>("FxSource")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("fx_source");
+
+                    b.Property<string>("PerformedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("performed_by");
+
+                    b.Property<Guid?>("StandingOrderId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("standing_order_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("status");
+
+                    b.Property<string>("TargetCurrency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("target_currency");
+
+                    b.Property<Guid>("ToAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("to_account_id");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_transfer");
+
+                    b.HasIndex("FromAccountId")
+                        .HasDatabaseName("ix_transfer_from_account_id");
+
+                    b.HasIndex("ToAccountId")
+                        .HasDatabaseName("ix_transfer_to_account_id");
+
+                    b.ToTable("transfer", (string)null);
+                });
+
             modelBuilder.Entity("Bank.Messaging.BusinessDays.LocalBusinessDay", b =>
                 {
                     b.Property<DateOnly>("Date")

@@ -16,7 +16,13 @@ namespace Bank.Accounts.IntegrationTests.Support;
 /// Accounts would have received from Kafka: the business date, SEK/EUR/USD activated, and one registered customer.
 /// </summary>
 public sealed class AccountsApp(string connectionString, Action<IServiceCollection>? configure)
-    : BankServiceApp<Program>(connectionString, new Dictionary<string, string?> { ["ConnectionStrings:accounts-db"] = connectionString }, configure)
+    : BankServiceApp<Program>(connectionString, new Dictionary<string, string?>
+    {
+        ["ConnectionStrings:accounts-db"] = connectionString,
+        ["ExchangeRates:Provider"] = "Fixed",
+        ["ExchangeRates:SekPerUnit:EUR"] = "11.50",
+        ["ExchangeRates:SekPerUnit:USD"] = "10.60",
+    }, configure)
 {
     public static readonly DateOnly Today = new(2026, 3, 1);
 
@@ -53,6 +59,10 @@ public sealed class AccountsApp(string connectionString, Action<IServiceCollecti
 
     public Task<HttpResponseMessage> WithdrawAsync(Guid accountId, decimal amount, string currency = "SEK", string? key = null) =>
         PostJsonAsync($"/accounts/{accountId}/withdrawals", new CashMovements.Request(new Money(amount, currency), null), key ?? Guid.NewGuid().ToString());
+
+    public Task<HttpResponseMessage> TransferAsync(Guid from, Guid to, decimal amount, string currency = "SEK", string? key = null) =>
+        PostJsonAsync("/transfers", new Bank.Accounts.Api.Features.Transfers.TransferEndpoints.Request(from, to, new Money(amount, currency), null),
+            key ?? Guid.NewGuid().ToString());
 
     public async Task<decimal> BalanceAsync(Guid accountId) => (await GetJsonAsync<AccountResponse>($"/accounts/{accountId}")).Balance.Amount;
 }

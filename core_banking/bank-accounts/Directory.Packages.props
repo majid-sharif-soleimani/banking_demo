@@ -4,13 +4,13 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- Shared bank packages from ../.local-feed; exact versions (implementation-decisions, "Package versions"). -->
-    <PackageVersion Include="Bank.Contracts" Version="0.3.0" />
-    <PackageVersion Include="Bank.Common" Version="0.3.0" />
-    <PackageVersion Include="Bank.Toolkit.Data" Version="0.3.0" />
-    <PackageVersion Include="Bank.Messaging" Version="0.3.0" />
-    <PackageVersion Include="Bank.Messaging.Kafka" Version="0.3.0" />
+    <PackageVersion Include="Bank.Contracts" Version="0.3.1" />
+    <PackageVersion Include="Bank.Common" Version="0.3.1" />
+    <PackageVersion Include="Bank.Toolkit.Data" Version="0.3.1" />
+    <PackageVersion Include="Bank.Messaging" Version="0.3.1" />
+    <PackageVersion Include="Bank.Messaging.Kafka" Version="0.3.1" />
     <PackageVersion Include="Bank.ServiceDefaults" Version="0.1.0" />
-    <PackageVersion Include="Bank.Testing" Version="0.3.0" />
+    <PackageVersion Include="Bank.Testing" Version="0.3.1" />
     <!-- Service -->
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.14" />
     <!-- Tests and design time -->

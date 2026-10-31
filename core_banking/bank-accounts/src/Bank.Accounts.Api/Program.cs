@@ -2,6 +2,8 @@ using Bank.Accounts.Api.Data;
 using Bank.Accounts.Api.Features.Accounts;
 using Bank.Accounts.Api.Features.Movements;
 using Bank.Accounts.Api.Features.Reference;
+using Bank.Accounts.Api.Features.Transfers;
+using Bank.Accounts.Api.ExchangeRates;
 using Bank.Common;
 using Bank.Contracts.Events;
 using Bank.Messaging;
@@ -29,6 +31,20 @@ builder.Services.AddEventHandler<CustomerRegistered, CustomerRegisteredHandler>(
 builder.Services.AddEventHandler<CurrencyActivated, CurrencyActivatedHandler>();
 builder.Services.AddSingleton<IAccountNumberGenerator, RandomAccountNumberGenerator>();
 
+// Exchange rates (design plan ADR 20): fixed rates from configuration by default, the Riksbank API when configured.
+builder.Services.AddOptions<ExchangeRateOptions>().Bind(builder.Configuration.GetSection(ExchangeRateOptions.Section))
+    .Validate(o => o.Provider is "Fixed" or "Riksbank", "ExchangeRates:Provider must be Fixed or Riksbank.")
+    .ValidateOnStart();
+if (builder.Configuration[$"{ExchangeRateOptions.Section}:Provider"] == "Riksbank")
+{
+    builder.Services.AddHttpClient<IExchangeRateProvider, RiksbankExchangeRateProvider>((sp, http) =>
+        http.BaseAddress = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<ExchangeRateOptions>>().Value.RiksbankBaseAddress);
+}
+else
+{
+    builder.Services.AddSingleton<IExchangeRateProvider, ConfiguredExchangeRateProvider>();
+}
+
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
 
@@ -41,6 +57,7 @@ app.MapDefaultEndpoints();
 OpenAccount.Map(app);
 GetAccounts.Map(app);
 CashMovements.Map(app);
+TransferEndpoints.Map(app);
 
 app.Run();
 

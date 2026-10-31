@@ -23,6 +23,8 @@ public sealed class AccountsDbContext(DbContextOptions<AccountsDbContext> option
 
     public DbSet<IdempotencyRecord> IdempotencyRecords => Set<IdempotencyRecord>();
 
+    public DbSet<Transfer> Transfers => Set<Transfer>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.AddBankMessaging();
@@ -58,6 +60,24 @@ public sealed class AccountsDbContext(DbContextOptions<AccountsDbContext> option
             entry.Property(e => e.PerformedBy).HasMaxLength(PerformedBy.MaxLength);
             entry.Property(e => e.Version).HasColumnName("xmin").HasColumnType("xid").IsRowVersion();
             entry.HasOne<Account>().WithMany().HasForeignKey(e => e.AccountId);
+        });
+
+        modelBuilder.Entity<Transfer>(transfer =>
+        {
+            transfer.ToTable("transfer");
+            transfer.Property(t => t.Amount).HasColumnType("numeric");
+            transfer.Property(t => t.ConvertedAmount).HasColumnType("numeric");
+            transfer.Property(t => t.FxRate).HasColumnType("numeric");
+            transfer.Property(t => t.Currency).HasMaxLength(3);
+            transfer.Property(t => t.TargetCurrency).HasMaxLength(3);
+            transfer.Property(t => t.FxSource).HasMaxLength(32);
+            transfer.Property(t => t.Status).HasConversion<string>().HasMaxLength(16);
+            transfer.Ignore(t => t.AmountMoney);
+            transfer.Ignore(t => t.ConvertedMoney);
+            transfer.HasIndex(t => t.FromAccountId);
+            transfer.HasIndex(t => t.ToAccountId);
+            transfer.Property(t => t.PerformedBy).HasMaxLength(PerformedBy.MaxLength);
+            transfer.Property(t => t.Version).HasColumnName("xmin").HasColumnType("xid").IsRowVersion();
         });
 
         modelBuilder.Entity<CustomerRef>(customer =>
