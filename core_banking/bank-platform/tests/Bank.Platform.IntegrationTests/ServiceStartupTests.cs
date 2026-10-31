@@ -11,6 +11,7 @@ public sealed class ServiceStartupTests(PlatformFixture platform)
     [Theory]
     [InlineData("operations", "currency", "operations:3")]
     [InlineData("customers", "customer", "customers:0")]
+    [InlineData("accounts", "account", "accounts:0")]
     public async Task A_service_migrates_its_own_schema_on_startup(string service, string table, string expected)
     {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);

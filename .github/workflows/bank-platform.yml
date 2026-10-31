@@ -6,12 +6,14 @@ on:
       - "core_banking/bank-platform/**"
       - "core_banking/bank-operations/src/**"
       - "core_banking/bank-customers/src/**"
+      - "core_banking/bank-accounts/src/**"
       - ".github/workflows/bank-platform.yml"
   pull_request:
     paths:
       - "core_banking/bank-platform/**"
       - "core_banking/bank-operations/src/**"
       - "core_banking/bank-customers/src/**"
+      - "core_banking/bank-accounts/src/**"
       - ".github/workflows/bank-platform.yml"
 
 permissions:

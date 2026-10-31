@@ -12,6 +12,7 @@ public sealed class InfrastructureHealthTests(PlatformFixture platform)
     [InlineData("kafka")]
     [InlineData("operations")]
     [InlineData("customers")]
+    [InlineData("accounts")]
     public async Task Resource_becomes_healthy(string resourceName)
     {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
