@@ -2,6 +2,7 @@ using Bank.Contracts.Events;
 using Bank.Lending.Api.Data;
 using Bank.Lending.Api.Features.Applications;
 using Bank.Lending.Api.Features.Reference;
+using Bank.Lending.Api.Features.Loans;
 using Bank.Messaging;
 using Bank.Messaging.BusinessDays;
 using Bank.Messaging.Kafka;
@@ -38,6 +39,8 @@ app.MapOpenApi();
 app.MapDefaultEndpoints();
 
 ApplicationEndpoints.Map(app);
+Disbursement.Map(app);
+LoanQueries.Map(app);
 
 app.Run();
 
