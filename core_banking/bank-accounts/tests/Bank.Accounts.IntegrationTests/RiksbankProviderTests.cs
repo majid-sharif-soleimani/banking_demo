@@ -49,8 +49,18 @@ public class RiksbankProviderTests
         await Should.ThrowAsync<ExchangeRateUnavailableException>(() => provider.GetRateAsync("EUR", "SEK", new DateOnly(2026, 3, 1), Ct));
     }
 
-    private static RiksbankExchangeRateProvider Provider(Func<string, string?> respond) =>
-        new(new HttpClient(new StubHandler(respond)) { BaseAddress = new Uri("https://api.riksbank.se/swea/v1/") });
+    [Fact]
+    public async Task A_series_quoted_per_100_units_is_divided()
+    {
+        // SEKJPYPMI is SEK per 100 JPY: 7.10 → 0.071 SEK per JPY.
+        var provider = Provider(_ => """{"date":"2026-02-27","value":7.10}""", new() { RiksbankQuoteUnits = { ["JPY"] = 100 } });
+
+        (await provider.GetRateAsync("JPY", "SEK", new DateOnly(2026, 3, 1), Ct)).Rate.ShouldBe(0.071m);
+    }
+
+    private static RiksbankExchangeRateProvider Provider(Func<string, string?> respond, ExchangeRateOptions? options = null) =>
+        new(new HttpClient(new StubHandler(respond)) { BaseAddress = new Uri("https://api.riksbank.se/swea/v1/") },
+            Microsoft.Extensions.Options.Options.Create(options ?? new ExchangeRateOptions()));
 
     private sealed class StubHandler(Func<string, string?> respond) : HttpMessageHandler
     {

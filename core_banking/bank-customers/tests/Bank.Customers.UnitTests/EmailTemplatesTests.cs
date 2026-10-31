@@ -34,4 +34,11 @@ public class EmailTemplatesTests
             System.Globalization.CultureInfo.CurrentCulture = before;
         }
     }
+
+    [Theory]
+    [InlineData("insufficient_funds", "did not have enough money")]
+    [InlineData("fx_unavailable", "no exchange rate was available")]
+    [InlineData("technical_error", "a problem on our side")]
+    public void StandingOrderFailed_ExplainsTheReason(string reason, string expected) =>
+        EmailTemplates.StandingOrderFailed("a@b.se", "A", new Money(1m, "SEK"), new DateOnly(2026, 3, 1), reason).Body.ShouldContain(expected);
 }

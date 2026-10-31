@@ -137,6 +137,12 @@ cd core_banking/bank-accounts && dotnet test
 Passed!  - UnitTests 52, IntegrationTests 60
 ```
 
+## Review changes (2026-10-31)
+
+- **Catch-up wording:** the stage file says "next run date = D". The handler runs every order with next run ≤ D and books it on D. Normally that is the same thing; it only differs if a date was ever skipped, and then nothing is lost.
+- **A stuck order:** an order that still fails after its one rerun (a conflict or deadlock twice) is recorded as a failed run with reason `technical_error`, published as `StandingOrderFailed`, and the day goes on. Otherwise one order could block `DayCompleted` for the whole bank. Customers' email now explains each reason.
+- **Idempotency:** `POST /standing-orders` now takes an Idempotency-Key, and a stored answer is never replayed to another customer.
+
 ## 5. What to watch later
 
 - The whole cycle across Operations, Accounts and Customers through real Kafka is tested end to end in stage 8.

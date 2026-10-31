@@ -90,6 +90,7 @@ public class StatementTests(PostgresFixture postgres)
 
         (await client.GetAsync($"/accounts/{account.Id}/statement?from={Day3:yyyy-MM-dd}&to={Day1:yyyy-MM-dd}", Ct)).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         (await client.GetAsync($"/accounts/{account.Id}/balance?date={Day3.AddDays(1):yyyy-MM-dd}", Ct)).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await client.GetAsync($"/accounts/{account.Id}/statement?from={Day1:yyyy-MM-dd}&to={Day3.AddDays(1):yyyy-MM-dd}", Ct)).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         (await app.Client(customerId: Guid.NewGuid()).GetAsync($"/accounts/{account.Id}/balance?date={Day1:yyyy-MM-dd}", Ct))
             .StatusCode.ShouldBe(HttpStatusCode.NotFound);
     }

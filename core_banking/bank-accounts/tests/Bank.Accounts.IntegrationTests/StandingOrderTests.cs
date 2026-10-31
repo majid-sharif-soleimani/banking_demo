@@ -19,7 +19,7 @@ public class StandingOrderTests(PostgresFixture postgres)
         AccountsApp app, Guid from, Guid to, decimal amount, string frequency = "Monthly", DateOnly? start = null, DateOnly? end = null)
     {
         var response = await app.PostJsonAsync("/standing-orders",
-            new StandingOrderEndpoints.Request(from, to, new Money(amount, "SEK"), frequency, start ?? Today, end));
+            new StandingOrderEndpoints.Request(from, to, new Money(amount, "SEK"), frequency, start ?? Today, end), Guid.NewGuid().ToString());
         response.StatusCode.ShouldBe(HttpStatusCode.Created);
         return (await response.Content.ReadFromJsonAsync<StandingOrderResponse>(Ct))!;
     }
@@ -188,7 +188,7 @@ public class StandingOrderTests(PostgresFixture postgres)
         var to = await app.OpenAccountAsync();
 
         var response = await app.PostJsonAsync("/standing-orders",
-            new StandingOrderEndpoints.Request(from.Id, to.Id, new Money(10m, "SEK"), frequency, Today.AddDays(startOffset), null));
+            new StandingOrderEndpoints.Request(from.Id, to.Id, new Money(10m, "SEK"), frequency, Today.AddDays(startOffset), null), "key");
 
         (await AccountTests.Code(response)).ShouldBe(code);
     }
@@ -203,5 +203,19 @@ public class StandingOrderTests(PostgresFixture postgres)
 
         (await app.Client(customerId: Guid.NewGuid()).GetAsync($"/standing-orders/{order.Id}", Ct)).StatusCode.ShouldBe(HttpStatusCode.NotFound);
         (await app.Client(customerId: Guid.NewGuid()).DeleteAsync($"/standing-orders/{order.Id}", Ct)).StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task A_retried_create_with_the_same_key_makes_one_order()
+    {
+        await using var app = await AccountsApp.StartAsync(postgres);
+        var from = await app.OpenAccountAsync();
+        var to = await app.OpenAccountAsync();
+        var request = new StandingOrderEndpoints.Request(from.Id, to.Id, new Money(10m, "SEK"), "Weekly", Today, null);
+
+        await app.PostJsonAsync("/standing-orders", request, "so-1");
+        (await app.PostJsonAsync("/standing-orders", request, "so-1")).StatusCode.ShouldBe(HttpStatusCode.Created);
+
+        (await app.ScalarAsync<long>("SELECT count(*) FROM standing_order")).ShouldBe(1);
     }
 }

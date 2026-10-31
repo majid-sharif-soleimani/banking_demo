@@ -19,20 +19,20 @@ Accounts and money movements: accounts, deposits and withdrawals, transfers (wit
 ## Rules in code
 
 - Every balance change goes through `Features/Movements/Postings.Post`; amounts are normalized to the currency's minor units (`Logic/AmountScale`). Columns are unconstrained `numeric`, which keeps the written scale.
-- Every money POST runs through `IdempotentCommand.RunAsync`: Idempotency-Key required; one retry on an xmin conflict, then 409.
+- Every money POST (and `POST /standing-orders`) runs through `IdempotentCommand.RunAsync`: Idempotency-Key required; the operation includes the caller's `X-Customer-Id`; one retry on an xmin conflict or deadlock, then 409.
 - A customer missing from `customer_ref` → 422 `customer_not_found` (ADR 0001); the caller retries.
 - `X-Customer-Id` for another customer → 404.
 
 ## End of day
 
-- `AccountsEndOfDayHandler` on `DayClosed(D)`: every active order with next run ≤ D, each in its own scope and transaction (one rerun on an xmin conflict); failures are recorded and published, never retried; next run date advances either way; then `end_of_day_run` + `DayCompleted` with the inbox row. A second `DayClosed(D)` (new id) is a no-op.
+- `AccountsEndOfDayHandler` on `DayClosed(D)`: every active order with next run ≤ D, each in its own scope and transaction (one rerun on an xmin conflict); failures are recorded and published, never retried (an order that still fails after its rerun is recorded as `technical_error`, so it cannot block the day); next run date advances either way; then `end_of_day_run` + `DayCompleted` with the inbox row. A second `DayClosed(D)` (new id) is a no-op.
 - Its class name is an inbox key and must differ from the consumer's `LocalDayClosedHandler`.
 - `Logic/StandingOrders.NextRunDate` counts every run from the start date (31st → last day of shorter months, then back to the 31st).
 
 ## Exchange rates
 
 - `ExchangeRates:Provider` = `Fixed` (default; `ExchangeRates:SekPerUnit:EUR` etc.) or `Riksbank` (SWEA `Observations/Latest/SEK{CUR}PMI`; the response shape `{date, value}` is assumed from the public docs; check it against the live API before relying on it). No rate → 422 `fx_unavailable`.
-- Rates are SEK per unit; inverted and crossed rates keep 10 decimals (`Logic/Fx`). Converted amounts round AwayFromZero to the target's minor units.
+- Rates are SEK per unit (series quoted per 100 units need `ExchangeRates:RiksbankQuoteUnits:<CUR>=100`); inverted and crossed rates keep 10 decimals (`Logic/Fx`). Converted amounts round AwayFromZero to the target's minor units.
 
 ## Gotchas
 

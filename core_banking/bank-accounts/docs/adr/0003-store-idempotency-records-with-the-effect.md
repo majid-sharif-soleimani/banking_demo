@@ -32,5 +32,9 @@ Saving the record with the effect means there is no window where money moved but
 
 ## Consequences
 
+- The caller (`X-Customer-Id`, or `-` without it) is part of the operation (review of 2026-10-31), so another customer reusing a key never replays this customer's answer: it runs the command and gets 404.
+- The request hash is over the JSON as sent: `10` and `10.00` hash differently, so a client must retry with the identical body.
+- `POST /standing-orders` also takes an Idempotency-Key (it creates future money movement).
+
 - Idempotency records are never deleted in phase 1. A retention job can be added later.
 - The same command logic serves endpoints and, without a key, internal callers such as standing orders (slice 4.5), which use their own business keys.

@@ -200,4 +200,19 @@ public class CashMovementTests(PostgresFixture postgres)
 
         (await app.DepositAsync(Guid.NewGuid(), 10m)).StatusCode.ShouldBe(HttpStatusCode.NotFound);
     }
+
+    [Fact]
+    public async Task Another_customer_reusing_a_key_does_not_see_the_stored_answer()
+    {
+        // Review of 2026-10-31: the replay must not leak the owner's entry and balance to another customer.
+        await using var app = await AccountsApp.StartAsync(postgres);
+        var account = await app.OpenAccountAsync();
+        var body = new CashMovements.Request(new Money(100m, "SEK"), null);
+        await app.Client(customerId: app.CustomerId, idempotencyKey: "k1").PostAsJsonAsync($"/accounts/{account.Id}/deposits", body, Ct);
+
+        var response = await app.Client(customerId: Guid.NewGuid(), idempotencyKey: "k1").PostAsJsonAsync($"/accounts/{account.Id}/deposits", body, Ct);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        (await app.BalanceAsync(account.Id)).ShouldBe(100m);
+    }
 }

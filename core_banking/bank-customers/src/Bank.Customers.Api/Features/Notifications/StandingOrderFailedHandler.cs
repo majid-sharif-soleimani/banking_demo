@@ -27,7 +27,7 @@ public sealed class StandingOrderFailedHandler(CustomersDbContext db, IEmailSend
         var customer = await db.Customers.SingleOrDefaultAsync(c => c.Id == @event.CustomerId, ct)
             ?? throw new InvalidOperationException($"StandingOrderFailed for unknown customer {@event.CustomerId}.");
 
-        await email.SendAsync(EmailTemplates.StandingOrderFailed(customer.Email, customer.Name, @event.Amount, @event.RunDate), ct);
+        await email.SendAsync(EmailTemplates.StandingOrderFailed(customer.Email, customer.Name, @event.Amount, @event.RunDate, @event.Reason), ct);
 
         var now = time.GetUtcNow();
         db.Notifications.Add(new Notification

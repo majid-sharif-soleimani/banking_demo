@@ -272,8 +272,8 @@ namespace Bank.Accounts.Api.Data.Migrations
             modelBuilder.Entity("Bank.Accounts.Api.Data.IdempotencyRecord", b =>
                 {
                     b.Property<string>("Operation")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
                         .HasColumnName("operation");
 
                     b.Property<string>("Key")

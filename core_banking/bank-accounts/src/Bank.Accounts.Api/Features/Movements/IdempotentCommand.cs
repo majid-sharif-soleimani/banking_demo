@@ -40,6 +40,9 @@ public static class IdempotentCommand
                 "Every request that moves money needs an Idempotency-Key header (at most 100 characters).");
         }
 
+        // The caller is part of the operation: another customer's replay must not see this customer's stored answer;
+        // it misses the record, runs the command and gets the command's own 404 (review of 2026-10-31).
+        operation = $"{operation}|{(http.Headers.TryGetValue(CustomerAccess.HeaderName, out var caller) ? caller.ToString() : "-")}";
         var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(request, Json))));
         var actor = PerformedBy.From(http.Headers[PerformedBy.HeaderName]);
 

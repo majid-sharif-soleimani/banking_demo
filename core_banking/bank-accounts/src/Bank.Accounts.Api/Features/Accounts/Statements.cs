@@ -34,6 +34,11 @@ public static class Statements
             return Problems.Of(StatusCodes.Status400BadRequest, "invalid_period", "'from' must not be after 'to'.");
         }
 
+        if (to > clock.Today)
+        {
+            return Problems.Of(StatusCodes.Status400BadRequest, "date_in_future", "'to' must not be after the current business date.");
+        }
+
         var account = await FindAsync(db, http, id, ct);
         if (account is null)
         {

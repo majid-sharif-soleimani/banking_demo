@@ -33,35 +33,41 @@ public static class StandingOrderEndpoints
         app.MapDelete("/standing-orders/{id:guid}", CancelAsync).WithName("CancelStandingOrder").WithTags("Standing orders");
     }
 
-    private static async Task<IResult> CreateAsync(
+    /// <summary>Idempotency-Key required: an order creates future money movement, and a retried POST must not create two.</summary>
+    private static Task<IResult> CreateAsync(
         Request request, HttpRequest http, [FromHeader(Name = PerformedBy.HeaderName)] string? performedBy,
-        AccountsDbContext db, IBusinessClock clock, TimeProvider time, CancellationToken ct)
+        AccountsDbContext db, IBusinessClock clock, TimeProvider time, CancellationToken ct) =>
+        IdempotentCommand.RunAsync(http, db, $"standing-order:{request.FromAccountId}", request,
+            async token => await CreateCoreAsync(request, http, performedBy, db, clock, time, token), ct);
+
+    private static async Task<Outcome> CreateCoreAsync(
+        Request request, HttpRequest http, string? performedBy, AccountsDbContext db, IBusinessClock clock, TimeProvider time, CancellationToken ct)
     {
         if (!Enum.TryParse<Frequency>(request.Frequency, ignoreCase: false, out var frequency) || !Enum.IsDefined(frequency))
         {
-            return Problems.Of(StatusCodes.Status400BadRequest, "invalid_frequency", "The frequency must be Weekly, Monthly or Quarterly.");
+            return Outcome.Fail(Problems.Of(StatusCodes.Status400BadRequest, "invalid_frequency", "The frequency must be Weekly, Monthly or Quarterly."));
         }
 
         if (request.StartDate < clock.Today || request.EndDate < request.StartDate)
         {
-            return Problems.Of(StatusCodes.Status400BadRequest, "invalid_dates",
-                "The start date must not be before the business date, and the end date not before the start date.");
+            return Outcome.Fail(Problems.Of(StatusCodes.Status400BadRequest, "invalid_dates",
+                "The start date must not be before the business date, and the end date not before the start date."));
         }
 
         var (from, _, problem) = await CashMovements.LoadAsync(db, http, request.FromAccountId, request.Amount, ct);
         if (problem is not null)
         {
-            return problem;
+            return Outcome.Fail(problem);
         }
 
         if (request.ToAccountId == request.FromAccountId)
         {
-            return Problems.Rule("same_account", "The source and target accounts are the same.");
+            return Outcome.Fail(Problems.Rule("same_account", "The source and target accounts are the same."));
         }
 
         if (!await db.Accounts.AnyAsync(a => a.Id == request.ToAccountId, ct))
         {
-            return Problems.Rule("target_account_not_found", "The target account does not exist.");
+            return Outcome.Fail(Problems.Rule("target_account_not_found", "The target account does not exist."));
         }
 
         var order = new StandingOrder
@@ -82,8 +88,7 @@ public static class StandingOrderEndpoints
         order.NextRunDate = Logic.StandingOrders.FirstRunDate(order.Schedule);
         db.ChangeTracker.Clear(); // the source account was loaded tracked; nothing about it changes here
         db.StandingOrders.Add(order);
-        await db.SaveChangesAsync(ct);
-        return Results.Created($"/standing-orders/{order.Id}", StandingOrderResponse.From(order));
+        return Outcome.Ok(StandingOrderResponse.From(order), StatusCodes.Status201Created);
     }
 
     private static async Task<IResult> GetAsync(Guid id, HttpRequest http, AccountsDbContext db, CancellationToken ct)

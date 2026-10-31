@@ -46,10 +46,14 @@ public sealed class AccountsEndOfDayHandler(AccountsDbContext db, IEventPublishe
             new DayCompleted(Guid.NewGuid(), @event.Date, PerformedBy.System, @event.Date, ServiceName), @event.Date.ToString("yyyy-MM-dd"), ct);
     }
 
-    /// <summary>One order in its own transaction; a concurrent change to one of its accounts (xmin) reruns it once.</summary>
+    /// <summary>
+    /// One order in its own transaction. A concurrent change to one of its accounts (xmin) or a deadlock reruns it once;
+    /// if it still fails, the run is recorded as failed with reason technical_error and the day goes on, so one stuck
+    /// order cannot hold back DayCompleted for everyone (review of 2026-10-31). No retry, as for any failed run.
+    /// </summary>
     private async Task RunWithRetryAsync(Guid orderId, DateOnly businessDate, CancellationToken ct)
     {
-        for (var attempt = 1; ; attempt++)
+        for (var attempt = 1; attempt <= 2; attempt++)
         {
             await using var scope = scopes.CreateAsyncScope();
             try
@@ -57,11 +61,40 @@ public sealed class AccountsEndOfDayHandler(AccountsDbContext db, IEventPublishe
                 await RunAsync(scope.ServiceProvider, orderId, businessDate, ct);
                 return;
             }
-            catch (DbUpdateConcurrencyException) when (attempt == 1)
+            catch (Exception ex) when (ex is DbUpdateConcurrencyException
+                || ex.InnerException is Npgsql.PostgresException { SqlState: Npgsql.PostgresErrorCodes.DeadlockDetected })
             {
             }
         }
+
+        await using var failScope = scopes.CreateAsyncScope();
+        await RecordTechnicalFailureAsync(failScope.ServiceProvider, orderId, businessDate, ct);
     }
+
+    private static async Task RecordTechnicalFailureAsync(IServiceProvider services, Guid orderId, DateOnly businessDate, CancellationToken ct)
+    {
+        var db = services.GetRequiredService<AccountsDbContext>();
+        var time = services.GetRequiredService<TimeProvider>();
+        var order = await db.StandingOrders.SingleAsync(o => o.Id == orderId, ct);
+        if (order.NextRunDate is not { } runDate || runDate > businessDate)
+        {
+            return;
+        }
+
+        db.StandingOrderRuns.Add(new StandingOrderRun
+        {
+            Id = Guid.CreateVersion7(), StandingOrderId = order.Id, RunDate = runDate, Status = StandingOrderRunStatus.Failed,
+            Reason = TechnicalError, CreatedAt = time.GetUtcNow(), PerformedBy = PerformedBy.System,
+        });
+        await services.GetRequiredService<IEventPublisher>().PublishAsync(
+            new StandingOrderFailed(Guid.NewGuid(), businessDate, PerformedBy.System, order.Id, order.CustomerId, order.FromAccountId,
+                new Money(order.Amount, order.Currency), runDate, TechnicalError),
+            order.Id.ToString(), ct);
+        Advance(order, runDate);
+        await db.SaveChangesAsync(ct);
+    }
+
+    public const string TechnicalError = "technical_error";
 
     private static async Task RunAsync(IServiceProvider services, Guid orderId, DateOnly businessDate, CancellationToken ct)
     {

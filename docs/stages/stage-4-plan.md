@@ -53,6 +53,13 @@ Environment: `~/repos/banking_demo` on `<machine>`, branch `stage-4-customers-ac
 | `IExchangeRateProvider` returns rate, source and observation date | bank-contracts 0017 | `ExchangeRate` record (breaking change to a shared interface, contracts 0.3.0) | Keep `decimal`, take the source from configuration |
 | Idempotency-Key storage | bank-accounts 0003 | `idempotency_record` (key, request hash, status, response), saved in the same transaction as the effect; the same key with a different body gives 422 | A cache outside the transaction |
 
+## Close-out (2026-10-31)
+
+- Done-when: customers 37, accounts 115, platform 33, contracts 221 tests green.
+- `banking-reviewer`: no money-correctness defect; it independently recomputed the FX results. REQUIRED, fixed: a replay ignored `X-Customer-Id` (now part of the idempotency operation, with a test). OPTIONAL, applied: Idempotency-Key on standing orders; statement `to` after today rejected; a stuck order becomes a `technical_error` failed run; Riksbank per-100 quotes; the catch-up wording documented. Not applied: normalizing amounts before hashing (documented in ADR 0003).
+- Infrastructure: `Bank.Testing` 0.3.1 (test PostgreSQL `max_connections=500`, pools cleared on dispose).
+- To review: accounts ADRs 0001–0003, contracts ADR 0017. `/retro 4` pending. Not merged; stage 5 continues on `stage-5-lending-service`.
+
 ## Done when
 
 ```bash

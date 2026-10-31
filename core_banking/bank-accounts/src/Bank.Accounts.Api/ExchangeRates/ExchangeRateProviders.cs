@@ -16,6 +16,12 @@ public sealed class ExchangeRateOptions
     public Dictionary<string, decimal> SekPerUnit { get; set; } = [];
 
     public Uri RiksbankBaseAddress { get; set; } = new("https://api.riksbank.se/swea/v1/");
+
+    /// <summary>
+    /// Units of the currency that one Riksbank quote is for, when not 1: some series (JPY, for example) are quoted per
+    /// 100 units. Set ExchangeRates:RiksbankQuoteUnits:JPY = 100 before activating such a currency.
+    /// </summary>
+    public Dictionary<string, int> RiksbankQuoteUnits { get; set; } = [];
 }
 
 /// <summary>
@@ -61,7 +67,7 @@ public sealed class ConfiguredExchangeRateProvider(IOptions<ExchangeRateOptions>
 /// example GET Observations/Latest/SEKEURPMI → { "date": "2026-10-30", "value": 11.4995 }. Any failure means no rate:
 /// the transfer then fails with fx_unavailable (implementation-decisions, External services).
 /// </summary>
-public sealed class RiksbankExchangeRateProvider(HttpClient http) : SekQuotedExchangeRateProvider
+public sealed class RiksbankExchangeRateProvider(HttpClient http, IOptions<ExchangeRateOptions> options) : SekQuotedExchangeRateProvider
 {
     protected override string Source => "riksbank";
 
@@ -70,8 +76,9 @@ public sealed class RiksbankExchangeRateProvider(HttpClient http) : SekQuotedExc
         try
         {
             var observation = await http.GetFromJsonAsync<Observation>($"Observations/Latest/SEK{currency}PMI", ct);
+            var units = options.Value.RiksbankQuoteUnits.TryGetValue(currency, out var perQuote) && perQuote > 0 ? perQuote : 1;
             return observation is { Value: > 0m }
-                ? (observation.Value, observation.Date)
+                ? (observation.Value / units, observation.Date)
                 : throw new ExchangeRateUnavailableException("SEK", currency);
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)

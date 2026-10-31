@@ -141,7 +141,7 @@ public sealed class AccountsDbContext(DbContextOptions<AccountsDbContext> option
             record.ToTable("idempotency_record");
             record.HasKey(r => new { r.Operation, r.Key }).HasName(IdempotencyKey);
             record.Property(r => r.Key).HasMaxLength(100);
-            record.Property(r => r.Operation).HasMaxLength(100);
+            record.Property(r => r.Operation).HasMaxLength(160);
             record.Property(r => r.RequestHash).HasMaxLength(64);
             // text, not jsonb: jsonb reorders keys, and a replay must return the very same bytes.
             record.Property(r => r.ResponseBody).HasColumnType("text");
