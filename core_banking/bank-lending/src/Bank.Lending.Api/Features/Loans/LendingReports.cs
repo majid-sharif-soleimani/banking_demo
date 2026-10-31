@@ -10,7 +10,7 @@ public sealed record PortfolioLine(string ProductCode, int Loans, Money Outstand
 
 public sealed record PortfolioReport(DateOnly Date, IReadOnlyList<PortfolioLine> Products, int TotalLoans);
 
-public sealed record ArrearsLine(string Classification, int Loans, Money Outstanding);
+public sealed record ArrearsLine(string Classification, string Currency, int Loans, Money Outstanding);
 
 public sealed record ArrearsReport(DateOnly Date, IReadOnlyList<ArrearsLine> Classifications);
 
@@ -56,12 +56,11 @@ public static class LendingReports
         var ids = loans.Select(l => l.Id).ToList();
         var latest = (await db.ClassificationChanges.AsNoTracking().Where(c => ids.Contains(c.LoanId) && c.Date <= on).ToListAsync(ct))
             .GroupBy(c => c.LoanId).ToDictionary(g => g.Key, g => g.MaxBy(c => c.Date)!.ToClassification);
-        var currency = loans.Select(l => l.Currency).FirstOrDefault() ?? "SEK";
-        var lines = Enum.GetValues<LoanClassification>().Select(classification =>
-        {
-            var inClass = loans.Where(l => latest.GetValueOrDefault(l.Id, LoanClassification.Current) == classification).ToList();
-            return new ArrearsLine(classification.ToString(), inClass.Count, new Money(inClass.Sum(l => l.Outstanding), currency));
-        }).ToList();
+        // One line per classification and currency: amounts in different currencies are never added (review of 2026-10-31).
+        var lines = (from classification in Enum.GetValues<LoanClassification>()
+                     from currency in loans.Select(l => l.Currency).Distinct().Order()
+                     let inClass = loans.Where(l => l.Currency == currency && latest.GetValueOrDefault(l.Id, LoanClassification.Current) == classification).ToList()
+                     select new ArrearsLine(classification.ToString(), currency, inClass.Count, new Money(inClass.Sum(l => l.Outstanding), currency))).ToList();
         return Results.Ok(new ArrearsReport(on, lines));
     }
 

@@ -58,6 +58,12 @@ public class PostingRulesTests
         PostingRules.PaymentAllocated("Card", Sek(0m), Sek(0m), Sek(0m)).ShouldBeEmpty();
 
     [Fact]
+    public void PaymentAllocated_UnallocatedPart_IsOwedToTheCustomer() =>
+        // Card captured 6,170.85 for an installment that was not due: all of it is owed back (ADR 0002).
+        Lines(PostingRules.PaymentAllocated("Card", Sek(0m), Sek(0m), Sek(0m), Sek(6_170.85m)).ShouldHaveSingleItem())
+            .ShouldBe([(CardClearing, 6_170.85m, 0m), (CustomerPayable, 0m, 6_170.85m)]);
+
+    [Fact]
     public void PaymentAllocated_UnknownSource_Throws() =>
         Should.Throw<ArgumentOutOfRangeException>(() => PostingRules.PaymentAllocated("Cash", Sek(1m), Sek(0m), Sek(0m)));
 
@@ -110,6 +116,6 @@ public class TrialBalanceTests
     public void Chart_HasTheSevenAccountsOfTheStageFile() =>
         GlAccounts.Chart.Select(a => ((int)a.Code, a.Name, a.Type)).ShouldBe([
             (1000, "Cash", GlAccountType.Asset), (1100, "CardClearing", GlAccountType.Asset), (1200, "LoansReceivable", GlAccountType.Asset),
-            (2000, "CustomerDeposits", GlAccountType.Liability), (2900, "FxPosition", GlAccountType.Liability),
+            (2000, "CustomerDeposits", GlAccountType.Liability), (2100, "CustomerPayable", GlAccountType.Liability), (2900, "FxPosition", GlAccountType.Liability),
             (4000, "InterestIncome", GlAccountType.Income), (4100, "PenaltyIncome", GlAccountType.Income)]);
 }

@@ -9,6 +9,8 @@ public enum GlCode
     CardClearing = 1100,
     LoansReceivable = 1200,
     CustomerDeposits = 2000,
+    /// <summary>Money received for a loan that could not be allocated, owed back to the customer (ADR 0002).</summary>
+    CustomerPayable = 2100,
     FxPosition = 2900,
     InterestIncome = 4000,
     PenaltyIncome = 4100,
@@ -35,6 +37,7 @@ public static class GlAccounts
         new(GlCode.CardClearing, "CardClearing", GlAccountType.Asset),
         new(GlCode.LoansReceivable, "LoansReceivable", GlAccountType.Asset),
         new(GlCode.CustomerDeposits, "CustomerDeposits", GlAccountType.Liability),
+        new(GlCode.CustomerPayable, "CustomerPayable", GlAccountType.Liability),
         new(GlCode.FxPosition, "FxPosition", GlAccountType.Liability),
         new(GlCode.InterestIncome, "InterestIncome", GlAccountType.Income),
         new(GlCode.PenaltyIncome, "PenaltyIncome", GlAccountType.Income),
@@ -78,7 +81,8 @@ public static class PostingRules
         [Entry(principal.Currency, "Loan disbursement", Debit(GlCode.LoansReceivable, principal), Credit(GlCode.CustomerDeposits, principal))];
 
     /// <param name="source">Account or Payoff (paid from a customer deposit), or Card (through card clearing).</param>
-    public static IReadOnlyList<JournalDraft> PaymentAllocated(string source, Money principal, Money interest, Money penalty)
+    /// <param name="unallocated">Received but not allocated (nothing due, or the loan closed): owed back to the customer.</param>
+    public static IReadOnlyList<JournalDraft> PaymentAllocated(string source, Money principal, Money interest, Money penalty, Money? unallocated = null)
     {
         var from = source switch
         {
@@ -86,14 +90,16 @@ public static class PostingRules
             "Card" => GlCode.CardClearing,
             _ => throw new ArgumentOutOfRangeException(nameof(source), source, "Unknown payment source."),
         };
-        var total = principal + interest + penalty;
+        var owed = unallocated ?? Money.Zero(principal.Currency);
+        var total = principal + interest + penalty + owed;
         if (total.Amount == 0m)
         {
             return [];
         }
 
         var lines = new List<JournalLine> { Debit(from, total) };
-        lines.AddRange(new[] { Credit(GlCode.LoansReceivable, principal), Credit(GlCode.InterestIncome, interest), Credit(GlCode.PenaltyIncome, penalty) }
+        lines.AddRange(new[] { Credit(GlCode.LoansReceivable, principal), Credit(GlCode.InterestIncome, interest), Credit(GlCode.PenaltyIncome, penalty),
+                Credit(GlCode.CustomerPayable, owed) }
             .Where(l => l.Credit != 0m));
         return [new JournalDraft(total.Currency, $"Loan payment ({source})", lines)];
     }

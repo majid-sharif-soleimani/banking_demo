@@ -61,9 +61,14 @@ public static class CardPayments
             return Problem(StatusCodes.Status422UnprocessableEntity, "loan_not_found", "No such loan for this customer.");
         }
 
-        var minorUnits = await db.Currencies.Where(c => c.Code == loan.Currency).Select(c => (int?)c.MinorUnits).SingleOrDefaultAsync(ct) ?? 2;
+        var minorUnits = await db.Currencies.Where(c => c.Code == loan.Currency).Select(c => (int?)c.MinorUnits).SingleOrDefaultAsync(ct);
+        if (minorUnits is null)
+        {
+            return Problem(StatusCodes.Status422UnprocessableEntity, "currency_not_active", $"{loan.Currency} is not known to Cards yet.");
+        }
+
         if (request.Amount is null || request.Amount.Currency != loan.Currency || request.Amount.Amount <= 0m
-            || Math.Round(request.Amount.Amount, minorUnits) != request.Amount.Amount)
+            || Math.Round(request.Amount.Amount, minorUnits.Value) != request.Amount.Amount)
         {
             return Problem(StatusCodes.Status400BadRequest, "invalid_amount", $"A positive amount in {loan.Currency} with at most {minorUnits} decimals is required.");
         }

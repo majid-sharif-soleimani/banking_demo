@@ -51,7 +51,8 @@ public class ReportTests(PostgresFixture postgres)
         Count(onDay1, "Current").ShouldBe(1);
         Count(onDay2, "Overdue").ShouldBe(1);
         Count(onDay90, "Default").ShouldBe(1);
-        onDay90.Classifications.Single(c => c.Classification == "Default").Outstanding.ShouldBe(Sek(200_000m));
+        onDay90.Classifications.Single(c => c.Classification == "Default").ShouldSatisfyAllConditions(
+            c => c.Currency.ShouldBe("SEK"), c => c.Outstanding.ShouldBe(Sek(200_000m)));
         _ = loan;
     }
 
@@ -78,5 +79,5 @@ public class ReportTests(PostgresFixture postgres)
         (await app.Client(customerId: app.CustomerId).GetAsync("/reports/portfolio", Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
     }
 
-    private static int Count(ArrearsReport report, string classification) => report.Classifications.Single(c => c.Classification == classification).Loans;
+    private static int Count(ArrearsReport report, string classification) => report.Classifications.Where(c => c.Classification == classification).Sum(c => c.Loans);
 }

@@ -13,8 +13,9 @@ public sealed record LoanPaymentAllocated(
     [property: Description("Account, Card or Payoff.")][property: RegularExpression("^(Account|Card|Payoff)$")] string Source,
     [property: Description("Part that repaid principal.")] Money Principal,
     [property: Description("Part that paid interest.")] Money Interest,
-    [property: Description("Part that paid penalties.")] Money Penalty)
+    [property: Description("Part that paid penalties.")] Money Penalty,
+    [property: Description("Part that could not be allocated (nothing due, or the loan is closed); the bank owes it back to the customer. Null means zero.")] Money? Unallocated = null)
     : IIntegrationEvent
 {
-    public const string SchemaUri = "iglu:se.bank/loan_payment_allocated/jsonschema/1-0-0";
+    public const string SchemaUri = "iglu:se.bank/loan_payment_allocated/jsonschema/1-0-1";
 }

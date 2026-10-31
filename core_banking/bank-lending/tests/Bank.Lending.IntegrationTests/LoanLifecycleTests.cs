@@ -186,5 +186,8 @@ public class LoanLifecycleTests(PostgresFixture postgres)
 
         (await LoanAsync(app, loan.Id)).Schedule[1].Status.ShouldBe("Unpaid");
         (await app.ScalarAsync<decimal>("SELECT unallocated FROM loan_payment")).ShouldBe(6_170.85m);
+        // The money is not lost: the event carries it, and Ledger books it as owed back to the customer.
+        await app.OutboxDrainedAsync();
+        app.Published<LoanPaymentAllocated>().ShouldHaveSingleItem().Unallocated.ShouldBe(Sek(6_170.85m));
     }
 }

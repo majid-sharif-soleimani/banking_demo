@@ -28,10 +28,9 @@ public static class Posting
                 throw new InvalidOperationException($"Unbalanced journal draft for {sourceEvent} {e.EventId} in {draft.Currency}.");
             }
 
-            if (!await db.Accounts.AnyAsync(a => a.Currency == draft.Currency, ct))
-            {
-                throw new InvalidOperationException($"No chart of accounts for {draft.Currency}; CurrencyActivated has not arrived.");
-            }
+            // CurrencyActivated (operations topic) and a posting (accounts or lending topic) can arrive in either order:
+            // the chart is created on first use, so a posting is never dead-lettered for that (review of 2026-10-31).
+            await Chart.EnsureAsync(db, draft.Currency, e.PerformedBy, now, ct);
 
             var entry = new JournalEntry
             {
@@ -48,20 +47,26 @@ public static class Posting
     }
 }
 
+public static class Chart
+{
+    /// <summary>Adds the accounts of the chart that are missing for a currency (all of them the first time).</summary>
+    public static async Task EnsureAsync(LedgerDbContext db, string currency, string actor, DateTimeOffset now, CancellationToken ct)
+    {
+        var existing = await db.Accounts.Where(a => a.Currency == currency).Select(a => a.Code).ToListAsync(ct);
+        existing.AddRange(db.Accounts.Local.Where(a => a.Currency == currency).Select(a => a.Code));
+        db.Accounts.AddRange(GlAccounts.Chart.Where(a => !existing.Contains(a.Code)).Select(a => new GlAccount
+        {
+            Code = a.Code, Currency = currency, Name = a.Name, Type = a.Type, CreatedAt = now, PerformedBy = actor,
+        }));
+    }
+}
+
 /// <summary>The chart of accounts for a newly activated currency. Idempotent. Class names below are inbox keys.</summary>
 public sealed class CurrencyActivatedHandler(LedgerDbContext db, TimeProvider time) : IEventHandler<CurrencyActivated>
 {
     public async Task HandleAsync(CurrencyActivated e, CancellationToken ct)
     {
-        if (await db.Accounts.AnyAsync(a => a.Currency == e.Code, ct))
-        {
-            return;
-        }
-
-        db.Accounts.AddRange(GlAccounts.Chart.Select(a => new GlAccount
-        {
-            Code = a.Code, Currency = e.Code, Name = a.Name, Type = a.Type, CreatedAt = time.GetUtcNow(), PerformedBy = e.PerformedBy,
-        }));
+        await Chart.EnsureAsync(db, e.Code, e.PerformedBy, time.GetUtcNow(), ct);
     }
 }
 
@@ -92,5 +97,5 @@ public sealed class LoanDisbursedHandler(LedgerDbContext db, TimeProvider time) 
 public sealed class LoanPaymentAllocatedHandler(LedgerDbContext db, TimeProvider time) : IEventHandler<LoanPaymentAllocated>
 {
     public Task HandleAsync(LoanPaymentAllocated e, CancellationToken ct) =>
-        Posting.PostAsync(db, time, e, nameof(LoanPaymentAllocated), PostingRules.PaymentAllocated(e.Source, e.Principal, e.Interest, e.Penalty), ct);
+        Posting.PostAsync(db, time, e, nameof(LoanPaymentAllocated), PostingRules.PaymentAllocated(e.Source, e.Principal, e.Interest, e.Penalty, e.Unallocated), ct);
 }

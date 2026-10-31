@@ -104,14 +104,29 @@ public class PostingTests(PostgresFixture postgres)
     }
 
     [Fact]
-    public async Task A_posting_in_a_currency_without_a_chart_fails_and_posts_nothing()
+    public async Task A_posting_before_CurrencyActivated_creates_the_chart_on_the_way()
+    {
+        // The two events come from different topics, so their order is not guaranteed (review of 2026-10-31).
+        await using var app = await LedgerApp.StartAsync(postgres);
+
+        await app.DeliverAsync(new MoneyDeposited(Guid.NewGuid(), Today, "E001", Guid.NewGuid(), Guid.NewGuid(), new Money(1m, "USD"), new Money(1m, "USD")), "k");
+        await app.DeliverAsync(new CurrencyActivated(Guid.NewGuid(), Today, "system", "USD", 2), "USD");
+
+        (await app.ScalarAsync<long>("SELECT count(*) FROM journal_entry WHERE currency = 'USD'")).ShouldBe(1);
+        (await app.ScalarAsync<long>("SELECT count(*) FROM gl_account WHERE currency = 'USD'")).ShouldBe(8);
+    }
+
+    [Fact]
+    public async Task Unallocated_card_money_is_booked_as_owed_to_the_customer()
     {
         await using var app = await LedgerApp.StartAsync(postgres);
 
-        await Should.ThrowAsync<InvalidOperationException>(() =>
-            app.DeliverAsync(new MoneyDeposited(Guid.NewGuid(), Today, "E001", Guid.NewGuid(), Guid.NewGuid(), new Money(1m, "USD"), new Money(1m, "USD")), "k"));
+        await app.DeliverAsync(new LoanPaymentAllocated(Guid.NewGuid(), Today, "customer", Guid.NewGuid(), Guid.NewGuid(), "Card", Sek(0m), Sek(0m), Sek(0m), Sek(6_170.85m)), "k");
 
-        (await app.ScalarAsync<long>("SELECT count(*) FROM journal_entry")).ShouldBe(0);
+        var balance = await app.GetJsonAsync<TrialBalanceResponse>("/trial-balance?currency=SEK");
+        Balance(balance, "CardClearing").ShouldBe(6_170.85m);
+        Balance(balance, "CustomerPayable").ShouldBe(6_170.85m);
+        balance.TotalDebit.ShouldBe(balance.TotalCredit);
     }
 
     private static decimal Balance(TrialBalanceResponse balance, string account) => balance.Rows.Single(r => r.Name == account).Balance;

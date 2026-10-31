@@ -66,6 +66,8 @@ public sealed class CardPaymentCapturedHandler(LendingDbContext db, IEventPublis
         }
 
         var loan = await LoanPayments.LoadAsync(db, e.LoanId, ct);
+        // The card network already took the money: a closed loan allocates nothing, and the whole amount is recorded as
+        // unallocated (owed back to the customer) instead of disappearing (review of 2026-10-31, ledger ADR 0002).
         await LoanPayments.AllocateAsync(db, publisher, loan, e.PaymentId, PaymentSource.Card, e.Amount, e.ScheduleItemNumber, clock.Today, clock.Today, time.GetUtcNow(), e.PerformedBy, ct);
     }
 }
@@ -107,7 +109,7 @@ internal static class LoanPayments
         DateOnly today, DateOnly asOf, DateTimeOffset now, string actor, CancellationToken ct)
     {
         var rows = loan.Schedule.OrderBy(i => i.Number).ToList();
-        var eligible = rows.Where(r => itemNumber is null || r.Number == itemNumber).ToList();
+        var eligible = loan.Status == LoanStatus.Active ? rows.Where(r => itemNumber is null || r.Number == itemNumber).ToList() : [];
         var result = Allocation.Apply([.. eligible.Select(r => r.ToLogic(loan.Currency))], amount, asOf).Value;
         foreach (var item in result.Schedule)
         {
@@ -126,7 +128,8 @@ internal static class LoanPayments
             Interest = interest.Amount, Penalty = penalty.Amount, Unallocated = result.Unallocated.Amount, BusinessDate = today, CreatedAt = now, PerformedBy = actor,
         });
         await publisher.PublishAsync(
-            new LoanPaymentAllocated(Guid.NewGuid(), today, actor, loan.Id, sourceId, source.ToString(), principal, interest, penalty), loan.Id.ToString(), ct);
+            new LoanPaymentAllocated(Guid.NewGuid(), today, actor, loan.Id, sourceId, source.ToString(), principal, interest, penalty,
+                result.Unallocated.Amount == 0m ? null : result.Unallocated), loan.Id.ToString(), ct);
 
         if (result.Unallocated.Amount > 0m)
         {
@@ -135,7 +138,7 @@ internal static class LoanPayments
             Log.Unallocated(db.GetService<ILoggerFactory>().CreateLogger("Bank.Lending.Payments"), loan.Id, sourceId, result.Unallocated.ToString());
         }
 
-        if (rows.All(r => r.Status == ScheduleItemStatus.Paid))
+        if (loan.Status == LoanStatus.Active && rows.All(r => r.Status == ScheduleItemStatus.Paid))
         {
             loan.Status = LoanStatus.PaidOff;
             loan.ClosedOn = today;

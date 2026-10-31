@@ -52,6 +52,16 @@ Interpretations:
 - The chart of accounts is created when a currency is activated (`CurrencyActivated`), seven accounts per currency.
 - Cards checks that the loan exists and that the amount is in the loan currency, using its own `loan_ref` from `LoanDisbursed`, so a payment for an unknown loan never reaches Lending.
 
+## Close-out (2026-10-31)
+
+- Done-when: cards 13, ledger 28, lending 1,611, customers 58, platform 39, all green.
+- `banking-reviewer`: posting rules, idempotency and trial balance are correct. Two REQUIRED findings, both fixed:
+  1. The arrears report summed currencies together; it now has one line per classification and currency.
+  2. Unallocated card money was missing from the books. `LoanPaymentAllocated` 1-0-1 now carries `Unallocated`, posted to the new account 2100 CustomerPayable (bank-ledger ADR 0002, a business decision for Majid). A card payment for a closed loan allocates nothing.
+
+  OPTIONAL items applied: the Ledger chart is created on first use (event order across topics); Cards answers 422 `currency_not_active` instead of falling back to 2 minor units. Not applied: a backfill of the classification history (dev data only); a cross-service card test (stage 8 end to end).
+- To review: bank-ledger ADRs 0001 and 0002, bank-lending ADR 0006. `/retro 6` pending. Not merged; stage 7 continues on `stage-7-gateway-import`.
+
 ## Done when
 
 ```bash
