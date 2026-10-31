@@ -24,6 +24,7 @@ public sealed class LendingDbContext(DbContextOptions<LendingDbContext> options)
     public DbSet<CurrencyRef> Currencies => Set<CurrencyRef>();
     public DbSet<LoanDayRun> LoanDayRuns => Set<LoanDayRun>();
     public DbSet<EndOfDayRun> EndOfDayRuns => Set<EndOfDayRun>();
+    public DbSet<LoanClassificationChange> ClassificationChanges => Set<LoanClassificationChange>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -135,6 +136,14 @@ public sealed class LendingDbContext(DbContextOptions<LendingDbContext> options)
         modelBuilder.Entity<CurrencyRef>(c => { c.ToTable("currency_ref"); c.HasKey(x => x.Code); c.Property(x => x.Code).HasMaxLength(3); Audit(c); });
         modelBuilder.Entity<LoanDayRun>(r => { r.ToTable("loan_day_run"); r.HasKey(x => new { x.LoanId, x.Date }); Audit(r); });
         modelBuilder.Entity<EndOfDayRun>(r => { r.ToTable("end_of_day_run"); r.HasKey(x => x.Date); Audit(r); });
+        modelBuilder.Entity<LoanClassificationChange>(c =>
+        {
+            c.ToTable("loan_classification_change");
+            c.HasKey(x => new { x.LoanId, x.Date });
+            c.Property(x => x.FromClassification).HasConversion<string>().HasMaxLength(16);
+            c.Property(x => x.ToClassification).HasConversion<string>().HasMaxLength(16);
+            Audit(c);
+        });
     }
 
     /// <summary>PerformedBy length and Version (xmin) on every table.</summary>

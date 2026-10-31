@@ -175,6 +175,9 @@ public sealed class Loan
     /// </summary>
     public DateOnly? LastEndOfDay { get; set; }
 
+    /// <summary>The business date the loan was paid off (normally or early); null while it runs. Reports use it.</summary>
+    public DateOnly? ClosedOn { get; set; }
+
     public DateTimeOffset CreatedAt { get; init; }
 
     public required string PerformedBy { get; set; }
@@ -335,6 +338,29 @@ public sealed class LoanDayRun
 public sealed class EndOfDayRun
 {
     public DateOnly Date { get; init; }
+
+    public DateTimeOffset CreatedAt { get; init; }
+
+    public required string PerformedBy { get; init; }
+
+    public uint Version { get; set; }
+}
+
+/// <summary>
+/// A loan's classification changed at the end of <see cref="Date"/>. Written by the end of day next to
+/// LoanClassificationChanged, so the arrears report can answer for any past date (ADR 0006).
+/// </summary>
+public sealed class LoanClassificationChange
+{
+    public Guid LoanId { get; init; }
+
+    public DateOnly Date { get; init; }
+
+    public LoanClassification FromClassification { get; init; }
+
+    public LoanClassification ToClassification { get; init; }
+
+    public int DaysPastDue { get; init; }
 
     public DateTimeOffset CreatedAt { get; init; }
 

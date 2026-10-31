@@ -46,6 +46,7 @@ internal static class EarlyPayoffSettlement
         first.PaidInterest += interest.Amount;
 
         loan.Status = LoanStatus.PaidOffEarly;
+        loan.ClosedOn = today;
         loan.Classification = LoanClassification.Current;
         loan.PendingPayoffCollectionId = null;
         loan.PayoffPrincipal = loan.PayoffPenalty = loan.PayoffInterest = loan.PayoffWaived = null;

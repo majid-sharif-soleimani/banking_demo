@@ -109,6 +109,11 @@ public sealed class LendingEndOfDayHandler(LendingDbContext db, IEventPublisher 
                 new LoanClassificationChanged(Guid.NewGuid(), date, PerformedBy.System, loan.Id, loan.CustomerId, loan.Classification.ToString(),
                     classification.ToString(), Classification.DaysPastDue(items, date)),
                 key, ct);
+            db.ClassificationChanges.Add(new LoanClassificationChange
+            {
+                LoanId = loan.Id, Date = date, FromClassification = loan.Classification, ToClassification = classification,
+                DaysPastDue = Classification.DaysPastDue(items, date), CreatedAt = now, PerformedBy = PerformedBy.System,
+            });
             loan.Classification = classification;
             loan.PerformedBy = PerformedBy.System;
         }

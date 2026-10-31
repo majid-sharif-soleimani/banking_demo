@@ -138,6 +138,7 @@ internal static class LoanPayments
         if (rows.All(r => r.Status == ScheduleItemStatus.Paid))
         {
             loan.Status = LoanStatus.PaidOff;
+            loan.ClosedOn = today;
             loan.Classification = LoanClassification.Current;
             loan.PerformedBy = actor;
         }

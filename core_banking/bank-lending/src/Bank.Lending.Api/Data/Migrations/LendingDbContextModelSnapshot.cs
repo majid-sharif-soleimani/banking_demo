@@ -233,6 +233,10 @@ namespace Bank.Lending.Api.Data.Migrations
                         .HasColumnType("character varying(16)")
                         .HasColumnName("classification");
 
+                    b.Property<DateOnly?>("ClosedOn")
+                        .HasColumnType("date")
+                        .HasColumnName("closed_on");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -440,6 +444,54 @@ namespace Bank.Lending.Api.Data.Migrations
                         .HasDatabaseName("ix_loan_application_customer_id");
 
                     b.ToTable("loan_application", (string)null);
+                });
+
+            modelBuilder.Entity("Bank.Lending.Api.Data.LoanClassificationChange", b =>
+                {
+                    b.Property<Guid>("LoanId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("loan_id");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date")
+                        .HasColumnName("date");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int>("DaysPastDue")
+                        .HasColumnType("integer")
+                        .HasColumnName("days_past_due");
+
+                    b.Property<string>("FromClassification")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("from_classification");
+
+                    b.Property<string>("PerformedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("performed_by");
+
+                    b.Property<string>("ToClassification")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("to_classification");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("LoanId", "Date")
+                        .HasName("pk_loan_classification_change");
+
+                    b.ToTable("loan_classification_change", (string)null);
                 });
 
             modelBuilder.Entity("Bank.Lending.Api.Data.LoanDayRun", b =>
