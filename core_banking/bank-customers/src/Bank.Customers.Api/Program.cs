@@ -4,6 +4,9 @@ using Bank.Customers.Api.Data;
 using Bank.Customers.Api.Email;
 using Bank.Customers.Api.Features.Customers;
 using Bank.Customers.Api.Features.Notifications;
+using Bank.Customers.Api.Features.Interactions;
+using Bank.Customers.Api.Features.Appointments;
+using Bank.Customers.Api.Files;
 using Bank.Messaging;
 using Bank.Messaging.BusinessDays;
 using Bank.Messaging.Kafka;
@@ -19,6 +22,16 @@ builder.Services.AddBankMessaging(o => o.ServiceName = "customers");
 builder.Services.AddKafkaTransport(builder.Configuration);
 builder.Services.AddBusinessDayConsumer();
 builder.Services.AddEventHandler<StandingOrderFailed, StandingOrderFailedHandler>();
+builder.Services.AddEventHandler<InformationRequested, InformationRequestedHandler>();
+builder.Services.AddEventHandler<LoanApplicationSubmitted, LoanApplicationSubmittedHandler>();
+builder.Services.AddEventHandler<LoanApplicationStatusChanged, LoanApplicationStatusChangedHandler>();
+builder.Services.AddEventHandler<PaymentFailed, PaymentFailedHandler>();
+builder.Services.AddEventHandler<LoanClassificationChanged, LoanClassificationChangedHandler>();
+builder.Services.AddEventHandler<LoanPaidOffEarly, LoanPaidOffEarlyHandler>();
+
+// Uploaded documents (design plan ADR 18): the local file system now, S3 in stage 8.
+builder.Services.AddOptions<FileStorageOptions>().Bind(builder.Configuration.GetSection(FileStorageOptions.Section));
+builder.Services.AddSingleton<IFileStorage, LocalFileStorage>();
 
 builder.Services.AddOptions<EmailOptions>().Bind(builder.Configuration.GetSection(EmailOptions.Section));
 builder.Services.AddSingleton(_ => SmtpEndpoint.Parse(Required("mailpit", "the AppHost sets it from the Mailpit resource")));
@@ -36,6 +49,8 @@ app.MapDefaultEndpoints();
 RegisterCustomer.Map(app);
 GetCustomer.Map(app);
 UpdateContactDetails.Map(app);
+InteractionEndpoints.Map(app);
+AppointmentEndpoints.Map(app);
 
 app.Run();
 

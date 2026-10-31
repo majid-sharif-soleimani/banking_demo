@@ -13,6 +13,8 @@ public sealed class CustomersApp(string connectionString)
     {
         services.RemoveAll<IEmailSender>();
         services.AddSingleton<IEmailSender, InMemoryEmailSender>();
+        services.RemoveAll<IFileStorage>();
+        services.AddSingleton<IFileStorage, InMemoryFileStorage>();
     })
 {
     public static readonly DateOnly Today = new(2026, 3, 1);

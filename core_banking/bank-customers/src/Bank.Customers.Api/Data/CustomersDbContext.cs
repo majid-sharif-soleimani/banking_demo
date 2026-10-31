@@ -16,6 +16,16 @@ public sealed class CustomersDbContext(DbContextOptions<CustomersDbContext> opti
 
     public DbSet<Notification> Notifications => Set<Notification>();
 
+    public const string AppointmentSlotIndex = "ux_appointment_employee_slot";
+
+    public DbSet<Employee> Employees => Set<Employee>();
+
+    public DbSet<Interaction> Interactions => Set<Interaction>();
+
+    public DbSet<InformationRequest> InformationRequests => Set<InformationRequest>();
+
+    public DbSet<Appointment> Appointments => Set<Appointment>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.AddBankMessaging();
@@ -48,6 +58,59 @@ public sealed class CustomersDbContext(DbContextOptions<CustomersDbContext> opti
             notification.Property(n => n.PerformedBy).HasMaxLength(PerformedBy.MaxLength);
             notification.Property(n => n.Version).HasColumnName("xmin").HasColumnType("xid").IsRowVersion();
         });
+
+        modelBuilder.Entity<Employee>(employee =>
+        {
+            employee.ToTable("employee");
+            employee.Property(e => e.Id).HasMaxLength(4);
+            employee.Property(e => e.Name).HasMaxLength(100);
+            Audit(employee);
+            var seededAt = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+            employee.HasData(
+                new Employee { Id = "E001", Name = "Emma Clarke", CreatedAt = seededAt, PerformedBy = PerformedBy.System },
+                new Employee { Id = "E002", Name = "James Porter", CreatedAt = seededAt, PerformedBy = PerformedBy.System },
+                new Employee { Id = "E003", Name = "Olivia Bennett", CreatedAt = seededAt, PerformedBy = PerformedBy.System },
+                new Employee { Id = "E004", Name = "Henry Walsh", CreatedAt = seededAt, PerformedBy = PerformedBy.System },
+                new Employee { Id = "E005", Name = "Sophie Turner", CreatedAt = seededAt, PerformedBy = PerformedBy.System });
+        });
+
+        modelBuilder.Entity<Interaction>(interaction =>
+        {
+            interaction.ToTable("interaction");
+            interaction.Property(i => i.Kind).HasConversion<string>().HasMaxLength(16);
+            interaction.Property(i => i.FileKey).HasMaxLength(300);
+            interaction.Property(i => i.FileName).HasMaxLength(200);
+            interaction.Property(i => i.ContentType).HasMaxLength(100);
+            interaction.HasIndex(i => i.CustomerId);
+            interaction.HasIndex(i => i.SourceEventId).IsUnique();
+            Audit(interaction);
+        });
+
+        modelBuilder.Entity<InformationRequest>(request =>
+        {
+            request.ToTable("information_request");
+            request.Property(r => r.Id).ValueGeneratedNever();
+            request.Property(r => r.Status).HasConversion<string>().HasMaxLength(16);
+            request.HasIndex(r => r.ApplicationId);
+            Audit(request);
+        });
+
+        modelBuilder.Entity<Appointment>(appointment =>
+        {
+            appointment.ToTable("appointment");
+            appointment.Property(a => a.EmployeeId).HasMaxLength(4);
+            appointment.Property(a => a.Status).HasConversion<string>().HasMaxLength(16);
+            // One scheduled appointment per employee and slot; a cancelled one frees the slot.
+            appointment.HasIndex(a => new { a.EmployeeId, a.StartsAt }).IsUnique()
+                .HasFilter("status = 'Scheduled'").HasDatabaseName(AppointmentSlotIndex);
+            Audit(appointment);
+        });
+    }
+
+    private static void Audit<T>(Microsoft.EntityFrameworkCore.Metadata.Builders.EntityTypeBuilder<T> entity) where T : class
+    {
+        entity.Property<string>("PerformedBy").HasMaxLength(PerformedBy.MaxLength);
+        entity.Property<uint>("Version").HasColumnName("xmin").HasColumnType("xid").IsRowVersion();
     }
 }
 
