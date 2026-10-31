@@ -4,6 +4,7 @@
     <UserSecretsId>bank-customers-api</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="AWSSDK.S3" />
     <PackageReference Include="Bank.Contracts" />
     <PackageReference Include="Bank.Common" />
     <PackageReference Include="Bank.Toolkit.Data" />

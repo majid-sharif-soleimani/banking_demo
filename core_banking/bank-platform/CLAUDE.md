@@ -1,6 +1,6 @@
 # bank-platform
 
-The local platform and its infrastructure, not a service: owns no tables and publishes no events. `src/Bank.AppHost` (Aspire 13.6) starts PostgreSQL (database `bank`), Kafka in KRaft mode with Kafka UI, Mailpit, and the services created so far (Operations since stage 2). `docker-compose.yml` runs the same infrastructure without Aspire (EC2 in stage 8). `src/Bank.ServiceDefaults` is what every service registers first (`AddServiceDefaults`, `MapDefaultEndpoints`). AWS CDK comes in stage 8.
+The local platform and its infrastructure, not a service: owns no tables and publishes no events. `src/Bank.AppHost` (Aspire 13.6) starts PostgreSQL (database `bank`), Kafka in KRaft mode with Kafka UI, Mailpit, and the services created so far (Operations since stage 2). `docker-compose.yml` runs the same infrastructure without Aspire (EC2 in stage 8). `src/Bank.ServiceDefaults` is what every service registers first (`AddServiceDefaults`, `MapDefaultEndpoints`). `tests/Bank.EndToEndTests` runs the five stage 8 scenarios through the gateway. `deploy/` holds the AWS side (ADRs 0002–0004): `docker-compose.aws.yml`, the CDK app in `deploy/cdk`, instance scripts and start/stop/backup scripts. Claude never runs `cdk deploy`, `aws` commands or image pushes.
 
 ## Database (ADR 0001)
 
@@ -23,11 +23,16 @@ The local platform and its infrastructure, not a service: owns no tables and pub
 - Compose image tags are copied from the Aspire packages (`postgres:18.3`, `confluentinc/confluent-local:8.2.0`, `kafbat/kafka-ui:v1.5.0`, `axllent/mailpit:v1.31.2`). Update both when upgrading Aspire.
 - Kafka from the host: Aspire gives a random port (see the dashboard or the `kafka` connection string); Compose uses `localhost:9092`, containers `kafka:9093`.
 - Tests start the real AppHost once (`PlatformFixture`, assembly fixture); they need Docker.
+- End-to-end scenarios start a fresh AppHost per test class (`BankFixture`) and run one after another (`xunit.runner.json`); every service's log lands in `bin/.../e2e-logs/<run>/`. Reads that depend on another service's events, or on a service's own business date (which follows Operations a moment later), go through `Eventually`.
+- Money in the API is `{ "amount": "1234.50", "currency": "SEK" }` with the amount as a **string**; a number gives 500 in Development (the request body throws).
+- `docker-compose.aws.yml` loads secrets only from optional `env/<container>.env` files written on the instance, so `docker compose config` stays valid without them. `deploy/env/` is gitignored.
+- `cdk synth` (`npx aws-cdk@2.1145.0 synth` in `deploy/cdk`) needs Node but no AWS account; the stack names only a region.
 
 ## Commands
 
 ```bash
-dotnet build && dotnet test                          # tests need Docker (about 1 minute)
+dotnet build && dotnet test                          # tests need Docker (platform about 1 minute, end-to-end about 5)
+dotnet test tests/Bank.EndToEndTests                 # the five scenarios only
 dotnet run --project src/Bank.AppHost                # dashboard URL is printed at start
 cp .env.example .env && docker compose up -d --wait  # edit .env first
 docker compose down -v                               # remove containers and data

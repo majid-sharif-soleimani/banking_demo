@@ -7,8 +7,17 @@ public sealed class FileStorageOptions
 {
     public const string Section = "Files";
 
-    /// <summary>Folder for uploaded files in development (design plan ADR 18; S3 in stage 8). Gitignored.</summary>
+    /// <summary>"Local" (development) or "S3" (AWS, design plan section 9).</summary>
+    public string Provider { get; set; } = "Local";
+
+    /// <summary>Folder for uploaded files with the Local provider (design plan ADR 18). Gitignored.</summary>
     public string Root { get; set; } = "./.data/files";
+
+    /// <summary>The bucket for the S3 provider (a CDK stack output on AWS).</summary>
+    public string Bucket { get; set; } = "";
+
+    /// <summary>Key prefix inside the bucket; the same bucket also holds the database backups under "backups/".</summary>
+    public string Prefix { get; set; } = "files/";
 }
 
 /// <summary>IFileStorage on the local file system. Paths are relative and may not leave the root.</summary>

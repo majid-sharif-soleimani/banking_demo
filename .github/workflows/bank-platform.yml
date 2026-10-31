@@ -47,4 +47,5 @@ jobs:
       - run: dotnet restore
       - run: dotnet build --no-restore -c Release
       # Starts the AppHost with Docker (preinstalled on ubuntu-latest): PostgreSQL, Kafka, Kafka UI, Mailpit.
-      - run: dotnet test --no-build -c Release
+      # Platform tests only; the end-to-end scenarios run on demand in bank-e2e.yml (bank-platform ADR 0003).
+      - run: dotnet test tests/Bank.Platform.IntegrationTests --no-build -c Release

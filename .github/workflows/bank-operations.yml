@@ -31,3 +31,34 @@ jobs:
       - run: dotnet build --no-restore -c Release
       # Integration tests start PostgreSQL with Testcontainers (Docker is preinstalled on ubuntu-latest).
       - run: dotnet test --no-build -c Release
+
+  image:
+    # Builds the linux-arm64 image (for the t4g instance) with the SDK's container support and pushes it to
+    # ghcr.io/<owner>/bank-operations, on master only. Disabled until Majid sets the repository variable
+    # PUBLISH_IMAGES to "true" (bank-platform ADR 0003).
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master' && vars.PUBLISH_IMAGES == 'true'
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    defaults:
+      run:
+        working-directory: core_banking/bank-operations
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - run: dotnet pack ../bank-contracts -c Release -o ../.local-feed
+      - run: dotnet pack ../bank-platform/src/Bank.ServiceDefaults -c Release -o ../.local-feed
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - run: >
+          dotnet publish src/Bank.Operations.Api -c Release --os linux --arch arm64 /t:PublishContainer
+          -p:ContainerRegistry=ghcr.io
+          -p:ContainerRepository=${{ github.repository_owner }}/bank-operations
+          -p:ContainerImageTags='"latest;${{ github.sha }}"'

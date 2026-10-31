@@ -1,0 +1,185 @@
+# The whole bank on one EC2 instance (design plan section 9; stage 8): the six services and the gateway from GHCR,
+# with PostgreSQL, Kafka, Mailpit and the standalone Aspire dashboard. Same images and versions as the AppHost.
+#
+# On the instance, start-bank.sh (from the CDK user data) writes one file per container in env/ from AWS Secrets
+# Manager, then runs  docker compose -f docker-compose.aws.yml up -d.  Each container reads only its own file, so a
+# service never sees another service's password (bank-platform ADR 0004). No secret is written here, and
+# "docker compose config" is valid without the env files (they are optional until the instance writes them).
+#
+# Only the gateway is published on all interfaces. Mailpit, Kafka UI and the dashboard listen on 127.0.0.1 and are
+# reached through an SSH tunnel (ssh -L 18888:localhost:18888 ...).
+
+name: bank
+
+x-service: &service
+  restart: unless-stopped
+  depends_on:
+    postgres:
+      condition: service_healthy
+    kafka:
+      condition: service_healthy
+  healthcheck:
+    # The images have no curl; the shell's /dev/tcp is enough to see the port answer.
+    test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080' || exit 1"]
+    interval: 10s
+    timeout: 5s
+    retries: 30
+
+x-environment: &environment
+  ASPNETCORE_ENVIRONMENT: Production
+  ConnectionStrings__kafka: kafka:9093
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://dashboard:18889
+  OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+
+services:
+  operations:
+    <<: *service
+    image: ghcr.io/<owner>/bank-operations:${BANK_IMAGE_TAG:-latest}
+    environment:
+      <<: *environment
+      OTEL_SERVICE_NAME: operations
+    # ConnectionStrings__operations-db (with its password), written by start-bank.sh.
+    env_file: [{ path: env/operations.env, required: false }]
+
+  customers:
+    <<: *service
+    image: ghcr.io/<owner>/bank-customers:${BANK_IMAGE_TAG:-latest}
+    environment:
+      <<: *environment
+      OTEL_SERVICE_NAME: customers
+      ConnectionStrings__mailpit: Endpoint=smtp://mailpit:1025
+      # Uploaded files in S3 (S3FileStorage); the instance role gives access, no keys. Files__Bucket and AWS_REGION
+      # come from env/customers.env (the stack's outputs).
+      Files__Provider: S3
+      Files__Prefix: files/
+    # ConnectionStrings__customers-db (with its password), written by start-bank.sh.
+    env_file: [{ path: env/customers.env, required: false }]
+
+  accounts:
+    <<: *service
+    image: ghcr.io/<owner>/bank-accounts:${BANK_IMAGE_TAG:-latest}
+    environment:
+      <<: *environment
+      OTEL_SERVICE_NAME: accounts
+    # ConnectionStrings__accounts-db (with its password), written by start-bank.sh.
+    env_file: [{ path: env/accounts.env, required: false }]
+
+  cards:
+    <<: *service
+    image: ghcr.io/<owner>/bank-cards:${BANK_IMAGE_TAG:-latest}
+    environment:
+      <<: *environment
+      OTEL_SERVICE_NAME: cards
+    # ConnectionStrings__cards-db (with its password), written by start-bank.sh.
+    env_file: [{ path: env/cards.env, required: false }]
+
+  lending:
+    <<: *service
+    image: ghcr.io/<owner>/bank-lending:${BANK_IMAGE_TAG:-latest}
+    environment:
+      <<: *environment
+      OTEL_SERVICE_NAME: lending
+    # ConnectionStrings__lending-db (with its password), written by start-bank.sh.
+    env_file: [{ path: env/lending.env, required: false }]
+
+  ledger:
+    <<: *service
+    image: ghcr.io/<owner>/bank-ledger:${BANK_IMAGE_TAG:-latest}
+    environment:
+      <<: *environment
+      OTEL_SERVICE_NAME: ledger
+    # ConnectionStrings__ledger-db (with its password), written by start-bank.sh.
+    env_file: [{ path: env/ledger.env, required: false }]
+
+  gateway:
+    image: ghcr.io/<owner>/bank-gateway:${BANK_IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://dashboard:18889
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_SERVICE_NAME: gateway
+      # Service discovery without Aspire: the same keys the AppHost sets (services__<name>__http__0).
+      services__operations__http__0: http://operations:8080
+      services__customers__http__0: http://customers:8080
+      services__accounts__http__0: http://accounts:8080
+      services__cards__http__0: http://cards:8080
+      services__lending__http__0: http://lending:8080
+      services__ledger__http__0: http://ledger:8080
+    ports:
+      # The only port open to the outside (the security group allows it from the configured CIDR).
+      - "${GATEWAY_PORT:-8080}:8080"
+    depends_on:
+      operations: { condition: service_healthy }
+      customers: { condition: service_healthy }
+      accounts: { condition: service_healthy }
+      cards: { condition: service_healthy }
+      lending: { condition: service_healthy }
+      ledger: { condition: service_healthy }
+
+  postgres:
+    image: postgres:18.3
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: bank
+    # POSTGRES_PASSWORD and the six <SERVICE>_DB_PASSWORD values the init script reads, written by start-bank.sh.
+    env_file: [{ path: env/postgres.env, required: false }]
+    volumes:
+      # The roles and schemas, created once on an empty volume (bank-platform ADR 0001).
+      - ../db/init:/docker-entrypoint-initdb.d:ro
+      # On the instance's EBS volume, so data survives stop and start; backup.sh dumps it to S3.
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d bank"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  kafka:
+    image: confluentinc/confluent-local:8.2.0
+    restart: unless-stopped
+    environment:
+      # Single node in KRaft mode; only containers on this network connect, as kafka:9093.
+      KAFKA_LISTENERS: PLAINTEXT://localhost:29092,CONTROLLER://localhost:29093,PLAINTEXT_INTERNAL://0.0.0.0:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:29092,PLAINTEXT_INTERNAL://kafka:9093
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server kafka:9093 --list"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+
+  kafka-ui:
+    image: kafbat/kafka-ui:v1.5.0
+    restart: unless-stopped
+    environment:
+      KAFKA_CLUSTERS_0_NAME: bank
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9093
+    ports:
+      - "127.0.0.1:8081:8080"
+    depends_on:
+      kafka: { condition: service_healthy }
+
+  mailpit:
+    image: axllent/mailpit:v1.31.2
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8025:8025" # web UI, through the SSH tunnel
+
+  dashboard:
+    # The standalone Aspire dashboard: logs, traces and metrics over OTLP. Check that this tag exists for the Aspire
+    # version in use before the first deployment.
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:13.6
+    restart: unless-stopped
+    environment:
+      # Reached only through the SSH tunnel, so no login; the browser token would otherwise change on every restart.
+      ASPIRE_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS: "true"
+    ports:
+      - "127.0.0.1:18888:18888"
+
+volumes:
+  postgres-data:
+  kafka-data:
