@@ -1,3 +1,4 @@
+using Bank.Messaging.BusinessDays;
 using Bank.Messaging.Model;
 using Bank.Toolkit.Data;
 using Microsoft.EntityFrameworkCore;
@@ -61,6 +62,7 @@ public sealed class TestDbContext(DbContextOptions<TestDbContext> options) : DbC
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.AddBankMessaging();
+        modelBuilder.AddLocalBusinessDays();
 
         // Table names are singular, as everywhere in the bank; columns get snake_case from the naming convention.
         modelBuilder.Entity<TestItem>().ToTable("test_item");

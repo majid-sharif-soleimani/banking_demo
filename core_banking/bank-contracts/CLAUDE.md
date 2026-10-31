@@ -1,6 +1,6 @@
 # bank-contracts
 
-Shared packages for every service: `Bank.Contracts`, `Bank.Common`, `Bank.Toolkit.Data`, `Bank.Messaging`, `Bank.Messaging.Kafka`, `Bank.Testing`, all packed to `../.local-feed`. Data access is EF Core (workspace ADR 0002). `tools/Bank.Contracts.SchemaTool` is a developer tool and is never packed. Not a service: owns no tables and publishes no events.
+Shared packages for every service: `Bank.Contracts`, `Bank.Common`, `Bank.Toolkit.Data`, `Bank.Messaging`, `Bank.Messaging.Kafka`, `Bank.Testing`, all packed to `../.local-feed` (current version 0.2.0). Data access is EF Core (workspace ADR 0002). `tools/Bank.Contracts.SchemaTool` is a developer tool and is never packed. Not a service: owns no tables and publishes no events.
 
 ## Contracts
 
@@ -29,6 +29,12 @@ Shared packages for every service: `Bank.Contracts`, `Bank.Common`, `Bank.Toolki
 - A feature changes its entities, calls `PublishAsync` (which only tracks an outbox row), then `SaveChangesAsync` once: state change and event commit together, or neither is written.
 - The pipeline gives each handler its own scope, context and transaction: inbox row first (raw `ON CONFLICT DO NOTHING`), then the handler, then `SaveChangesAsync` and commit. Handlers change the context and publish, and never call `SaveChangesAsync`.
 - The dispatcher uses its own scope per poll and `FromSql(... FOR UPDATE SKIP LOCKED)`.
+
+## Business date for consumers (Bank.Messaging.BusinessDays, ADR 0016)
+
+- Every service except Operations: `services.AddBusinessDayConsumer()`, `modelBuilder.AddLocalBusinessDays()` plus a migration, and `"operations"` in `Kafka:SubscribeTo`. Business code then injects `IBusinessClock`.
+- `Today` = latest date in the local `business_day`, read once per scope. Throws until the first `BusinessDayOpened` arrived.
+- Handler class names `LocalBusinessDayOpenedHandler` and `LocalDayClosedHandler` are inbox keys; a service's own `DayClosed` handler (end-of-day work) must have a different name.
 
 ## Kafka transport (Bank.Messaging.Kafka, ADRs 0013, 0014, 0015)
 

@@ -10,5 +10,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Bank.Contracts\Bank.Contracts.csproj" />
+    <!-- IBusinessClock, implemented from the local business_day copy (BusinessDays/, ADR 0016). -->
+    <ProjectReference Include="..\Bank.Common\Bank.Common.csproj" />
   </ItemGroup>
 </Project>
