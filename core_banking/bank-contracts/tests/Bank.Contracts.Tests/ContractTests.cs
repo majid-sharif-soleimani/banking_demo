@@ -33,7 +33,7 @@ public class ContractTests
              "CustomerRegistered", "AccountOpened", "MoneyDeposited", "MoneyWithdrawn", "MoneyTransferred", "StandingOrderFailed",
              "LoanApplicationSubmitted", "LoanApplicationStatusChanged", "InformationRequested", "InformationReceived", "AppointmentScheduled",
              "LoanDisbursed", "InstallmentDue", "PaymentCollected", "PaymentFailed", "CardPaymentCaptured", "LoanPaymentAllocated",
-             "PenaltyAccrued", "LoanClassificationChanged", "LoanPayoffRequested", "LoanPaidOffEarly"],
+             "PenaltyAccrued", "LoanClassificationChanged", "LoanPayoffRequested", "LoanPaidOffEarly", "CardPaymentDeclined"],
             ignoreOrder: true);
     }
 

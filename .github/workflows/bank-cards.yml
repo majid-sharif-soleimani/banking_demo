@@ -1,0 +1,33 @@
+name: bank-cards
+
+on:
+  push:
+    paths:
+      - "core_banking/bank-cards/**"
+      - ".github/workflows/bank-cards.yml"
+  pull_request:
+    paths:
+      - "core_banking/bank-cards/**"
+      - ".github/workflows/bank-cards.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: core_banking/bank-cards
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      # The local feed is gitignored: build the shared Bank.* packages from this commit into it. Nothing is published.
+      - run: dotnet pack ../bank-contracts -c Release -o ../.local-feed
+      - run: dotnet pack ../bank-platform/src/Bank.ServiceDefaults -c Release -o ../.local-feed
+      - run: dotnet restore
+      - run: dotnet build --no-restore -c Release
+      # Integration tests start PostgreSQL with Testcontainers (Docker is preinstalled on ubuntu-latest).
+      - run: dotnet test --no-build -c Release

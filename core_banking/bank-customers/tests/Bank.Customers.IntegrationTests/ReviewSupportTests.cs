@@ -128,8 +128,11 @@ public class ReviewSupportTests(PostgresFixture postgres)
         await app.DeliverAsync(new LoanClassificationChanged(Guid.NewGuid(), CustomersApp.Today, "system", loanId, customer.Id, "Overdue", "Current", 0), "k");
         await app.DeliverAsync(new LoanPaidOffEarly(Guid.NewGuid(), CustomersApp.Today, "system", loanId, customer.Id, new Money(197_514.49m, "SEK"), new Money(18_465.20m, "SEK")), "k");
 
+        await app.DeliverAsync(new CardPaymentDeclined(Guid.NewGuid(), CustomersApp.Today, "system", Guid.NewGuid(), loanId, customer.Id, new Money(500m, "SEK"), "insufficient_funds"), "k");
+
         app.Emails.Sent.Select(e => e.Subject).ShouldBe(
-            ["A loan payment could not be collected", "Your loan payments are late", "Your loan is paid off"]);
+            ["A loan payment could not be collected", "Your loan payments are late", "Your loan is paid off", "Your card payment was declined"]);
+        app.Emails.Sent.Last().Body.ShouldContain("did not have enough money");
     }
 
     [Fact]

@@ -18,5 +18,6 @@
     <ProjectReference Include="..\..\..\bank-customers\src\Bank.Customers.Api\Bank.Customers.Api.csproj" />
     <ProjectReference Include="..\..\..\bank-accounts\src\Bank.Accounts.Api\Bank.Accounts.Api.csproj" />
     <ProjectReference Include="..\..\..\bank-lending\src\Bank.Lending.Api\Bank.Lending.Api.csproj" />
+    <ProjectReference Include="..\..\..\bank-cards\src\Bank.Cards.Api\Bank.Cards.Api.csproj" />
   </ItemGroup>
 </Project>

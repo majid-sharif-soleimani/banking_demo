@@ -28,6 +28,7 @@ builder.Services.AddEventHandler<LoanApplicationStatusChanged, LoanApplicationSt
 builder.Services.AddEventHandler<PaymentFailed, PaymentFailedHandler>();
 builder.Services.AddEventHandler<LoanClassificationChanged, LoanClassificationChangedHandler>();
 builder.Services.AddEventHandler<LoanPaidOffEarly, LoanPaidOffEarlyHandler>();
+builder.Services.AddEventHandler<CardPaymentDeclined, CardPaymentDeclinedHandler>();
 
 // Uploaded documents (design plan ADR 18): the local file system now, S3 in stage 8.
 builder.Services.AddOptions<FileStorageOptions>().Bind(builder.Configuration.GetSection(FileStorageOptions.Section));

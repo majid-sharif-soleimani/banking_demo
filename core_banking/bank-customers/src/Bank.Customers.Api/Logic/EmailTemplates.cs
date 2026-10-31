@@ -84,6 +84,22 @@ public static class EmailTemplates
         Your bank
         """);
 
+    public const string CardDeclinedTemplate = "card_payment_declined";
+
+    public static EmailMessage CardDeclined(string to, string name, Money amount, string reason) => new(
+        to,
+        "Your card payment was declined",
+        $"""
+        Dear {name},
+
+        Your card payment of {Format(amount)} towards your loan was declined{(reason == "insufficient_funds" ? " because the card did not have enough money" : " by the card issuer")}.
+
+        Nothing was charged. You can try again with another card, or make sure the repayment account has enough money.
+
+        Kind regards,
+        Your bank
+        """);
+
     private static string Because(string reason) => reason switch
     {
         "insufficient_funds" => "because the account did not have enough money",

@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "self": {
+    "vendor": "se.bank",
+    "name": "card_payment_declined",
+    "format": "jsonschema",
+    "version": "1-0-0"
+  },
+  "description": "A test card payment for a loan was declined; Customers emails the customer.",
+  "type": "object",
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique id of this event; the consumer inbox key."
+    },
+    "occurredOn": {
+      "type": "string",
+      "format": "date",
+      "description": "Business date on which the event happened."
+    },
+    "performedBy": {
+      "type": "string",
+      "description": "Actor id that caused the event, 'system' by default.",
+      "minLength": 1
+    },
+    "paymentId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Id of the card payment."
+    },
+    "loanId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Id of the loan."
+    },
+    "customerId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Borrower."
+    },
+    "amount": {
+      "type": "object",
+      "description": "Amount that was attempted.",
+      "properties": {
+        "amount": {
+          "type": "string",
+          "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        }
+      },
+      "required": [
+        "amount",
+        "currency"
+      ],
+      "additionalProperties": false
+    },
+    "reason": {
+      "type": "string",
+      "description": "declined or insufficient_funds.",
+      "pattern": "^[a-z_]+$"
+    }
+  },
+  "required": [
+    "eventId",
+    "occurredOn",
+    "performedBy",
+    "paymentId",
+    "loanId",
+    "customerId",
+    "amount",
+    "reason"
+  ]
+}

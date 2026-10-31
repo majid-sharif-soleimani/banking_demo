@@ -97,3 +97,11 @@ internal static class History
         });
     }
 }
+
+/// <summary>CardPaymentDeclined (from cards) → email. Class name = inbox key.</summary>
+public sealed class CardPaymentDeclinedHandler(CustomersDbContext db, IEmailSender email, TimeProvider time) : IEventHandler<CardPaymentDeclined>
+{
+    public Task HandleAsync(CardPaymentDeclined e, CancellationToken ct) =>
+        Notifier.NotifyAsync(db, email, time, e.CustomerId, e.EventId, EmailTemplates.CardDeclinedTemplate,
+            c => EmailTemplates.CardDeclined(c.Email, c.Name, e.Amount, e.Reason), new { e.LoanId, e.PaymentId, e.Amount, e.Reason }, e.PerformedBy, ct);
+}

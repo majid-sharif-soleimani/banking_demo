@@ -8,6 +8,7 @@ on:
       - "core_banking/bank-customers/src/**"
       - "core_banking/bank-accounts/src/**"
       - "core_banking/bank-lending/src/**"
+      - "core_banking/bank-cards/src/**"
       - ".github/workflows/bank-platform.yml"
   pull_request:
     paths:
@@ -16,6 +17,7 @@ on:
       - "core_banking/bank-customers/src/**"
       - "core_banking/bank-accounts/src/**"
       - "core_banking/bank-lending/src/**"
+      - "core_banking/bank-cards/src/**"
       - ".github/workflows/bank-platform.yml"
 
 permissions:
