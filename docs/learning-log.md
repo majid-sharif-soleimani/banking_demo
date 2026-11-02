@@ -28,3 +28,11 @@ Still unclear: not recorded.
 What I would change: not recorded.
 Working-style changes for next stage: not recorded.
 
+## Stage 4: Customers and Accounts (2026-11-02)
+Concepts: optimistic concurrency, API idempotency keys, local copies of another service's data (`customer_ref`, `currency_ref`), eventual consistency, RFC 9457 problem details, append-only entries versus a stored balance.
+Decisions I made: reject an account for a customer not yet known, 422 `customer_not_found` (bank-accounts 0001); stored balance under `xmin` with append-only entries (0002); idempotency records saved with the effect (0003); `ExchangeRate` record and shared service test host (bank-contracts 0017). All confirmed from Claude's delegated proposals.
+What I understood: not recorded; Majid skipped the retro questions.
+Still unclear: not recorded.
+What I would change: not recorded.
+Working-style changes for next stage: not recorded.
+

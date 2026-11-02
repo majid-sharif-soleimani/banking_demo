@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "self": {
+    "vendor": "se.bank",
+    "name": "money_withdrawn",
+    "format": "jsonschema",
+    "version": "1-0-0"
+  },
+  "description": "Cash was withdrawn from an account; the ledger posts the cash entry.",
+  "type": "object",
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique id of this event; the consumer inbox key."
+    },
+    "occurredOn": {
+      "type": "string",
+      "format": "date",
+      "description": "Business date on which the event happened."
+    },
+    "performedBy": {
+      "type": "string",
+      "description": "Actor id that caused the event, 'system' by default.",
+      "minLength": 1
+    },
+    "accountId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Id of the account."
+    },
+    "entryId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Id of the account entry; unique per withdrawal."
+    },
+    "amount": {
+      "type": "object",
+      "description": "The amount withdrawn, in the account currency, positive.",
+      "properties": {
+        "amount": {
+          "type": "string",
+          "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        }
+      },
+      "required": [
+        "amount",
+        "currency"
+      ],
+      "additionalProperties": false
+    },
+    "balanceAfter": {
+      "type": "object",
+      "description": "The account balance after the withdrawal.",
+      "properties": {
+        "amount": {
+          "type": "string",
+          "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        }
+      },
+      "required": [
+        "amount",
+        "currency"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "eventId",
+    "occurredOn",
+    "performedBy",
+    "accountId",
+    "entryId",
+    "amount",
+    "balanceAfter"
+  ]
+}

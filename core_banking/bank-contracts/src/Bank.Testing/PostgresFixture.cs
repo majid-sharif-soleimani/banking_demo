@@ -10,7 +10,11 @@ namespace Bank.Testing;
 /// </summary>
 public sealed class PostgresFixture : IAsyncLifetime
 {
-    private readonly PostgreSqlContainer container = new PostgreSqlBuilder("postgres:18.3").Build();
+    // Every service host in a test keeps its own connection pool, and test classes run in parallel: the default of 100
+    // connections runs out (53300) long before the tests do.
+    private readonly PostgreSqlContainer container = new PostgreSqlBuilder("postgres:18.3")
+        .WithCommand("-c", "max_connections=500")
+        .Build();
 
     public string AdminConnectionString => container.GetConnectionString();
 

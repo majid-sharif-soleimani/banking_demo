@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "self": {
+    "vendor": "se.bank",
+    "name": "customer_registered",
+    "format": "jsonschema",
+    "version": "1-0-0"
+  },
+  "description": "Customers registered a new customer; Accounts and Lending keep a local copy so they can open accounts and loans for it.",
+  "type": "object",
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique id of this event; the consumer inbox key."
+    },
+    "occurredOn": {
+      "type": "string",
+      "format": "date",
+      "description": "Business date on which the event happened."
+    },
+    "performedBy": {
+      "type": "string",
+      "description": "Actor id that caused the event, 'system' by default.",
+      "minLength": 1
+    },
+    "customerId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Id of the customer."
+    },
+    "name": {
+      "type": "string",
+      "description": "Full name of the customer.",
+      "minLength": 1
+    },
+    "preferredLanguage": {
+      "type": "string",
+      "description": "ISO 639-1 language for messages to the customer, for example en.",
+      "pattern": "^[a-z]{2}$"
+    }
+  },
+  "required": [
+    "eventId",
+    "occurredOn",
+    "performedBy",
+    "customerId",
+    "name",
+    "preferredLanguage"
+  ]
+}

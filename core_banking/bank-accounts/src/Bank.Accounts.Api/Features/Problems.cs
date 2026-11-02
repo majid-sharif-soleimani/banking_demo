@@ -1,0 +1,24 @@
+namespace Bank.Accounts.Api.Features;
+
+/// <summary>RFC 9457 problem responses with the machine-readable code (implementation-decisions, APIs).</summary>
+public static class Problems
+{
+    public static IResult Of(int status, string code, string title, string? detail = null) =>
+        Results.Problem(statusCode: status, title: title, detail: detail, extensions: new Dictionary<string, object?> { ["code"] = code });
+
+    /// <summary>A business rule said no: 422 with the rule's code.</summary>
+    public static IResult Rule(string code, string title, string? detail = null) => Of(StatusCodes.Status422UnprocessableEntity, code, title, detail);
+
+    public static IResult NotFound(string code, string title) => Of(StatusCodes.Status404NotFound, code, title);
+
+    public static IResult AccountNotFound() => NotFound("account_not_found", "Account not found");
+}
+
+/// <summary>X-Customer-Id, set by the gateway (stage 7), limits a call to that customer's own data; another customer's data is 404.</summary>
+public static class CustomerAccess
+{
+    public const string HeaderName = "X-Customer-Id";
+
+    public static bool IsOtherCustomer(HttpRequest request, Guid ownerId) =>
+        request.Headers.TryGetValue(HeaderName, out var value) && (!Guid.TryParse(value, out var caller) || caller != ownerId);
+}

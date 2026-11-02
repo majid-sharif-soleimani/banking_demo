@@ -52,17 +52,36 @@ public sealed class FixedExchangeRateProvider : IExchangeRateProvider
         return this;
     }
 
-    public Task<decimal> GetRateAsync(string from, string to, DateOnly date, CancellationToken ct) =>
-        from == to ? Task.FromResult(1m)
-        : rates.TryGetValue((from, to), out var rate) ? Task.FromResult(rate)
-        : throw new KeyNotFoundException($"No test rate from {from} to {to}.");
+    public Task<ExchangeRate> GetRateAsync(string from, string to, DateOnly date, CancellationToken ct) =>
+        from == to ? Task.FromResult(new ExchangeRate(from, to, 1m, "test", date))
+        : rates.TryGetValue((from, to), out var rate) ? Task.FromResult(new ExchangeRate(from, to, rate, "test", date))
+        : throw new ExchangeRateUnavailableException(from, to);
 }
 
-/// <summary>Numbers TEST-000001, TEST-000002, ...: predictable for tests. The real format (8 random digits plus Luhn) is built in Accounts.</summary>
+/// <summary>
+/// Valid but predictable numbers for tests: 10000001, 10000002, … plus their Luhn check digit (9 digits, like the real
+/// generator in Accounts, which draws the 8 digits at random).
+/// </summary>
 public sealed class SequentialAccountNumberGenerator : IAccountNumberGenerator
 {
-    private int last;
+    private int last = 10_000_000;
 
-    public Task<string> NextAsync(CancellationToken ct) =>
-        Task.FromResult($"TEST-{Interlocked.Increment(ref last):D6}");
+    public Task<string> NextAsync(CancellationToken ct)
+    {
+        var body = Interlocked.Increment(ref last).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        return Task.FromResult(body + LuhnCheckDigit(body));
+    }
+
+    private static int LuhnCheckDigit(string body)
+    {
+        var sum = 0;
+        for (var i = 0; i < body.Length; i++)
+        {
+            var digit = body[body.Length - 1 - i] - '0';
+            // From the right, every first digit (the one next to the check digit) is doubled.
+            sum += i % 2 == 0 ? (digit * 2 > 9 ? digit * 2 - 9 : digit * 2) : digit;
+        }
+
+        return (10 - sum % 10) % 10;
+    }
 }

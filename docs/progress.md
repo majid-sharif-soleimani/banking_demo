@@ -8,7 +8,7 @@ Updated by `/close-stage`. One row per stage from section 10 of `phase1-design-p
 | 1 | Foundation: contracts, messaging, platform | Done | 2026-10-30 | Slices 1.1 to 1.4 done; 179 + 27 tests green; review fixes in, accepted demo limits in implementation-decisions |
 | 2 | Operations | Done | 2026-11-02 | Slices 2.1–2.4 done; 17+44 Operations, 29 platform, 185 contracts green (re-run 2026-11-02); ADRs ops 0001 and contracts 0016 confirmed by Majid; retro done; merged into master |
 | 3 | Lending pure logic (TDD) | Done | 2026-11-02 | Slices 3.1–3.5; 1,498 tests green (re-run 2026-11-02); ADRs lending 0001–0003 reviewed by Majid (0003 point 5 changed to prepayment, point 9 nets prepaid interest); retro skipped; merged into master |
-| 4 | Customers and Accounts | Not started | | |
+| 4 | Customers and Accounts | Done | 2026-11-02 | Slices 4.1–4.5; customers 37, accounts 115, platform 33, contracts 221 green (re-run 2026-11-02 after merging master); accounts ADRs 0001–0003 and contracts 0017 confirmed by Majid; retro skipped; merged into master |
 | 5 | Lending service | Not started | | |
 | 6 | Cards and Ledger | Not started | | |
 | 7 | Gateway and data import | Not started | | |
@@ -20,4 +20,4 @@ Updated by `/close-stage`. One row per stage from section 10 of `phase1-design-p
 
 - Account number format decided on 2026-10-30 (9 digits: 8 random plus Luhn). Its ADR is still to be written by Majid (workspace `docs/adr/0003`).
 
-- 2026-11-02: stage 3 changed `Allocation.Apply` (new `LoanTerms` parameter, prepayment of later items) and the early payoff accrual. The chained branches `stage-4-customers-accounts` … `stage-8-e2e-aws` were built on the old stage 3; the stage 5 payment handler still calls the old signature and says "never prepaid". Bring them up to date before reviewing stage 4 and later.
+- 2026-11-02: stage 3 changed `Allocation.Apply` (new `LoanTerms` parameter, prepayment of later items) and the early payoff accrual. The chained branches `stage-4-customers-accounts` … `stage-8-e2e-aws` were built on the old stage 3; the stage 5 payment handler still calls the old signature and says "never prepaid". Bring them up to date before reviewing stage 4 and later. Done for `stage-4-customers-accounts` on 2026-11-02 (master merged in, then merged into master); stage 5 and later follow when their review starts.

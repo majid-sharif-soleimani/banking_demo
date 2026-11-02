@@ -26,10 +26,11 @@ public class ContractTests
     private static Type EventType(string fullName) => ContractCatalog.EventTypes.Single(t => t.FullName == fullName);
 
     [Fact]
-    public void The_catalog_finds_the_stage_1_events()
+    public void The_catalog_finds_every_event()
     {
         ContractCatalog.EventTypes.Select(t => t.Name).ShouldBe(
-            ["BusinessDayOpened", "CurrencyActivated", "DayClosed", "DayCompleted", "TestEvent"],
+            ["BusinessDayOpened", "CurrencyActivated", "DayClosed", "DayCompleted", "TestEvent",
+             "CustomerRegistered", "AccountOpened", "MoneyDeposited", "MoneyWithdrawn", "MoneyTransferred", "StandingOrderFailed"],
             ignoreOrder: true);
     }
 

@@ -15,5 +15,7 @@
   <ItemGroup>
     <!-- The services, in the stages that create them; each reference generates a Projects.<Name> type. -->
     <ProjectReference Include="..\..\..\bank-operations\src\Bank.Operations.Api\Bank.Operations.Api.csproj" />
+    <ProjectReference Include="..\..\..\bank-customers\src\Bank.Customers.Api\Bank.Customers.Api.csproj" />
+    <ProjectReference Include="..\..\..\bank-accounts\src\Bank.Accounts.Api\Bank.Accounts.Api.csproj" />
   </ItemGroup>
 </Project>
