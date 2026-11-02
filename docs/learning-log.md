@@ -44,3 +44,11 @@ Still unclear: not recorded.
 What I would change: not recorded.
 Working-style changes for next stage: not recorded.
 
+## Stage 6: Cards and Ledger (2026-11-02)
+Concepts: double-entry bookkeeping as code, read models and projections, a light form of CQRS, idempotent posting.
+Decisions I made: a projection per report as movement rows written with each change, replacing Claude's query-based proposal (bank-lending 0006); one pure posting function per event (bank-ledger 0001); unallocated money as CustomerPayable (bank-ledger 0002), including any payment while an early payoff is pending; prepaid interest stays on a cash basis.
+What I understood: not recorded; Majid skipped the retro questions.
+Still unclear: not recorded.
+What I would change: not recorded.
+Working-style changes for next stage: not recorded.
+
