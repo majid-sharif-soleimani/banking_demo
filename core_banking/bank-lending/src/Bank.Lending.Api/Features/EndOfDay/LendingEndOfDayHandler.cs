@@ -2,6 +2,7 @@ using Bank.Common;
 using Bank.Contracts;
 using Bank.Contracts.Events;
 using Bank.Lending.Api.Data;
+using Bank.Lending.Api.Features.Loans;
 using Bank.Lending.Api.Logic;
 using Bank.Messaging;
 using Microsoft.EntityFrameworkCore;
@@ -109,6 +110,7 @@ public sealed class LendingEndOfDayHandler(LendingDbContext db, IEventPublisher 
                 new LoanClassificationChanged(Guid.NewGuid(), date, PerformedBy.System, loan.Id, loan.CustomerId, loan.Classification.ToString(),
                     classification.ToString(), Classification.DaysPastDue(items, date)),
                 key, ct);
+            ReportProjections.Reclassified(db, loan, loan.Classification, classification, items.Sum(i => i.UnpaidPrincipal.Amount), date, now, PerformedBy.System);
             loan.Classification = classification;
             loan.PerformedBy = PerformedBy.System;
         }

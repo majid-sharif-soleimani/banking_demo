@@ -116,6 +116,72 @@ namespace Bank.Lending.Api.Data.Migrations
                     b.ToTable("loan_application_status_change", (string)null);
                 });
 
+            modelBuilder.Entity("Bank.Lending.Api.Data.ArrearsMovement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateOnly>("BusinessDate")
+                        .HasColumnType("date")
+                        .HasColumnName("business_date");
+
+                    b.Property<string>("Classification")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("classification");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("currency");
+
+                    b.Property<Guid>("LoanId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("loan_id");
+
+                    b.Property<int>("Loans")
+                        .HasColumnType("integer")
+                        .HasColumnName("loans");
+
+                    b.Property<decimal>("Outstanding")
+                        .HasColumnType("numeric")
+                        .HasColumnName("outstanding");
+
+                    b.Property<string>("PerformedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("performed_by");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("reason");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_arrears_movement");
+
+                    b.HasIndex("BusinessDate")
+                        .HasDatabaseName("ix_arrears_movement_business_date");
+
+                    b.ToTable("arrears_movement", (string)null);
+                });
+
             modelBuilder.Entity("Bank.Lending.Api.Data.CurrencyRef", b =>
                 {
                     b.Property<string>("Code")
@@ -232,6 +298,10 @@ namespace Bank.Lending.Api.Data.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)")
                         .HasColumnName("classification");
+
+                    b.Property<DateOnly?>("ClosedOn")
+                        .HasColumnType("date")
+                        .HasColumnName("closed_on");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -707,6 +777,72 @@ namespace Bank.Lending.Api.Data.Migrations
                             RepaymentType = "Staged",
                             Version = 0u
                         });
+                });
+
+            modelBuilder.Entity("Bank.Lending.Api.Data.PortfolioMovement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateOnly>("BusinessDate")
+                        .HasColumnType("date")
+                        .HasColumnName("business_date");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("currency");
+
+                    b.Property<Guid>("LoanId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("loan_id");
+
+                    b.Property<int>("Loans")
+                        .HasColumnType("integer")
+                        .HasColumnName("loans");
+
+                    b.Property<decimal>("Outstanding")
+                        .HasColumnType("numeric")
+                        .HasColumnName("outstanding");
+
+                    b.Property<string>("PerformedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("performed_by");
+
+                    b.Property<string>("ProductCode")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("product_code");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("reason");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_portfolio_movement");
+
+                    b.HasIndex("BusinessDate")
+                        .HasDatabaseName("ix_portfolio_movement_business_date");
+
+                    b.ToTable("portfolio_movement", (string)null);
                 });
 
             modelBuilder.Entity("Bank.Lending.Api.Data.ScheduleItemRow", b =>

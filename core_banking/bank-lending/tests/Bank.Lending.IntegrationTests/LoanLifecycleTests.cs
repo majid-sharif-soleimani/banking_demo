@@ -157,4 +157,38 @@ public class LoanLifecycleTests(PostgresFixture postgres)
         (await app.ScalarAsync<long>("SELECT count(*) FROM loan_payment")).ShouldBe(1);
         (await LoanAsync(app, loan.Id)).Schedule[0].Status.ShouldBe("Paid");
     }
+
+    [Fact]
+    public async Task A_captured_card_payment_pays_the_overdue_installment_with_source_Card()
+    {
+        // Stage 6: Cards publishes CardPaymentCaptured; Lending allocates it like an installment payment, oldest due first.
+        var (app, _, loan) = await CarLoanAsync(postgres, 0m);
+        await using var _app = app;
+        await app.RunDayAsync(Feb15);
+        await app.MoveToAsync(Feb15.AddDays(3));
+        var paymentId = Guid.NewGuid();
+
+        await app.DeliverAsync(new CardPaymentCaptured(Guid.NewGuid(), Feb15.AddDays(3), "customer", paymentId, loan.Id, 1, Sek(6_170.85m)), loan.Id.ToString());
+        await app.OutboxDrainedAsync();
+
+        (await LoanAsync(app, loan.Id)).Schedule[0].Status.ShouldBe("Paid");
+        var allocated = app.Published<LoanPaymentAllocated>().ShouldHaveSingleItem();
+        allocated.ShouldSatisfyAllConditions(a => a.Source.ShouldBe("Card"), a => a.PaymentId.ShouldBe(paymentId), a => a.Principal.ShouldBe(Sek(5_012.52m)));
+    }
+
+    [Fact]
+    public async Task A_card_payment_for_a_future_installment_prepays_it()
+    {
+        // Item 2 is not due yet. Since Majid's review of 2026-11-02 money for a later item prepays it (ADR 0003, point 5):
+        // 6,170.85 covers item 2 in full, so nothing is left to give back.
+        var (app, _, loan) = await CarLoanAsync(postgres, 0m);
+        await using var _app = app;
+
+        await app.DeliverAsync(new CardPaymentCaptured(Guid.NewGuid(), LendingApp.Today, "customer", Guid.NewGuid(), loan.Id, 2, Sek(6_170.85m)), loan.Id.ToString());
+
+        (await LoanAsync(app, loan.Id)).Schedule[1].Status.ShouldBe("Paid");
+        (await app.ScalarAsync<decimal>("SELECT unallocated FROM loan_payment")).ShouldBe(0m);
+        await app.OutboxDrainedAsync();
+        app.Published<LoanPaymentAllocated>().ShouldHaveSingleItem().Unallocated.ShouldBeNull(); // optional field, set only when money is left over
+    }
 }

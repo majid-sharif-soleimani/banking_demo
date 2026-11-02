@@ -49,6 +49,7 @@ ApplicationEndpoints.Map(app);
 Disbursement.Map(app);
 LoanQueries.Map(app);
 Payoff.Map(app);
+LendingReports.Map(app);
 
 app.Run();
 

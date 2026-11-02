@@ -11,6 +11,8 @@ Loans: products, applications, disbursement, schedules, payments, penalties, cla
 
 ## Gotchas
 
+- Reports read only `portfolio_movement` and `arrears_movement` (ADR 0006). Any feature that changes a loan's principal, status or classification must call `ReportProjections` in the same `SaveChangesAsync`; call `Closed` before resetting the classification.
+
 - `Allocation.Apply(schedule, terms, amount, date)` prepays later items once every due item is paid (pro rata principal/interest for a partly covered item, no waiver; ADR 0003 point 5, Majid 2026-11-02). `Unallocated` > 0 only when the whole loan is paid.
 
 - `Penalties.ForDay` charges one day per call and is not idempotent by itself. Stage 5 must run it once per (loan, business date), with a unique key, so a replayed `DayClosed` does not charge twice.

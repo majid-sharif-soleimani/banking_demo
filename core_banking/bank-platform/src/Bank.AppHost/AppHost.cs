@@ -61,6 +61,20 @@ builder.AddProject<Projects.Bank_Accounts_Api>("accounts")
     .WaitFor(kafka)
     .WithHttpHealthCheck("/health");
 
+builder.AddProject<Projects.Bank_Cards_Api>("cards")
+    .WithReference(serviceDatabases["cards"])
+    .WithReference(kafka)
+    .WaitFor(postgres)
+    .WaitFor(kafka)
+    .WithHttpHealthCheck("/health");
+
+builder.AddProject<Projects.Bank_Ledger_Api>("ledger")
+    .WithReference(serviceDatabases["ledger"])
+    .WithReference(kafka)
+    .WaitFor(postgres)
+    .WaitFor(kafka)
+    .WithHttpHealthCheck("/health");
+
 builder.AddProject<Projects.Bank_Lending_Api>("lending")
     .WithReference(serviceDatabases["lending"])
     .WithReference(kafka)
