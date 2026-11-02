@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <!-- Stage 3: only Logic/ (pure loan calculations). Database, endpoints and messaging come in stage 5. -->
+  <ItemGroup>
+    <PackageReference Include="Bank.Contracts" />
+    <PackageReference Include="Bank.Common" />
+  </ItemGroup>
+</Project>
