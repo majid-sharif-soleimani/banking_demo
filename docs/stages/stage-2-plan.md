@@ -121,10 +121,12 @@ On 2026-10-31 Majid asked Claude to finish stage 2 and then stages 3–8 without
 | Opening the next day exactly once | bank-operations 0001 | Row lock `FOR UPDATE` on the current day in `DayCompletedHandler`, plus a deferred exclusion constraint (one current day) | Optimistic concurrency with broker retries |
 | Where `BusinessDayConsumer` lives | bank-contracts 0016 | `Bank.Messaging.BusinessDays`, packages 0.2.0 | A new `Bank.BusinessDays` package |
 
+Sign-off (2026-11-02): Majid reviewed both decisions and confirmed the chosen options. Both ADRs are now Accepted.
+
 ## Close-out (2026-10-31)
 
 - Done-when commands: all green (Operations 17 + 44, platform 29, contracts 185).
-- `banking-reviewer`: no correctness findings. REQUIRED: Majid signs off the two D1 decisions above. OPTIONAL items applied: exclusion constraint for one current day, comments on the lock/null case and the non-participant race, AppHost note, "Closed day still counts" in ADR 0016.
+- `banking-reviewer`: no correctness findings. REQUIRED: Majid signs off the two D1 decisions above (done 2026-11-02). OPTIONAL items applied: exclusion constraint for one current day, comments on the lock/null case and the non-participant race, AppHost note, "Closed day still counts" in ADR 0016.
 - `/retro 2` needs Majid: pending.
 - Not merged into `master`. Stage 3 continues on `stage-3-lending-logic`, branched from `stage-2-operations`.
 

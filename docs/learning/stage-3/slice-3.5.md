@@ -31,7 +31,7 @@ flowchart LR
     G --> P1["Schedule: principal sums to P"]
     G --> P2["Schedule: non-negative, rounded, dates increase"]
     G --> P3["Annuity: items 1..n−1 equal A"]
-    G --> P4["Allocation: paid ≤ due, money conserved, future untouched"]
+    G --> P4["Allocation: paid ≤ due, money conserved, prepay only after due items"]
     G --> P5["Penalties: never decrease, only after grace"]
     G --> P6["Payoff: ≥ principal, ≤ keeping the loan, interest split adds up"]
     G --> P7["Classification: never improves as time passes"]
@@ -51,7 +51,7 @@ flowchart LR
 | Principal sums to P | The last-item rounding rule (3.1) and the share check (3.2) |
 | Amounts non-negative, rounded to the öre, dates strictly increasing | Rounding and due date rules |
 | Annuity items 1..n−1 all equal A | "Equal installments" |
-| Allocation: paid ≤ due per component; allocated + unallocated = payment; items due later untouched | Waterfall correctness, conservation of money, "future items are not prepaid" |
+| Allocation: paid ≤ due per component; allocated + unallocated = payment; later items prepaid only when every due item is paid; money returned only when every item is paid | Waterfall correctness, conservation of money, the prepayment order (ADR 0003 point 5, changed 2026-11-02) |
 | Penalties never decrease, and grow only on items past due + grace | Grace boundary, no negative penalty |
 | Payoff ≥ outstanding principal; ≤ the sum of everything unpaid; interest to date + minimum + waived = all unpaid interest | The payoff formula's internal consistency |
 | Classification at date + 30 is never better than at date (unchanged schedule) | Monotonic days past due |
