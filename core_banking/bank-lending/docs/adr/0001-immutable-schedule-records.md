@@ -1,6 +1,6 @@
 # 0001. Represent the schedule as immutable records
 
-- Status: Accepted (to be reviewed by Majid)
+- Status: Accepted (reviewed and confirmed by Majid on 2026-11-02)
 - Date: 2026-10-31
 - Scope: bank-lending
 - Design plan reference: section 4, ADR row 02 (pure functions under `Logic/`)

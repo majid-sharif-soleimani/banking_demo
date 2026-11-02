@@ -88,3 +88,10 @@ Interpretations (most conservative):
 ```bash
 for r in bank-lending bank-customers bank-accounts bank-operations bank-platform; do (cd core_banking/$r && dotnet build && dotnet test); done
 ```
+
+## Sign-off (2026-11-02)
+
+- `master` (reviewed stages 2–4) merged into this branch. The payment handler now calls `Allocation.Apply(schedule, terms, amount, date)`: money left after the due items prepays later items (stage 3 ADR 0003, point 5), and its comments no longer say "never prepaid".
+- Done-when re-run after the merge: lending 1,612 (1,574 unit, 38 integration), customers 58, accounts 120, operations 61, platform 35 tests green.
+- Majid asked to close the stage without a review: ADRs bank-lending 0004 and 0005 and the interpretations above are accepted as proposed. `banking-reviewer` was not re-run (the stage was reviewed on 2026-10-31; only the handler call changed). Retro skipped.
+

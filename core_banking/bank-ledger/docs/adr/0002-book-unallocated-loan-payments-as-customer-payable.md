@@ -1,6 +1,6 @@
 # 0002. Book unallocated loan payments as owed to the customer
 
-- Status: Accepted (to be reviewed by Majid; a business decision)
+- Status: Accepted (reviewed and confirmed by Majid on 2026-11-02; a business decision)
 - Date: 2026-10-31
 - Scope: bank-ledger, bank-lending, bank-contracts
 - Design plan reference: section 2 (Accounting: double-entry, cash basis; Cards); stage 6 file (chart of accounts, postings)
@@ -8,7 +8,7 @@
 
 ## Context
 
-A card payment is captured by Cards before Lending sees it. Lending never prepays future installments (bank-lending ADR 0003) and cannot allocate to a closed loan. So part or all of a card payment can stay unallocated. `LoanPaymentAllocated` carried only the allocated parts, so Ledger booked less than the card network settled: CardClearing was short and the books no longer matched reality. The stage 6 chart has no account for such money.
+A card payment is captured by Cards before Lending sees it. Lending cannot allocate to a closed loan, and since 2026-11-02 it prepays later installments but returns what is left once every item is paid (bank-lending ADR 0003, point 5). So part or all of a card payment can stay unallocated. `LoanPaymentAllocated` carried only the allocated parts, so Ledger booked less than the card network settled: CardClearing was short and the books no longer matched reality. The stage 6 chart has no account for such money.
 
 ## Decision
 
@@ -29,3 +29,6 @@ Money received must be in the books. Booking it as a liability to the customer i
 
 - The chart has eight accounts instead of the stage file's seven. Existing charts get the new account on the next posting in that currency (`Chart.EnsureAsync`).
 - A refund feature will need to debit CustomerPayable when the money is paid back.
+- Prepaid interest (Majid, 2026-11-02): since an overpayment prepays later installments, `LoanPaymentAllocated` can carry interest of items not yet due. Ledger stays on a cash basis and books it as interest income when received, like any other interest. No unearned-interest liability and no transfer at the due date. A later early payoff does not give prepaid interest back (bank-lending ADR 0003), so nothing has to be reversed.
+- A payment while an early payoff is pending (Majid, 2026-11-02): Lending allocates nothing and the whole amount is unallocated, booked here as CustomerPayable. The payoff settles exactly its quoted principal, interest and penalty, so money allocated meanwhile would be counted twice, in the loan receivable and in Lending's reports. This covers a card payment and an installment collection opened before the payoff request.
+

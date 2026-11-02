@@ -1,6 +1,6 @@
 # 0004. Model application transitions as one table in Logic/
 
-- Status: Accepted (to be reviewed by Majid)
+- Status: Accepted (accepted by Majid without a detailed review on 2026-11-02)
 - Date: 2026-10-31
 - Scope: bank-lending
 - Design plan reference: section 5 (application statuses); `docs/stages/stage-5.md` (allowed transitions)

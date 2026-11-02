@@ -28,7 +28,7 @@ sequenceDiagram
   - `Features/CardPayments`: the endpoint, which stores the payment and publishes the result through the outbox;
   - the AppHost entry, platform tests and CI.
 - **Customers**: `CardPaymentDeclinedHandler` with an English email that names the reason.
-- **Lending**: already allocates `CardPaymentCaptured`. New tests show it pays an overdue item with source Card and never prepays a future item (that money is kept as unallocated and logged).
+- **Lending**: already allocates `CardPaymentCaptured`. New tests show it pays an overdue item with source Card, and that a payment for a future item prepays it (since 2026-11-02, ADR bank-lending 0003 point 5; only money left after every item is paid is kept as unallocated and logged).
 
 ## Part 3. Why it is designed this way
 
@@ -49,7 +49,7 @@ sequenceDiagram
   - a repeated key returns the same payment and captures once, and another body gives 422;
   - another customer's loan, and a wrong currency or decimals, are rejected.
 - **Customers:** a declined card sends one email naming the reason.
-- **Lending** (2 new tests): a card payment pays an overdue installment with source Card; one for a future installment is not prepaid.
+- **Lending** (2 new tests): a card payment pays an overdue installment with source Card; one for a future installment prepays it (changed on 2026-11-02 to follow the stage 3 prepayment rule, ADR bank-lending 0003 point 5; before, it was returned as unallocated).
 - **Platform:** `cards` becomes healthy with its 3 test cards (37 tests).
 
 ## 5. Check your understanding

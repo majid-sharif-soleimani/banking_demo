@@ -30,7 +30,7 @@ flowchart TB
     D --> L["Current / Overdue / Default<br/>(thresholds from terms)"]
     S --> Q["EarlyPayoff.Quote"]
     Q --> Due["items due ≤ date:<br/>unpaid interest in full"]
-    Q --> Acc["current period accrual:<br/>annuity next interest × min(days,30)/30<br/>staged principal × R × days/365"]
+    Q --> Acc["current period accrual:<br/>annuity next interest × min(days,30)/30<br/>staged principal × R × days/365<br/>minus interest already prepaid"]
     Q --> Rem["remaining = later interest − accrual"]
     Rem --> Min["minimum = min(p × P, cap, remaining)"]
     Min --> T["PayoffQuote: principal, penalty,<br/>interest to date, minimum, waived, total"]
@@ -48,7 +48,8 @@ flowchart TB
 2. **Outstanding principal** = all unpaid principal. **Unpaid penalty** = all unpaid penalty.
 3. **Accrual** for the current period, counted from the last due date on or before the date (or from disbursement):
    - annuity: the next item's interest × min(days, 30)/30, so it never accrues more than one period's interest;
-   - staged: the principal still scheduled × R × days/365.
+   - staged: the principal still scheduled × R × days/365;
+   - in both cases less the interest already prepaid on the next item, never below 0 (added on 2026-11-02, after Majid allowed prepayment).
 4. **Interest to date** = the due items' unpaid interest + the accrual.
 5. **Remaining scheduled interest** = the later items' interest − the accrual (never below 0).
 6. **Minimum** = min(round(percent × original principal), cap, remaining).
@@ -67,7 +68,7 @@ Points 6, 8 and 9 of the ADR are used here:
 - a loan is not late on its due date;
 - the payoff details above.
 
-They are the most conservative readings, and they are business choices for you to confirm.
+They were the most conservative readings. Majid confirmed them on 2026-11-02, with one addition. Once prepayment was allowed (ADR 0003 point 5), the review found that a quote charged the full accrual even when part of the current item's interest was already prepaid, so the customer paid that interest twice. Majid chose to subtract the prepaid interest from the accrual (never below 0). The result: a quote after a prepayment is lower by exactly the prepaid amount. More interest prepaid than earned gives 0, not a refund.
 
 ### 3.2 Design choices I made (D2)
 
@@ -107,6 +108,7 @@ They are the most conservative readings, and they are business choices for you t
 - an overdue item with a penalty;
 - a staged loan with Actual/365 accrual: total 101,698.63;
 - the annuity accrual is capped at one period;
+- after a prepayment, the accrual is reduced by the prepaid interest (annuity and staged), and it never goes below 0;
 - a fully paid loan quotes 0.
 
 ```

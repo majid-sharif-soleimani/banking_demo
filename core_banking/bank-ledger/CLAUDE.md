@@ -1,6 +1,6 @@
 # bank-ledger
 
-Double-entry general ledger, per currency, posted only from events (design plan section 2; cash basis). Schema `ledger`, publishes nothing. Plan: `docs/stages/stage-6-plan.md`.
+Double-entry general ledger, per currency, posted only from events (design plan section 2; cash basis: interest, prepaid interest included, is income when received, ledger ADR 0002). Schema `ledger`, publishes nothing. Plan: `docs/stages/stage-6-plan.md`.
 
 ## Tables
 

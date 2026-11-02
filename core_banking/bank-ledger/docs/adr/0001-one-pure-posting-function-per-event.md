@@ -1,6 +1,6 @@
 # 0001. One pure posting function per event
 
-- Status: Accepted (to be reviewed by Majid)
+- Status: Accepted (reviewed and confirmed by Majid on 2026-11-02)
 - Date: 2026-10-31
 - Scope: bank-ledger
 - Design plan reference: section 2 (Accounting: double-entry per currency, cash basis), section 6 (sample journal entries)

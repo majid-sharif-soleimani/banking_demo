@@ -1,6 +1,6 @@
 # 0001. Lock the current business day while handling DayCompleted
 
-- Status: Accepted (to be reviewed by Majid)
+- Status: Accepted (reviewed and confirmed by Majid on 2026-11-02)
 - Date: 2026-10-31
 - Scope: bank-operations
 - Design plan reference: section 4, ADR rows 08 and 15
