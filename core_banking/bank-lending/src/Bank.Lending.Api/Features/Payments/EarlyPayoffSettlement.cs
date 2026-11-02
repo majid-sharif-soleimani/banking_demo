@@ -1,6 +1,7 @@
 using Bank.Contracts;
 using Bank.Contracts.Events;
 using Bank.Lending.Api.Data;
+using Bank.Lending.Api.Features.Loans;
 using Bank.Lending.Api.Logic;
 using Bank.Messaging;
 
@@ -45,6 +46,8 @@ internal static class EarlyPayoffSettlement
         first.InterestDue += interest.Amount;
         first.PaidInterest += interest.Amount;
 
+        ReportProjections.PrincipalPaid(db, loan, principal.Amount, today, now, e.PerformedBy);
+        ReportProjections.Closed(db, loan, today, now, e.PerformedBy);
         loan.Status = LoanStatus.PaidOffEarly;
         loan.ClosedOn = today;
         loan.Classification = LoanClassification.Current;

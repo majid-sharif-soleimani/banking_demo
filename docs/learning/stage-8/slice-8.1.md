@@ -85,7 +85,7 @@ Passed!  - Failed: 0, Passed: 5 (about 5 minutes)
 
 ## 5. What to watch later
 
-- The scenarios take about five minutes, so they run on demand (ADR 0003), not on every push.
+- The scenarios take about five minutes. They run on every push to `master` and on demand (ADR 0003, Majid 2026-11-02), not on every push to every branch.
 - In Development, a malformed body gives 500 instead of 400, because minimal APIs throw on bad JSON there. Production answers 400.
 - A client that reads a loan right after a close may see the previous day's `DaysPastDue`.
 

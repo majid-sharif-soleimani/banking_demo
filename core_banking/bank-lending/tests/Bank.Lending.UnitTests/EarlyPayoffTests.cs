@@ -8,7 +8,7 @@ public class EarlyPayoffTests
     private static readonly LoanTerms CarTerms = Car();
     private static readonly IReadOnlyList<ScheduleItem> Car36 = Annuity(CarTerms);
     private static readonly IReadOnlyList<ScheduleItem> Car36ItemOnePaid =
-        Allocation.Apply(Car36, Sek(6_170.85m), new DateOnly(2026, 2, 15)).Value.Schedule;
+        Allocation.Apply(Car36, CarTerms, Sek(6_170.85m), new DateOnly(2026, 2, 15)).Value.Schedule;
 
     [Fact]
     public void Quote_CarMidPeriod_MatchesHandCalculation()
@@ -28,6 +28,61 @@ public class EarlyPayoffTests
             MinimumInterest: Sek(2_000m),
             WaivedInterest: Sek(18_465.20m),
             Total: Sek(197_514.49m)));
+    }
+
+    [Fact]
+    public void Quote_AfterAPrepayment_SubtractsThePrepaidInterestFromTheAccrual()
+    {
+        // 7,000 on 15 Feb pays item 1 and prepays item 2 with 677.41 principal and 151.74 interest (AllocationTests).
+        // Payoff on 1 Mar 2026, 14 days into item 2's period (ADR 0003 point 9, Majid 2026-11-02):
+        // Outstanding principal = 200,000 − 5,012.52 − 677.41 = 194,310.07
+        // Interest to date = max(0, round(1,129.30 × 14 / 30) − 151.74) = 527.01 − 151.74 = 375.27
+        // Remaining scheduled interest = (20,992.21 − 151.74) − 375.27 = 20,465.20; minimum 2,000; waived 18,465.20
+        // Total = 194,310.07 + 375.27 + 2,000 = 196,685.34, exactly 829.15 less than without the prepayment (197,514.49).
+        var prepaid = Allocation.Apply(Car36, CarTerms, Sek(7_000m), new DateOnly(2026, 2, 15)).Value.Schedule;
+
+        var quote = EarlyPayoff.Quote(prepaid, CarTerms, new DateOnly(2026, 3, 1));
+
+        quote.ShouldBe(new PayoffQuote(
+            OutstandingPrincipal: Sek(194_310.07m),
+            UnpaidPenalty: Sek(0m),
+            InterestToDate: Sek(375.27m),
+            MinimumInterest: Sek(2_000m),
+            WaivedInterest: Sek(18_465.20m),
+            Total: Sek(196_685.34m)));
+    }
+
+    [Fact]
+    public void Quote_StagedAfterAPrepayment_SubtractsThePrepaidInterestFromTheAccrual()
+    {
+        // PURCHASE: 30,000 on 15 Apr pays stage 1 and prepays stage 2 with 2,843.84 principal and 60.27 interest (AllocationTests).
+        // Payoff on 25 Apr (10 days): outstanding principal = 75,000 − 2,843.84 = 72,156.16
+        // Interest to date = max(0, round(72,156.16 × 0.085 × 10 / 365) − 60.27) = 168.03 − 60.27 = 107.76
+        // Remaining scheduled interest = (1,589.38 − 60.27) − 107.76 = 1,421.35; minimum = min(1% × 100,000, 3,000) = 1,000; waived 421.35
+        // Total = 72,156.16 + 107.76 + 1,000 = 73,263.92
+        var terms = Purchase();
+        var schedule = Amortization.BuildStaged(terms, new StagePlan([
+            new Stage(new DateOnly(2026, 4, 15), Sek(25_000m)), new Stage(new DateOnly(2026, 7, 15), Sek(75_000m))])).Value;
+        var prepaid = Allocation.Apply(schedule, terms, Sek(30_000m), new DateOnly(2026, 4, 15)).Value.Schedule;
+
+        var quote = EarlyPayoff.Quote(prepaid, terms, new DateOnly(2026, 4, 25));
+
+        quote.InterestToDate.ShouldBe(Sek(107.76m));
+        quote.WaivedInterest.ShouldBe(Sek(421.35m));
+        quote.Total.ShouldBe(Sek(73_263.92m));
+    }
+
+    [Fact]
+    public void Quote_PrepaidInterestAboveWhatIsEarned_AccruesNothing()
+    {
+        // Same PURCHASE prepayment, payoff on 18 Apr (3 days): earned round(72,156.16 × 0.085 × 3 / 365) = 50.41 < 60.27 prepaid,
+        // so interest to date is 0, never negative (the 9.86 difference is not refunded, ADR 0003 point 5).
+        var terms = Purchase();
+        var schedule = Amortization.BuildStaged(terms, new StagePlan([
+            new Stage(new DateOnly(2026, 4, 15), Sek(25_000m)), new Stage(new DateOnly(2026, 7, 15), Sek(75_000m))])).Value;
+        var prepaid = Allocation.Apply(schedule, terms, Sek(30_000m), new DateOnly(2026, 4, 15)).Value.Schedule;
+
+        EarlyPayoff.Quote(prepaid, terms, new DateOnly(2026, 4, 18)).InterestToDate.ShouldBe(Sek(0m));
     }
 
     [Fact]
@@ -52,7 +107,7 @@ public class EarlyPayoffTests
         // Total = 6,705.19 + 12.94 + 25.89 = 6,744.02, the full last installment minus nothing: no discount.
         var terms = Car(principal: 20_000m, months: 3);
         var schedule = Annuity(terms);
-        var paid = Allocation.Apply(schedule, Sek(6_744.04m + 6_744.04m), new DateOnly(2026, 3, 15)).Value.Schedule;
+        var paid = Allocation.Apply(schedule, terms, Sek(6_744.04m + 6_744.04m), new DateOnly(2026, 3, 15)).Value.Schedule;
 
         var quote = EarlyPayoff.Quote(paid, terms, new DateOnly(2026, 3, 25));
 
@@ -108,7 +163,7 @@ public class EarlyPayoffTests
     {
         // Item 2 period 15 Feb → 15 Mar has 28 days; item 3 period 15 Mar → 15 Apr has 31. On 14 Apr (30 days): 30/30 = all of item 3's
         // interest, the cap; the accrual never exceeds the period's interest.
-        var paid = Allocation.Apply(Car36, Sek(6_170.85m * 2), new DateOnly(2026, 3, 15)).Value.Schedule;
+        var paid = Allocation.Apply(Car36, CarTerms, Sek(6_170.85m * 2), new DateOnly(2026, 3, 15)).Value.Schedule;
 
         var quote = EarlyPayoff.Quote(paid, CarTerms, new DateOnly(2026, 4, 14));
 
@@ -119,7 +174,7 @@ public class EarlyPayoffTests
     public void Quote_FullyPaidLoan_IsZero()
     {
         var terms = Car(principal: 20_000m, months: 1);
-        var paid = Allocation.Apply(Annuity(terms), Sek(20_115.83m), new DateOnly(2026, 2, 15)).Value.Schedule;
+        var paid = Allocation.Apply(Annuity(terms), terms, Sek(20_115.83m), new DateOnly(2026, 2, 15)).Value.Schedule;
 
         EarlyPayoff.Quote(paid, terms, new DateOnly(2026, 2, 20)).Total.ShouldBe(Sek(0m));
     }
@@ -134,7 +189,7 @@ public class EarlyPayoffTests
         // Minimum = min(1% × 2,000,000 = 20,000, cap 20,000) = 20,000; waived = 1,511,582.15
         // Total = 1,997,244.53 + 3,301.00 + 20,000 = 2,020,545.53
         var terms = Mortgage();
-        var paid = Allocation.Apply(Annuity(terms), Sek(9_838.80m), new DateOnly(2026, 2, 15)).Value.Schedule;
+        var paid = Allocation.Apply(Annuity(terms), terms, Sek(9_838.80m), new DateOnly(2026, 2, 15)).Value.Schedule;
 
         var quote = EarlyPayoff.Quote(paid, terms, new DateOnly(2026, 3, 1));
 

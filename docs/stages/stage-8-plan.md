@@ -38,14 +38,14 @@ Environment: `~/repos/banking_demo` on `<machine>`, branch `stage-8-e2e-aws` (fr
    - `deploy/start.sh`, `deploy/stop.sh` and `deploy/backup.sh`.
 5. **CI image jobs:**
    - each service workflow gets a job that builds its image and pushes it to GHCR on `master`, disabled until Majid enables it;
-   - an end-to-end workflow that runs only on demand.
+   - an end-to-end workflow that runs on every push to `master` and on demand (changed by Majid on 2026-11-02; first version: on demand only).
 
 ## Decisions to review (Majid's delegation of 2026-10-31)
 
 | Decision (D1) | ADR | Chosen | Main alternative |
 | --- | --- | --- | --- |
 | EC2 instance size and start/stop routine | bank-platform 0002 | t4g.medium (2 vCPU, 4 GB, ARM), as the stage file says. Started and stopped by hand with `start.sh` and `stop.sh`; no schedule. The EBS volume keeps the data between demos | A schedule (EventBridge) that stops the instance every night: safer against a forgotten instance, but more moving parts |
-| What runs in CI on every push and what only before a demo | bank-platform 0003 | Every push runs each service's unit and service integration tests, as today. The end-to-end scenarios (minutes, the whole AppHost) run only on demand (`workflow_dispatch`), before a demo or a merge | End-to-end on every push to `master`: earlier warning, but slow and costly in CI minutes |
+| What runs in CI on every push and what only before a demo | bank-platform 0003 | *Changed by Majid on 2026-11-02:* every push runs each service's own tests; the end-to-end scenarios run on every push to `master` and on demand. First proposal: end-to-end only on demand | Nightly on a schedule |
 | How the AWS instance gets its secrets (`.claude/rules/secrets.md` asks for an ADR in the first stage that needs it) | bank-platform 0004 | One Secrets Manager secret (JSON) created empty by CDK. At boot, `start-bank.sh` on the instance reads it with the instance role and writes a root-only `.env` that Compose reads. The services keep reading `IConfiguration` (environment variables) and never know about AWS | A .NET Secrets Manager configuration provider in every service: no file on disk, but an AWS dependency in every service |
 
 Interpretations:
@@ -95,3 +95,10 @@ cd core_banking/bank-platform && dotnet test tests/Bank.EndToEndTests
 cd core_banking/bank-platform/deploy/cdk && cdk synth      # succeeds without an AWS account
 docker compose -f core_banking/bank-platform/deploy/docker-compose.aws.yml config    # valid
 ```
+
+## Sign-off (2026-11-02)
+
+- `master` (closed stages 2–7) merged into this branch; only `docs/progress.md` conflicted. Done-when re-run after the merge: end-to-end 5 of 5 (4 min 16 s); `npx aws-cdk@2.1145.0 synth` with placeholder context (`bank:amiId`, a documentation-range `bank:allowedCidr`) succeeds without an AWS account (one expected warning: the AMI is pinned on purpose); `docker compose -f deploy/docker-compose.aws.yml config` valid.
+- Majid's decisions: platform 0002 (t4g.medium, manual start and stop) and 0004 (one Secrets Manager secret, written at boot to one root-only env file per container, so each service sees only its own connection string) confirmed; platform 0003 **changed**: the end-to-end scenarios run on every push to `master` (and on demand), with superseded runs cancelled. Scenario 3, written on his delegation, is accepted.
+- Still open for Majid before any deployment: review the CDK stack with `/explain`; then he runs every `cdk deploy`, `aws` command and image push himself. Nothing is deployed.
+

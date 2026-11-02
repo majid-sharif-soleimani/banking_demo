@@ -1,6 +1,6 @@
 # 0016. Put the business-day consumer in Bank.Messaging
 
-- Status: Accepted (to be reviewed by Majid)
+- Status: Accepted (reviewed and confirmed by Majid on 2026-11-02)
 - Date: 2026-10-31
 - Scope: bank-contracts
 - Design plan reference: section 4, ADR row 14; `implementation-decisions.md`, "Time and the business date"

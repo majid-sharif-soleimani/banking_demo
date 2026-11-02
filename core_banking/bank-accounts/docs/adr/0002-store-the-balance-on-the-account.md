@@ -1,6 +1,6 @@
 # 0002. Store the balance on the account, guarded by its row version
 
-- Status: Accepted (to be reviewed by Majid)
+- Status: Accepted (reviewed and confirmed by Majid on 2026-11-02)
 - Date: 2026-10-31
 - Scope: bank-accounts
 - Design plan reference: section 2 (no overdraft; statements from the transaction table with balance after each entry); section 5 (Account.Balance, AccountEntry.BalanceAfter)

@@ -35,7 +35,7 @@ public class ClassificationTests
     public void For_OldestUnpaidItemDecides()
     {
         // Item 1 paid; item 2 (due 15 Mar) unpaid. On 20 Apr: 36 days past due on item 2 → Overdue, not counted from item 1.
-        var paid = Allocation.Apply(Car36, Sek(6_170.85m), Feb15).Value.Schedule;
+        var paid = Allocation.Apply(Car36, CarTerms, Sek(6_170.85m), Feb15).Value.Schedule;
 
         Classification.For(paid, CarTerms, new DateOnly(2026, 4, 20)).ShouldBe(LoanClassification.Overdue);
         Classification.For(paid, CarTerms, new DateOnly(2026, 3, 15)).ShouldBe(LoanClassification.Current);
@@ -44,7 +44,7 @@ public class ClassificationTests
     [Fact]
     public void For_EverythingDuePaid_IsCurrent()
     {
-        var paid = Allocation.Apply(Car36, Sek(6_170.85m), Feb15).Value.Schedule;
+        var paid = Allocation.Apply(Car36, CarTerms, Sek(6_170.85m), Feb15).Value.Schedule;
 
         Classification.For(paid, CarTerms, new DateOnly(2026, 3, 1)).ShouldBe(LoanClassification.Current);
     }

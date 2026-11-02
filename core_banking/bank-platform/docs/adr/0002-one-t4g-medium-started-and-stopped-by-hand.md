@@ -1,6 +1,6 @@
 # 0002. One t4g.medium instance, started and stopped by hand
 
-- Status: Accepted (to be reviewed by Majid)
+- Status: Accepted (reviewed and confirmed by Majid on 2026-11-02)
 - Date: 2026-10-31
 - Scope: bank-platform (deploy/cdk, deploy/start.sh, deploy/stop.sh)
 - Design plan reference: section 9 (one small EC2 instance that runs only during demos); stage 8 file (D1: instance size and start/stop routine)

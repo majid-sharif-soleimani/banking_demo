@@ -1,9 +1,17 @@
 name: bank-e2e
 
-# The end-to-end scenarios (bank-platform/tests/Bank.EndToEndTests): the whole AppHost, several minutes. They run only
-# on demand, before a demo or a merge into master; every push runs each service's own tests instead (bank-platform ADR 0003).
+# The end-to-end scenarios (bank-platform/tests/Bank.EndToEndTests): the whole AppHost, about 4–5 minutes. They run on
+# every push to master and on demand; every push to any branch also runs each service's own tests (bank-platform ADR 0003,
+# Majid 2026-11-02).
 on:
+  push:
+    branches: [master]
   workflow_dispatch:
+
+# A newer push to master cancels the run for the older commit, so minutes go to the commit that matters.
+concurrency:
+  group: bank-e2e-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read

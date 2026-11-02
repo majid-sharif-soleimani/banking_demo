@@ -62,3 +62,10 @@ Interpretations and gaps:
 ```bash
 for r in bank-gateway bank-data-import bank-platform; do (cd core_banking/$r && dotnet build && dotnet test); done
 ```
+
+## Sign-off (2026-11-02)
+
+- `master` (closed stages 2–6) merged into this branch with no code conflict. Re-run after the merge: gateway 9, data-import 34 (33 unit, 1 end-to-end import), platform 47, lending 1,621, ledger 28, cards 13, accounts 120, customers 58, operations 61 tests green.
+- Majid confirmed data-import ADR 0001 (poll the business date through the gateway; sequential replay) and the interpretations above: out-of-range amounts or terms are skipped and reported, and PURCHASE loans get equal quarterly stages up to `MaxStages`.
+- Still open for Majid: check the default column mapping (`Import:Columns`) against his real databasesample.com export before the first real run.
+

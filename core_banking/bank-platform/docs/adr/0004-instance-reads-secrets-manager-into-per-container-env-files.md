@@ -1,6 +1,6 @@
 # 0004. The instance reads Secrets Manager into one env file per container
 
-- Status: Accepted (to be reviewed by Majid)
+- Status: Accepted (reviewed and confirmed by Majid on 2026-11-02)
 - Date: 2026-10-31
 - Scope: bank-platform (deploy/cdk, deploy/instance/start-bank.sh, deploy/docker-compose.aws.yml)
 - Design plan reference: section 9; `.claude/rules/secrets.md` ("How the AWS services load Secrets Manager values into .NET configuration is a D1 decision ... in the stage that first needs it")

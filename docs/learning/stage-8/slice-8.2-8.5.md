@@ -78,14 +78,14 @@ flowchart LR
 ### CI (`.github/workflows/`)
 
 - Each service workflow and the gateway workflow got an **`image` job**. On a push to `master`, after the tests pass, and only when the repository variable `PUBLISH_IMAGES` is `true`, it builds a linux-arm64 image with `dotnet publish /t:PublishContainer` and pushes it to GHCR.
-- **`bank-e2e.yml`** runs the end-to-end scenarios on demand and keeps the service logs when a scenario fails.
+- **`bank-e2e.yml`** runs the end-to-end scenarios on every push to `master` and on demand, cancels a run superseded by a newer push, and keeps the service logs when a scenario fails.
 
 ## Part 3. Why it is designed this way
 
 ### D1 decisions on your delegation (please review)
 
 - **bank-platform ADR 0002:** a t4g.medium, started and stopped by hand, no Elastic IP. The rejected alternative was a nightly stop schedule.
-- **bank-platform ADR 0003:** service tests on every push, end-to-end on demand, images on `master` behind a variable. The rejected alternative was end-to-end on every push to `master`.
+- **bank-platform ADR 0003:** service tests on every push, end-to-end on every push to `master` (Majid changed this on 2026-11-02; my first version ran them only on demand), images on `master` behind a variable.
 - **bank-platform ADR 0004:** the instance reads Secrets Manager into one env file per container. The rejected alternatives were a configuration provider in each service, and one secret per service.
 
 ### D2 (my choices)

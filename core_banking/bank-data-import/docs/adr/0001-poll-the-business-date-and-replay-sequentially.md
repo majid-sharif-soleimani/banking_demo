@@ -1,6 +1,6 @@
 # 0001. Poll the business date between days, and replay one request at a time
 
-- Status: Accepted (to be reviewed by Majid)
+- Status: Accepted (reviewed and confirmed by Majid on 2026-11-02)
 - Date: 2026-10-31
 - Scope: bank-data-import
 - Design plan reference: section 7 (import through the API, day by day); stage 7 file (D1 decisions)
