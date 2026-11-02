@@ -89,3 +89,36 @@ public sealed class EndOfDayRun
 
     public uint Version { get; set; }
 }
+
+/// <summary>
+/// One collection request from Lending (InstallmentDue or LoanPayoffRequested). The collection id is the primary key:
+/// a request is answered at most once, so an installment is never debited twice (bank-lending ADR 0005).
+/// </summary>
+public sealed class LoanCollection
+{
+    public Guid CollectionId { get; init; }
+
+    public Guid LoanId { get; init; }
+
+    public int? ScheduleItemNumber { get; init; }
+
+    public required string Purpose { get; init; }
+
+    public Guid AccountId { get; init; }
+
+    public decimal Amount { get; init; }
+
+    public required string Currency { get; init; }
+
+    public required string Status { get; init; }
+
+    public string? Reason { get; init; }
+
+    public DateOnly BusinessDate { get; init; }
+
+    public DateTimeOffset CreatedAt { get; init; }
+
+    public required string PerformedBy { get; init; }
+
+    public uint Version { get; set; }
+}

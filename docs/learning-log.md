@@ -36,3 +36,11 @@ Still unclear: not recorded.
 What I would change: not recorded.
 Working-style changes for next stage: not recorded.
 
+## Stage 5: Lending service (2026-11-02)
+Concepts: see the "Learning" section of `docs/stages/stage-5.md`.
+Decisions I made: accepted Claude's delegated proposals without a detailed review: application transitions as a table in `Logic/` (bank-lending 0004), one open collection per installment (0005).
+What I understood: not recorded; Majid skipped the retro questions.
+Still unclear: not recorded.
+What I would change: not recorded.
+Working-style changes for next stage: not recorded.
+

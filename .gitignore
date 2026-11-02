@@ -16,3 +16,6 @@ secrets/
 *.key
 *.pfx
 appsettings.*.local.json
+
+# Local uploaded files (LocalFileStorage, Files:Root)
+.data/

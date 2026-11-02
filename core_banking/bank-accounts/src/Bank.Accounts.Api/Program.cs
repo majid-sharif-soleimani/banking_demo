@@ -5,6 +5,7 @@ using Bank.Accounts.Api.Features.Reference;
 using Bank.Accounts.Api.Features.Transfers;
 using Bank.Accounts.Api.Features.StandingOrders;
 using Bank.Accounts.Api.Features.EndOfDay;
+using Bank.Accounts.Api.Features.Loans;
 using Bank.Accounts.Api.ExchangeRates;
 using Bank.Common;
 using Bank.Contracts.Events;
@@ -33,6 +34,9 @@ builder.Services.AddEventHandler<CustomerRegistered, CustomerRegisteredHandler>(
 builder.Services.AddEventHandler<CurrencyActivated, CurrencyActivatedHandler>();
 // End of day: Accounts is a participant (Operations:EndOfDayParticipants lists "accounts").
 builder.Services.AddEventHandler<DayClosed, AccountsEndOfDayHandler>();
+builder.Services.AddEventHandler<LoanDisbursed, LoanDisbursedHandler>();
+builder.Services.AddEventHandler<InstallmentDue, InstallmentDueHandler>();
+builder.Services.AddEventHandler<LoanPayoffRequested, LoanPayoffRequestedHandler>();
 builder.Services.AddSingleton<IAccountNumberGenerator, RandomAccountNumberGenerator>();
 
 // Exchange rates (design plan ADR 20): fixed rates from configuration by default, the Riksbank API when configured.

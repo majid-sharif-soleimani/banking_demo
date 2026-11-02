@@ -31,6 +31,8 @@ public sealed class AccountsDbContext(DbContextOptions<AccountsDbContext> option
 
     public DbSet<EndOfDayRun> EndOfDayRuns => Set<EndOfDayRun>();
 
+    public DbSet<LoanCollection> LoanCollections => Set<LoanCollection>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.AddBankMessaging();
@@ -59,6 +61,8 @@ public sealed class AccountsDbContext(DbContextOptions<AccountsDbContext> option
             entry.ToTable("account_entry");
             entry.Property(e => e.Sequence).ValueGeneratedOnAdd();
             entry.HasIndex(e => new { e.AccountId, e.Sequence });
+            // One disbursement credit per loan, enforced by the database (non-negotiable: a unique business key on financial effects).
+            entry.HasIndex(e => e.Reference).IsUnique().HasFilter("kind = 'LoanDisbursement'").HasDatabaseName("ux_account_entry_loan_disbursement");
             entry.Property(e => e.Amount).HasColumnType("numeric");
             entry.Property(e => e.BalanceAfter).HasColumnType("numeric");
             entry.Property(e => e.Kind).HasConversion<string>().HasMaxLength(32);
@@ -116,6 +120,20 @@ public sealed class AccountsDbContext(DbContextOptions<AccountsDbContext> option
             run.HasKey(r => r.Date);
             run.Property(r => r.PerformedBy).HasMaxLength(PerformedBy.MaxLength);
             run.Property(r => r.Version).HasColumnName("xmin").HasColumnType("xid").IsRowVersion();
+        });
+
+        modelBuilder.Entity<LoanCollection>(collection =>
+        {
+            collection.ToTable("loan_collection");
+            collection.HasKey(c => c.CollectionId);
+            collection.HasIndex(c => c.LoanId);
+            collection.Property(c => c.Purpose).HasMaxLength(16);
+            collection.Property(c => c.Amount).HasColumnType("numeric");
+            collection.Property(c => c.Currency).HasMaxLength(3);
+            collection.Property(c => c.Status).HasMaxLength(16);
+            collection.Property(c => c.Reason).HasMaxLength(64);
+            collection.Property(c => c.PerformedBy).HasMaxLength(PerformedBy.MaxLength);
+            collection.Property(c => c.Version).HasColumnName("xmin").HasColumnType("xid").IsRowVersion();
         });
 
         modelBuilder.Entity<CustomerRef>(customer =>

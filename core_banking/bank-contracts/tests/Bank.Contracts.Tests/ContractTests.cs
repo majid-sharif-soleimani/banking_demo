@@ -30,7 +30,10 @@ public class ContractTests
     {
         ContractCatalog.EventTypes.Select(t => t.Name).ShouldBe(
             ["BusinessDayOpened", "CurrencyActivated", "DayClosed", "DayCompleted", "TestEvent",
-             "CustomerRegistered", "AccountOpened", "MoneyDeposited", "MoneyWithdrawn", "MoneyTransferred", "StandingOrderFailed"],
+             "CustomerRegistered", "AccountOpened", "MoneyDeposited", "MoneyWithdrawn", "MoneyTransferred", "StandingOrderFailed",
+             "LoanApplicationSubmitted", "LoanApplicationStatusChanged", "InformationRequested", "InformationReceived", "AppointmentScheduled",
+             "LoanDisbursed", "InstallmentDue", "PaymentCollected", "PaymentFailed", "CardPaymentCaptured", "LoanPaymentAllocated",
+             "PenaltyAccrued", "LoanClassificationChanged", "LoanPayoffRequested", "LoanPaidOffEarly"],
             ignoreOrder: true);
     }
 

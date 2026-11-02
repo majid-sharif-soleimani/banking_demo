@@ -23,6 +23,67 @@ public static class EmailTemplates
         Your bank
         """);
 
+    public const string InformationRequestedTemplate = "information_requested";
+    public const string PaymentFailedTemplate = "payment_failed";
+    public const string ClassificationWarningTemplate = "classification_warning";
+    public const string PaidOffEarlyTemplate = "paid_off_early";
+
+    public static EmailMessage InformationRequested(string to, string name, string items) => new(
+        to,
+        "We need more information for your loan application",
+        $"""
+        Dear {name},
+
+        To continue reviewing your loan application we need the following:
+
+        {string.Join('\n', items.Split('\n').Select(i => $"- {i}"))}
+
+        You can send the documents to us or reply to this email.
+
+        Kind regards,
+        Your bank
+        """);
+
+    public static EmailMessage PaymentFailed(string to, string name, Money amount, string purpose) => new(
+        to,
+        "A loan payment could not be collected",
+        $"""
+        Dear {name},
+
+        We could not collect your loan {(purpose == "Payoff" ? "early payoff" : "installment")} of {Format(amount)}, because the account did not have enough money.
+
+        {(purpose == "Payoff" ? "Your loan continues as before." : "We will try again on the next business day. Late payments are charged a penalty after the grace period.")}
+
+        Kind regards,
+        Your bank
+        """);
+
+    public static EmailMessage ClassificationWarning(string to, string name, string classification, int daysPastDue) => new(
+        to,
+        "Your loan payments are late",
+        $"""
+        Dear {name},
+
+        A payment on your loan is {daysPastDue} days late, and the loan is now classified as {classification}.
+
+        Please make sure the repayment account has enough money, or contact us to discuss a solution.
+
+        Kind regards,
+        Your bank
+        """);
+
+    public static EmailMessage PaidOffEarly(string to, string name, Money amount, Money waived) => new(
+        to,
+        "Your loan is paid off",
+        $"""
+        Dear {name},
+
+        Thank you. Your loan was paid off early with a final payment of {Format(amount)}. Future interest of {Format(waived)} was waived.
+
+        Kind regards,
+        Your bank
+        """);
+
     private static string Because(string reason) => reason switch
     {
         "insufficient_funds" => "because the account did not have enough money",

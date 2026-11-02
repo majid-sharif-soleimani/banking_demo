@@ -41,4 +41,6 @@ public enum EntryKind
     Withdrawal,
     TransferOut,
     TransferIn,
+    LoanDisbursement,
+    LoanRepayment,
 }
