@@ -28,7 +28,7 @@ sequenceDiagram
   - `Features/CardPayments`: the endpoint, which stores the payment and publishes the result through the outbox;
   - the AppHost entry, platform tests and CI.
 - **Customers**: `CardPaymentDeclinedHandler` with an English email that names the reason.
-- **Lending**: already allocates `CardPaymentCaptured`. New tests show it pays an overdue item with source Card and never prepays a future item (that money is kept as unallocated and logged).
+- **Lending**: already allocates `CardPaymentCaptured`. New tests show it pays an overdue item with source Card, and that a payment for a future item prepays it (since 2026-11-02, ADR bank-lending 0003 point 5; only money left after every item is paid is kept as unallocated and logged).
 
 ## Part 3. Why it is designed this way
 

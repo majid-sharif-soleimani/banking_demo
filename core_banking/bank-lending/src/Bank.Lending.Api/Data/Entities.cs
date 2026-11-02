@@ -347,24 +347,68 @@ public sealed class EndOfDayRun
 }
 
 /// <summary>
-/// A loan's classification changed at the end of <see cref="Date"/>. Written by the end of day next to
-/// LoanClassificationChanged, so the arrears report can answer for any past date (ADR 0006).
+/// The portfolio report's projection (ADR 0006): one row per change to the running loans of a product, written in the same
+/// transaction as the change. Disbursed: +1 loan, +principal; principal paid: −principal; closed: −1 loan. The report on a
+/// date is the sum of the rows on or before it.
 /// </summary>
-public sealed class LoanClassificationChange
+public sealed class PortfolioMovement
 {
+    public Guid Id { get; init; }
+
     public Guid LoanId { get; init; }
 
-    public DateOnly Date { get; init; }
+    public DateOnly BusinessDate { get; init; }
 
-    public LoanClassification FromClassification { get; init; }
+    public required string ProductCode { get; init; }
 
-    public LoanClassification ToClassification { get; init; }
+    public required string Currency { get; init; }
 
-    public int DaysPastDue { get; init; }
+    public int Loans { get; init; }
+
+    public decimal Outstanding { get; init; }
+
+    public ReportMovementReason Reason { get; init; }
 
     public DateTimeOffset CreatedAt { get; init; }
 
     public required string PerformedBy { get; init; }
 
     public uint Version { get; set; }
+}
+
+/// <summary>
+/// The arrears report's projection (ADR 0006): like <see cref="PortfolioMovement"/>, but per classification. A
+/// reclassification moves the loan and its outstanding principal from the old classification to the new one.
+/// </summary>
+public sealed class ArrearsMovement
+{
+    public Guid Id { get; init; }
+
+    public Guid LoanId { get; init; }
+
+    public DateOnly BusinessDate { get; init; }
+
+    public LoanClassification Classification { get; init; }
+
+    public required string Currency { get; init; }
+
+    public int Loans { get; init; }
+
+    public decimal Outstanding { get; init; }
+
+    public ReportMovementReason Reason { get; init; }
+
+    public DateTimeOffset CreatedAt { get; init; }
+
+    public required string PerformedBy { get; init; }
+
+    public uint Version { get; set; }
+}
+
+public enum ReportMovementReason
+{
+    Disbursed,
+    PrincipalPaid,
+    Closed,
+    Reclassified,
 }

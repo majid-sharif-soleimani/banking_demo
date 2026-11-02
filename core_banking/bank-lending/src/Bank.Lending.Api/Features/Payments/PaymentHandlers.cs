@@ -2,6 +2,7 @@ using Bank.Common;
 using Bank.Contracts;
 using Bank.Contracts.Events;
 using Bank.Lending.Api.Data;
+using Bank.Lending.Api.Features.Loans;
 using Bank.Lending.Api.Logic;
 using Bank.Messaging;
 using Microsoft.EntityFrameworkCore;
@@ -110,7 +111,10 @@ internal static class LoanPayments
         DateOnly today, DateOnly asOf, DateTimeOffset now, string actor, CancellationToken ct)
     {
         var rows = loan.Schedule.OrderBy(i => i.Number).ToList();
-        var eligible = loan.Status == LoanStatus.Active ? rows.Where(r => itemNumber is null || r.Number == itemNumber).ToList() : [];
+        // Nothing is allocated to a closed loan, nor while a payoff is pending: the payoff settles its quoted principal, so
+        // money allocated meanwhile would be counted twice. It stays unallocated, owed back (ledger ADR 0002; Majid 2026-11-02).
+        var allocatable = loan.Status == LoanStatus.Active && loan.PendingPayoffCollectionId is null;
+        var eligible = allocatable ? rows.Where(r => itemNumber is null || r.Number == itemNumber).ToList() : [];
         var result = Allocation.Apply([.. eligible.Select(r => r.ToLogic(loan.Currency))], loan.Terms, amount, asOf).Value;
         foreach (var item in result.Schedule)
         {
@@ -128,6 +132,12 @@ internal static class LoanPayments
             Id = Guid.CreateVersion7(), LoanId = loan.Id, SourceId = sourceId, Source = source, Amount = amount.Amount, Principal = principal.Amount,
             Interest = interest.Amount, Penalty = penalty.Amount, Unallocated = result.Unallocated.Amount, BusinessDate = today, CreatedAt = now, PerformedBy = actor,
         });
+        ReportProjections.PrincipalPaid(db, loan, principal.Amount, today, now, actor);
+        // Always write the loan row, so this payment and a concurrent end of day meet on the loan's xmin: the report
+        // projection reads the loan's classification and outstanding principal, and a stale read would skew it for good.
+        // The loser retries on fresh data (review of 2026-11-02).
+        loan.PerformedBy = actor;
+        db.Entry(loan).Property(l => l.PerformedBy).IsModified = true;
         await publisher.PublishAsync(
             new LoanPaymentAllocated(Guid.NewGuid(), today, actor, loan.Id, sourceId, source.ToString(), principal, interest, penalty,
                 result.Unallocated.Amount == 0m ? null : result.Unallocated), loan.Id.ToString(), ct);
@@ -142,6 +152,7 @@ internal static class LoanPayments
 
         if (loan.Status == LoanStatus.Active && rows.All(r => r.Status == ScheduleItemStatus.Paid))
         {
+            ReportProjections.Closed(db, loan, today, now, actor);
             loan.Status = LoanStatus.PaidOff;
             loan.ClosedOn = today;
             loan.Classification = LoanClassification.Current;

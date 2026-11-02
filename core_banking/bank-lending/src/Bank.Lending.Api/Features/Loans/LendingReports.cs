@@ -15,10 +15,9 @@ public sealed record ArrearsLine(string Classification, string Currency, int Loa
 public sealed record ArrearsReport(DateOnly Date, IReadOnlyList<ArrearsLine> Classifications);
 
 /// <summary>
-/// Bank reports over Lending's own data (design plan section 2; ADR 0006), as of the end of a business date:
-/// the loans running on that date are those disbursed on or before it and not closed on or before it; outstanding
-/// principal = principal − principal paid by payments booked on or before it; the classification is the last change on
-/// or before it (Current before any change). Staff only: customers get 403.
+/// Bank reports (design plan section 2), as of the end of a business date. Each report reads its own projection
+/// (ADR 0006, Majid 2026-11-02): the sum of its movement rows on or before the date, written by the features that change a
+/// loan (<see cref="ReportProjections"/>). Staff only: customers get 403.
 /// </summary>
 public static class LendingReports
 {
@@ -28,8 +27,6 @@ public static class LendingReports
         app.MapGet("/reports/arrears", ArrearsAsync).WithTags("Reports");
     }
 
-    private sealed record Running(Guid Id, string ProductCode, string Currency, decimal Outstanding);
-
     private static async Task<IResult> PortfolioAsync(DateOnly? date, HttpRequest http, LendingDbContext db, IBusinessClock clock, CancellationToken ct)
     {
         if (CustomerAccess.IsCustomerCall(http))
@@ -38,10 +35,13 @@ public static class LendingReports
         }
 
         var on = date ?? clock.Today;
-        var loans = await RunningAsync(db, on, ct);
-        var lines = loans.GroupBy(l => (l.ProductCode, l.Currency)).OrderBy(g => g.Key.ProductCode)
-            .Select(g => new PortfolioLine(g.Key.ProductCode, g.Count(), new Money(g.Sum(l => l.Outstanding), g.Key.Currency))).ToList();
-        return Results.Ok(new PortfolioReport(on, lines, loans.Count));
+        var sums = await db.PortfolioMovements.AsNoTracking().Where(m => m.BusinessDate <= on)
+            .GroupBy(m => new { m.ProductCode, m.Currency })
+            .Select(g => new { g.Key.ProductCode, g.Key.Currency, Loans = g.Sum(m => m.Loans), Outstanding = g.Sum(m => m.Outstanding) })
+            .ToListAsync(ct);
+        var lines = sums.Where(x => x.Loans > 0).OrderBy(x => x.ProductCode)
+            .Select(x => new PortfolioLine(x.ProductCode, x.Loans, new Money(x.Outstanding, x.Currency))).ToList();
+        return Results.Ok(new PortfolioReport(on, lines, lines.Sum(l => l.Loans)));
     }
 
     private static async Task<IResult> ArrearsAsync(DateOnly? date, HttpRequest http, LendingDbContext db, IBusinessClock clock, CancellationToken ct)
@@ -52,27 +52,16 @@ public static class LendingReports
         }
 
         var on = date ?? clock.Today;
-        var loans = await RunningAsync(db, on, ct);
-        var ids = loans.Select(l => l.Id).ToList();
-        var latest = (await db.ClassificationChanges.AsNoTracking().Where(c => ids.Contains(c.LoanId) && c.Date <= on).ToListAsync(ct))
-            .GroupBy(c => c.LoanId).ToDictionary(g => g.Key, g => g.MaxBy(c => c.Date)!.ToClassification);
-        // One line per classification and currency: amounts in different currencies are never added (review of 2026-10-31).
-        var lines = (from classification in Enum.GetValues<LoanClassification>()
-                     from currency in loans.Select(l => l.Currency).Distinct().Order()
-                     let inClass = loans.Where(l => l.Currency == currency && latest.GetValueOrDefault(l.Id, LoanClassification.Current) == classification).ToList()
-                     select new ArrearsLine(classification.ToString(), currency, inClass.Count, new Money(inClass.Sum(l => l.Outstanding), currency))).ToList();
-        return Results.Ok(new ArrearsReport(on, lines));
-    }
-
-    private static async Task<List<Running>> RunningAsync(LendingDbContext db, DateOnly on, CancellationToken ct)
-    {
-        var loans = await db.Loans.AsNoTracking()
-            .Where(l => l.DisbursedOn <= on && (l.ClosedOn == null || l.ClosedOn > on))
-            .Select(l => new { l.Id, l.ProductCode, l.Currency, l.Principal })
+        var sums = await db.ArrearsMovements.AsNoTracking().Where(m => m.BusinessDate <= on)
+            .GroupBy(m => new { m.Classification, m.Currency })
+            .Select(g => new { g.Key.Classification, g.Key.Currency, Loans = g.Sum(m => m.Loans), Outstanding = g.Sum(m => m.Outstanding) })
             .ToListAsync(ct);
-        var ids = loans.Select(l => l.Id).ToList();
-        var paid = await db.Payments.AsNoTracking().Where(p => ids.Contains(p.LoanId) && p.BusinessDate <= on)
-            .GroupBy(p => p.LoanId).Select(g => new { LoanId = g.Key, Principal = g.Sum(p => p.Principal) }).ToDictionaryAsync(x => x.LoanId, x => x.Principal, ct);
-        return [.. loans.Select(l => new Running(l.Id, l.ProductCode, l.Currency, l.Principal - paid.GetValueOrDefault(l.Id)))];
+        // Every classification for each currency with running loans; amounts in different currencies are never added
+        // (review of 2026-10-31).
+        var lines = (from classification in Enum.GetValues<LoanClassification>()
+                     from currency in sums.Where(x => x.Loans > 0).Select(x => x.Currency).Distinct().Order()
+                     let sum = sums.SingleOrDefault(x => x.Classification == classification && x.Currency == currency)
+                     select new ArrearsLine(classification.ToString(), currency, sum?.Loans ?? 0, new Money(sum?.Outstanding ?? 0m, currency))).ToList();
+        return Results.Ok(new ArrearsReport(on, lines));
     }
 }

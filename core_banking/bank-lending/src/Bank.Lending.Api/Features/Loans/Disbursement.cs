@@ -76,6 +76,7 @@ public static class Disbursement
         }
 
         s.Db.Loans.Add(loan);
+        ReportProjections.Disbursed(s.Db, loan, today, now, actor);
         application.LoanId = loan.Id;
         await s.Publisher.PublishAsync(
             new LoanDisbursed(Guid.NewGuid(), today, actor, loan.Id, application.Id, loan.CustomerId, loan.RepaymentAccountId, principal),
