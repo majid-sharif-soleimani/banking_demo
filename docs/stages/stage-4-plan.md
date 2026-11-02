@@ -58,10 +58,17 @@ Environment: `~/repos/banking_demo` on `<machine>`, branch `stage-4-customers-ac
 - Done-when: customers 37, accounts 115, platform 33, contracts 221 tests green.
 - `banking-reviewer`: no money-correctness defect; it independently recomputed the FX results. REQUIRED, fixed: a replay ignored `X-Customer-Id` (now part of the idempotency operation, with a test). OPTIONAL, applied: Idempotency-Key on standing orders; statement `to` after today rejected; a stuck order becomes a `technical_error` failed run; Riksbank per-100 quotes; the catch-up wording documented. Not applied: normalizing amounts before hashing (documented in ADR 0003).
 - Infrastructure: `Bank.Testing` 0.3.1 (test PostgreSQL `max_connections=500`, pools cleared on dispose).
-- To review: accounts ADRs 0001–0003, contracts ADR 0017. `/retro 4` pending. Not merged; stage 5 continues on `stage-5-lending-service`.
+- To review: accounts ADRs 0001–0003, contracts ADR 0017 (done 2026-11-02, see the sign-off below). `/retro 4` pending. Not merged; stage 5 continues on `stage-5-lending-service`.
 
 ## Done when
 
 ```bash
 for r in bank-customers bank-accounts bank-platform; do (cd core_banking/$r && dotnet build && dotnet test); done
 ```
+
+## Sign-off (2026-11-02)
+
+- `master` (reviewed stages 2 and 3) merged into this branch first. Done-when re-run after the merge: contracts 221, customers 37, accounts 115, platform 33 tests green.
+- Majid reviewed and confirmed the four decisions: accounts 0001 (reject with 422 `customer_not_found` until `CustomerRegistered` arrives), 0002 (stored balance under `xmin`), 0003 (idempotency records in the same transaction) and contracts 0017 (`ExchangeRate` record, shared `BankServiceApp`). All four ADRs are now Accepted.
+- Retro skipped, as in stage 3.
+
