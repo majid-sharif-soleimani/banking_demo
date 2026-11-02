@@ -1,0 +1,6 @@
+id,first_name,last_name,date_of_birth,email,phone,address
+C1,Alice,Andersson,1980-02-01,alice@example.com,+46 70 000 00 01,Example Street 1
+C2,Bertil,Berg,1975-07-12,bertil@example.com,+46 70 000 00 02,Example Street 2
+C3,Cecilia,Carlsson,1990-11-30,cecilia@example.com,+46 70 000 00 03,"Example Street 3, Flat 4"
+C4,David,Dahl,1985-04-04,david@example.com,+46 70 000 00 04,Example Street 4
+C5,Eva,Ek,1999-09-09,eva@example.com,+46 70 000 00 05,Example Street 5

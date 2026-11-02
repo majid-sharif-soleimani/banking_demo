@@ -1,0 +1,4 @@
+id,customer_id,account_id,type,amount,term_months,start_date
+L1,C1,A1,Car loan,3000,12,2019-05-02
+L2,C3,A3,Personal,1500,6,2019-05-03
+L3,C5,A5,Home mortgage,1000,120,2019-05-03

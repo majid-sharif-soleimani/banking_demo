@@ -11,7 +11,7 @@ Updated by `/close-stage`. One row per stage from section 10 of `phase1-design-p
 | 4 | Customers and Accounts | Done | 2026-11-02 | Slices 4.1–4.5; customers 37, accounts 115, platform 33, contracts 221 green (re-run 2026-11-02 after merging master); accounts ADRs 0001–0003 and contracts 0017 confirmed by Majid; retro skipped; merged into master |
 | 5 | Lending service | Done | 2026-11-02 | Slices 5.1–5.6; lending 1,612, customers 58, accounts 120, operations 61, platform 35 green (re-run 2026-11-02 after merging master); handler on the new Allocation.Apply; ADRs lending 0004–0005 accepted by Majid without review; retro skipped; merged into master |
 | 6 | Cards and Ledger | Done | 2026-11-02 | Slices 6.1–6.4; cards 13, ledger 28, lending 1,621, customers 58, accounts 120, operations 61, platform 39 green (2026-11-02 after merging master); lending 0006 changed by Majid to movement projections per report, payments during a pending payoff unallocated; ledger 0001–0002 confirmed; retro skipped; merged into master |
-| 7 | Gateway and data import | Not started | | |
+| 7 | Gateway and data import | Done | 2026-11-02 | Slices 7.1–7.5; gateway 9, data-import 34, platform 47 green (2026-11-02 after merging master); data-import 0001 confirmed by Majid; column mapping still to check against the real export; retro skipped; merged into master |
 | 8 | End-to-end and AWS | Not started | | |
 
 ## Open questions
@@ -20,4 +20,4 @@ Updated by `/close-stage`. One row per stage from section 10 of `phase1-design-p
 
 - Account number format decided on 2026-10-30 (9 digits: 8 random plus Luhn). Its ADR is still to be written by Majid (workspace `docs/adr/0003`).
 
-- 2026-11-02: stage 3 changed `Allocation.Apply` (new `LoanTerms` parameter, prepayment of later items) and the early payoff accrual. The chained branches `stage-4-customers-accounts` … `stage-8-e2e-aws` were built on the old stage 3; the stage 5 payment handler still calls the old signature and says "never prepaid". Bring them up to date before reviewing stage 4 and later. Done for `stage-4-customers-accounts` on 2026-11-02 (master merged in, then merged into master); stages 5 and 6 done the same way on 2026-11-02; stages 7 and 8 follow when their turn comes.
+- 2026-11-02: stage 3 changed `Allocation.Apply` (new `LoanTerms` parameter, prepayment of later items) and the early payoff accrual. The chained branches `stage-4-customers-accounts` … `stage-8-e2e-aws` were built on the old stage 3; the stage 5 payment handler still calls the old signature and says "never prepaid". Bring them up to date before reviewing stage 4 and later. Done for `stage-4-customers-accounts` on 2026-11-02 (master merged in, then merged into master); stages 5–7 done the same way on 2026-11-02; stage 8 follows.

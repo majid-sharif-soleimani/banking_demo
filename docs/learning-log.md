@@ -52,3 +52,11 @@ Still unclear: not recorded.
 What I would change: not recorded.
 Working-style changes for next stage: not recorded.
 
+## Stage 7: Gateway and data import (2026-11-02)
+Concepts: API gateway and reverse proxy, correlation ids and distributed tracing, ETL, idempotent replay of historical data.
+Decisions I made: poll the business date through the gateway and replay sequentially (bank-data-import 0001); skip and report out-of-range loans; equal quarterly stages for PURCHASE loans. All confirmed from Claude's delegated proposals.
+What I understood: not recorded; Majid skipped the retro questions.
+Still unclear: not recorded.
+What I would change: not recorded.
+Working-style changes for next stage: not recorded.
+

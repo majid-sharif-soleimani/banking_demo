@@ -8,7 +8,9 @@ namespace Bank.Messaging.Kafka;
 /// <summary>
 /// Creates the topics this service writes to or reads from, each with its .dlt topic, before any hosted service
 /// starts: the outbox dispatcher never sends to a missing topic, and the consumer never subscribes to one.
-/// A topic that already exists is left as it is.
+/// A topic that already exists is left as it is. Creation returns before the broker's metadata shows the new topic, and
+/// a consumer that subscribes in that gap only looks again at its next metadata refresh, so this waits until every topic
+/// has a leader for each partition.
 /// </summary>
 internal sealed class KafkaTopicInitializer(IOptions<KafkaOptions> kafka, IOptions<BankMessagingOptions> messaging)
     : IHostedLifecycleService
@@ -37,7 +39,33 @@ internal sealed class KafkaTopicInitializer(IOptions<KafkaOptions> kafka, IOptio
         {
             // Another instance or service created them first.
         }
+
+        await WaitUntilVisibleAsync(admin, [.. topics.Select(t => t.Name)], cancellationToken);
     }
+
+    private static async Task WaitUntilVisibleAsync(IAdminClient admin, IReadOnlyList<string> topics, CancellationToken ct)
+    {
+        var deadline = DateTime.UtcNow + MetadataWait;
+        while (true)
+        {
+            var metadata = admin.GetMetadata(TimeSpan.FromSeconds(5));
+            var missing = topics.Where(name => !metadata.Topics.Any(t =>
+                t.Topic == name && t.Error.Code == ErrorCode.NoError && t.Partitions.Count > 0 && t.Partitions.All(p => p.Leader >= 0))).ToList();
+            if (missing.Count == 0)
+            {
+                return;
+            }
+
+            if (DateTime.UtcNow > deadline)
+            {
+                throw new InvalidOperationException($"Kafka topics not visible after {MetadataWait.TotalSeconds}s: {string.Join(", ", missing)}.");
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(250), ct);
+        }
+    }
+
+    private static readonly TimeSpan MetadataWait = TimeSpan.FromSeconds(60);
 
     public Task StartAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 

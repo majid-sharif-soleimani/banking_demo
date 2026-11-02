@@ -1,0 +1,2 @@
+id,account_id,target_account_id,amount,frequency,start_date,end_date
+S1,A1,A3,100,weekly,2019-05-03,

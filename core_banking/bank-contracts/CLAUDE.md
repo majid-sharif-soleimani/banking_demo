@@ -56,6 +56,7 @@ Shared packages for every service: `Bank.Contracts`, `Bank.Common`, `Bank.Toolki
 - `Bank.Messaging.IntegrationTests` and `Bank.Toolkit.Data.IntegrationTests` need Docker. Each test creates its own role and schema in one shared PostgreSQL container. The Kafka tests share one broker per class and keep apart by unique service names (own topics and groups).
 - `KafkaOptions.RetryDelays` starts empty and gets its default after binding: the configuration binder appends configured array items to existing ones instead of replacing them.
 - Test code may read raw Kafka topics (`Support/KafkaTopicReader`) through the transitive Confluent.Kafka reference; no other `.csproj` may reference it directly. Nothing public in `Bank.Messaging.Kafka` may expose a Confluent type: `KafkaHeaders` is `internal`, visible only to the test projects.
+- `CreateTopicsAsync` returns before the broker's metadata shows a new topic. A consumer that subscribes in that gap waits for its next metadata refresh (librdkafka default 5 minutes), so `KafkaTopicInitializer` waits until every topic has partition leaders, and the consumer refreshes every 10 s (0.6.1).
 - `CurrencyActivated.MinorUnits` is capped at 28 (the most a `decimal` holds), like `MoneyRounding`.
 
 ## Commands
