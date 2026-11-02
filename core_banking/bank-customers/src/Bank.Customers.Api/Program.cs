@@ -1,3 +1,4 @@
+using Amazon.S3;
 using Bank.Common;
 using Bank.Contracts.Events;
 using Bank.Customers.Api.Data;
@@ -30,9 +31,27 @@ builder.Services.AddEventHandler<LoanClassificationChanged, LoanClassificationCh
 builder.Services.AddEventHandler<LoanPaidOffEarly, LoanPaidOffEarlyHandler>();
 builder.Services.AddEventHandler<CardPaymentDeclined, CardPaymentDeclinedHandler>();
 
-// Uploaded documents (design plan ADR 18): the local file system now, S3 in stage 8.
+// Uploaded documents (design plan ADR 18): the local file system in development, S3 on AWS (Files:Provider).
+var files = builder.Configuration.GetSection(FileStorageOptions.Section).Get<FileStorageOptions>() ?? new FileStorageOptions();
 builder.Services.AddOptions<FileStorageOptions>().Bind(builder.Configuration.GetSection(FileStorageOptions.Section));
-builder.Services.AddSingleton<IFileStorage, LocalFileStorage>();
+if (files.Provider == "S3")
+{
+    if (string.IsNullOrWhiteSpace(files.Bucket))
+    {
+        throw new InvalidOperationException("Files:Bucket is required when Files:Provider is S3 (env/customers.env on the EC2 instance).");
+    }
+
+    builder.Services.AddSingleton<IAmazonS3>(_ => new AmazonS3Client());
+    builder.Services.AddSingleton<IFileStorage, S3FileStorage>();
+}
+else if (files.Provider == "Local")
+{
+    builder.Services.AddSingleton<IFileStorage, LocalFileStorage>();
+}
+else
+{
+    throw new InvalidOperationException($"Files:Provider must be Local or S3, not '{files.Provider}'.");
+}
 
 builder.Services.AddOptions<EmailOptions>().Bind(builder.Configuration.GetSection(EmailOptions.Section));
 builder.Services.AddSingleton(_ => SmtpEndpoint.Parse(Required("mailpit", "the AppHost sets it from the Mailpit resource")));

@@ -1,0 +1,41 @@
+name: bank-e2e
+
+# The end-to-end scenarios (bank-platform/tests/Bank.EndToEndTests): the whole AppHost, about 4–5 minutes. They run on
+# every push to master and on demand; every push to any branch also runs each service's own tests (bank-platform ADR 0003,
+# Majid 2026-11-02).
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+# A newer push to master cancels the run for the older commit, so minutes go to the commit that matters.
+concurrency:
+  group: bank-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  end-to-end:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: core_banking/bank-platform
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      # The local feed is gitignored: build the shared Bank.* packages from this commit into it. Nothing is published.
+      - run: dotnet pack ../bank-contracts -c Release -o ../.local-feed
+      - run: dotnet pack src/Bank.ServiceDefaults -c Release -o ../.local-feed
+      - run: dotnet dev-certs https
+      - run: dotnet test tests/Bank.EndToEndTests -c Release
+      # Each scenario keeps every service's log; keep them when a scenario fails.
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-logs
+          path: core_banking/bank-platform/tests/Bank.EndToEndTests/bin/Release/net10.0/e2e-logs/

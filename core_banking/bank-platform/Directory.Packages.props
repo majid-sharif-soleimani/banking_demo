@@ -16,6 +16,9 @@
     <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.20.1" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.20.1" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.20.1" />
+    <!-- AWS CDK (deploy/cdk) -->
+    <PackageVersion Include="Amazon.CDK.Lib" Version="2.273.0" />
+    <PackageVersion Include="Constructs" Version="10.8.1" />
     <!-- Tests -->
     <PackageVersion Include="Aspire.Hosting.Testing" Version="13.6.4" />
     <PackageVersion Include="Npgsql" Version="10.0.3" />

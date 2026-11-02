@@ -22,6 +22,7 @@ Customers and what the bank tells them. Stage 4: registration and notifications.
 - The email is sent before the handler's transaction commits: at least once, never zero. A crash in between can send it twice.
 - `ConnectionStrings:mailpit` must be `Endpoint=smtp://host:port` (Aspire's format); `Email:From` is a placeholder address.
 - Registration needs a business date: until `BusinessDayOpened` arrives, `IBusinessClock.Today` throws.
+- Uploaded files go through `IFileStorage`, chosen by `Files:Provider`: `Local` (default, `Files:Root`) or `S3` (`Files:Bucket`, `Files:Prefix` = `files/`; credentials from the default chain, the instance role on AWS). An unknown provider, or S3 without a bucket, fails at startup. `S3FileStorageTests` run against LocalStack 4.9 (the last image without an account token; MinIO images are no longer pullable).
 - Tests: `Support/CustomersApp` extends `BankServiceApp<Program>` from `Bank.Testing` and replaces `IEmailSender` with `InMemoryEmailSender`.
 
 ## Commands

@@ -1,0 +1,8 @@
+[Unit]
+Description=Demo bank database backup to S3
+After=bank.service
+Requires=bank.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/bank/deploy/backup-db.sh

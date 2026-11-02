@@ -1,0 +1,15 @@
+[Unit]
+Description=Demo bank (Docker Compose)
+After=docker.service network-online.target
+Requires=docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/opt/bank/deploy/start-bank.sh
+ExecStop=/usr/local/lib/docker/cli-plugins/docker-compose -f /opt/bank/deploy/docker-compose.aws.yml stop
+TimeoutStartSec=900
+
+[Install]
+WantedBy=multi-user.target

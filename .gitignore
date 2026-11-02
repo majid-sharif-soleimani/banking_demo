@@ -23,3 +23,13 @@ appsettings.*.local.json
 # Data import: the dataset export and the generated report (personal-looking sample data)
 core_banking/bank-data-import/data/raw/
 core_banking/bank-data-import/data/import-report.md
+
+# Per-container env files with secrets, written on the EC2 instance by start-bank.sh (bank-platform ADR 0004)
+core_banking/bank-platform/deploy/env/
+
+# AWS CDK output and local context (.claude/rules/secrets.md)
+cdk.out/
+cdk.context.json
+
+# The secret JSON while Majid sets it (deploy/README.md); belongs outside the repository anyway
+bank-secret.json

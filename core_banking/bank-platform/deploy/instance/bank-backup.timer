@@ -1,0 +1,10 @@
+[Unit]
+Description=Nightly demo bank database backup
+
+[Timer]
+OnCalendar=*-*-* 02:00:00 UTC
+# The instance is usually stopped at night; run a missed backup soon after the next start.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

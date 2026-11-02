@@ -1,0 +1,7 @@
+{
+  "app": "dotnet run --project src/Bank.Deploy/Bank.Deploy.csproj",
+  "context": {
+    "bank:region": "eu-north-1",
+    "bank:imageTag": "latest"
+  }
+}

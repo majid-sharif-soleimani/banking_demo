@@ -60,3 +60,11 @@ Still unclear: not recorded.
 What I would change: not recorded.
 Working-style changes for next stage: not recorded.
 
+## Stage 8: End-to-end and AWS (2026-11-02)
+Concepts: the top of the test pyramid, infrastructure as code, container images and registries, CI/CD, cost-driven design.
+Decisions I made: one t4g.medium started and stopped by hand (bank-platform 0002); end-to-end scenarios on every push to master, replacing Claude's on-demand proposal (0003); one Secrets Manager secret written at boot to one env file per container (0004); scenario 3 accepted as written on delegation.
+What I understood: not recorded; Majid skipped the retro questions.
+Still unclear: not recorded.
+What I would change: not recorded.
+Working-style changes for next stage: not recorded.
+
