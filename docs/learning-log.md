@@ -11,3 +11,11 @@ What I understood: not recorded; Majid skipped the retro questions.
 Still unclear: not recorded.
 What I would change: not recorded.
 Working-style changes for next stage: not recorded.
+
+## Stage 2: Operations (2026-11-02)
+Concepts: choreography versus orchestration, the business day state machine (Open, Closing, Closed), idempotent handlers under concurrent delivery (row lock `FOR UPDATE`, READ COMMITTED, exclusion constraint), the local `business_day` table with "latest date wins" and one date per scope, configuration instead of hard-coding.
+Decisions I made: made by Claude on my delegation of 2026-10-31, reviewed and confirmed on 2026-11-02: lock the current business day while handling DayCompleted (bank-operations 0001); the business-day consumer lives in Bank.Messaging (bank-contracts 0016).
+What I understood: in choreography each service waits for messages and acts on them. It needs no coordinator and probably suits a system with many services better, but it makes it harder to trace one operation and its effects in the other systems. It has no single point of failure and, implemented correctly, can be more resilient. In orchestration a coordinator sends the messages and moves a state machine. In a system as small as ours I think orchestration would be the better fit.
+Still unclear: nothing; all stage 2 concepts are clear.
+What I would change: nothing; keep the close-day flow as choreography.
+Working-style changes for next stage: in multiple-choice questions, put each option on its own single line. In a Persian conversation, every sentence, paragraph, bullet point and list item starts with a Persian word.

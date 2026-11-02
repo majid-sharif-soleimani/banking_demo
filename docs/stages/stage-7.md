@@ -30,6 +30,7 @@ Input: the CSV export of the databasesample.com bank sample database, 100K size,
 
 Console app `Bank.DataImport`:
 
+0. Activate SEK, EUR and USD through `POST /currencies/{code}/activate` (they are seeded inactive; bank-operations ADR 0002). Activating an active currency is a no-op, so a re-run is safe.
 1. Read customers, accounts, transactions, loans, loan payments, standing orders.
 2. Select 100 customers: at least 30 with a loan, at least 10 with late payments, at least 15 with standing orders, the rest random with a fixed seed.
 3. Shift all dates so the latest event lands on `Operations:StartDate` + import span; keep at most the last 2 years.

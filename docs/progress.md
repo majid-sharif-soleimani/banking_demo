@@ -6,7 +6,7 @@ Updated by `/close-stage`. One row per stage from section 10 of `phase1-design-p
 | --- | --- | --- | --- | --- |
 | 0 | Design and requirements | Done | 2026-10-29 | All assumptions in section 11 confirmed |
 | 1 | Foundation: contracts, messaging, platform | Done | 2026-10-30 | Slices 1.1 to 1.4 done; 179 + 27 tests green; review fixes in, accepted demo limits in implementation-decisions |
-| 2 | Operations | Not started | | |
+| 2 | Operations | Ready for review | 2026-11-02 | Slices 2.1–2.4 done; 17+44 Operations, 29 platform, 185 contracts green (re-run 2026-11-02); ADRs ops 0001 and contracts 0016 confirmed by Majid; retro done; awaiting merge approval |
 | 3 | Lending pure logic (TDD) | Not started | | |
 | 4 | Customers and Accounts | Not started | | |
 | 5 | Lending service | Not started | | |
@@ -15,5 +15,7 @@ Updated by `/close-stage`. One row per stage from section 10 of `phase1-design-p
 | 8 | End-to-end and AWS | Not started | | |
 
 ## Open questions
+
+- 2026-10-31: Majid delegated D1 decisions for stages 2–8 to Claude (no questions). Each stage plan lists them under "Decisions to review"; their ADRs say "to be reviewed by Majid". Stage branches are chained (each from the previous), none merged into `master`.
 
 - Account number format decided on 2026-10-30 (9 digits: 8 random plus Luhn). Its ADR is still to be written by Majid (workspace `docs/adr/0003`).

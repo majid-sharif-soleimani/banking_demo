@@ -12,4 +12,8 @@
     <PackageReference Include="Aspire.Hosting.Kafka" />
     <PackageReference Include="CommunityToolkit.Aspire.Hosting.MailPit" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- The services, in the stages that create them; each reference generates a Projects.<Name> type. -->
+    <ProjectReference Include="..\..\..\bank-operations\src\Bank.Operations.Api\Bank.Operations.Api.csproj" />
+  </ItemGroup>
 </Project>
