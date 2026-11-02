@@ -177,17 +177,18 @@ public class LoanLifecycleTests(PostgresFixture postgres)
     }
 
     [Fact]
-    public async Task A_card_payment_for_a_future_installment_is_not_prepaid()
+    public async Task A_card_payment_for_a_future_installment_prepays_it()
     {
+        // Item 2 is not due yet. Since Majid's review of 2026-11-02 money for a later item prepays it (ADR 0003, point 5):
+        // 6,170.85 covers item 2 in full, so nothing is left to give back.
         var (app, _, loan) = await CarLoanAsync(postgres, 0m);
         await using var _app = app;
 
         await app.DeliverAsync(new CardPaymentCaptured(Guid.NewGuid(), LendingApp.Today, "customer", Guid.NewGuid(), loan.Id, 2, Sek(6_170.85m)), loan.Id.ToString());
 
-        (await LoanAsync(app, loan.Id)).Schedule[1].Status.ShouldBe("Unpaid");
-        (await app.ScalarAsync<decimal>("SELECT unallocated FROM loan_payment")).ShouldBe(6_170.85m);
-        // The money is not lost: the event carries it, and Ledger books it as owed back to the customer.
+        (await LoanAsync(app, loan.Id)).Schedule[1].Status.ShouldBe("Paid");
+        (await app.ScalarAsync<decimal>("SELECT unallocated FROM loan_payment")).ShouldBe(0m);
         await app.OutboxDrainedAsync();
-        app.Published<LoanPaymentAllocated>().ShouldHaveSingleItem().Unallocated.ShouldBe(Sek(6_170.85m));
+        app.Published<LoanPaymentAllocated>().ShouldHaveSingleItem().Unallocated.ShouldBeNull(); // optional field, set only when money is left over
     }
 }

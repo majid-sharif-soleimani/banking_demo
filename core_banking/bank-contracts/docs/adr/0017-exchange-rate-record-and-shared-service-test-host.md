@@ -1,6 +1,6 @@
 # 0017. Return an ExchangeRate record, and share the service test host
 
-- Status: Accepted (to be reviewed by Majid)
+- Status: Accepted (reviewed and confirmed by Majid on 2026-11-02)
 - Date: 2026-10-31
 - Scope: bank-contracts
 - Design plan reference: section 2 (exchange rates: "rate, source and timestamp are stored on the transaction"), ADR row 20

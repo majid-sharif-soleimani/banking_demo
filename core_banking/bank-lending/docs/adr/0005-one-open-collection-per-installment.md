@@ -1,6 +1,6 @@
 # 0005. One open collection per installment, keyed by a collection id
 
-- Status: Accepted (to be reviewed by Majid)
+- Status: Accepted (accepted by Majid without a detailed review on 2026-11-02)
 - Date: 2026-10-31
 - Scope: bank-lending (and bank-accounts)
 - Design plan reference: section 2 (automatic payment, retried every business day); section 4, ADR row 08 (unique business key for financial effects)

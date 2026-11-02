@@ -49,7 +49,7 @@ sequenceDiagram
   - a repeated key returns the same payment and captures once, and another body gives 422;
   - another customer's loan, and a wrong currency or decimals, are rejected.
 - **Customers:** a declined card sends one email naming the reason.
-- **Lending** (2 new tests): a card payment pays an overdue installment with source Card; one for a future installment is not prepaid.
+- **Lending** (2 new tests): a card payment pays an overdue installment with source Card; one for a future installment prepays it (changed on 2026-11-02 to follow the stage 3 prepayment rule, ADR bank-lending 0003 point 5; before, it was returned as unallocated).
 - **Platform:** `cards` becomes healthy with its 3 test cards (37 tests).
 
 ## 5. Check your understanding

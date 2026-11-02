@@ -1,6 +1,6 @@
 # 0002. Report invalid loan input with Result<T> and error codes
 
-- Status: Accepted (to be reviewed by Majid)
+- Status: Accepted (reviewed and confirmed by Majid on 2026-11-02)
 - Date: 2026-10-31
 - Scope: bank-lending
 - Design plan reference: `implementation-decisions.md`, "APIs" (422 with a `code`); `.claude/rules/financial-logic.md`

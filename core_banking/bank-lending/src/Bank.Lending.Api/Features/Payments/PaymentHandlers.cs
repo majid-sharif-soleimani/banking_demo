@@ -103,14 +103,15 @@ internal static class LoanPayments
         ?? throw new InvalidOperationException($"Payment for unknown loan {loanId}.");
 
     /// <param name="itemNumber">A card payment for one chosen installment; null allocates to all items due (oldest first).</param>
-    /// <param name="asOf">Items due on or before it can be paid; later ones are never prepaid (ADR 0003, point 5).</param>
+    /// <param name="asOf">Items due on or before it are paid penalty, interest, principal; money left prepays later items,
+    /// pro rata between principal and interest for a partly covered one (ADR 0003, point 5).</param>
     public static async Task AllocateAsync(
         LendingDbContext db, IEventPublisher publisher, Loan loan, Guid sourceId, PaymentSource source, Money amount, int? itemNumber,
         DateOnly today, DateOnly asOf, DateTimeOffset now, string actor, CancellationToken ct)
     {
         var rows = loan.Schedule.OrderBy(i => i.Number).ToList();
         var eligible = loan.Status == LoanStatus.Active ? rows.Where(r => itemNumber is null || r.Number == itemNumber).ToList() : [];
-        var result = Allocation.Apply([.. eligible.Select(r => r.ToLogic(loan.Currency))], amount, asOf).Value;
+        var result = Allocation.Apply([.. eligible.Select(r => r.ToLogic(loan.Currency))], loan.Terms, amount, asOf).Value;
         foreach (var item in result.Schedule)
         {
             var row = rows.Single(r => r.Number == item.Number);
@@ -133,8 +134,9 @@ internal static class LoanPayments
 
         if (result.Unallocated.Amount > 0m)
         {
-            // Over-collection (for example a card payment on an item that was collected meanwhile): kept on the payment row
-            // and logged, so someone refunds it. There is no automatic refund in phase 1.
+            // Over-collection: more than every eligible item still owes (for example a card payment on an item that was
+            // collected meanwhile, or more than the whole loan). Kept on the payment row and logged, so someone refunds it.
+            // There is no automatic refund in phase 1.
             Log.Unallocated(db.GetService<ILoggerFactory>().CreateLogger("Bank.Lending.Payments"), loan.Id, sourceId, result.Unallocated.ToString());
         }
 

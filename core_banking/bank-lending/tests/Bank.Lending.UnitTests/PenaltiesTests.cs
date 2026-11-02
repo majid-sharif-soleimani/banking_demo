@@ -40,7 +40,7 @@ public class PenaltiesTests
     public void ForDay_PartPaidDuringGrace_ChargesOnlyTheRemainder()
     {
         // 18 Feb (grace) the customer pays 1,158.33, the interest. Day 6: 5,012.52 × 0.0005 = 2.50626 → 2.51
-        var paid = Allocation.Apply(Car36, Sek(1_158.33m), new DateOnly(2026, 2, 18)).Value.Schedule;
+        var paid = Allocation.Apply(Car36, CarTerms, Sek(1_158.33m), new DateOnly(2026, 2, 18)).Value.Schedule;
 
         Penalties.ForDay(paid, CarTerms, new DateOnly(2026, 2, 21))[0].PenaltyDue.ShouldBe(Sek(2.51m));
     }
@@ -48,7 +48,7 @@ public class PenaltiesTests
     [Fact]
     public void ForDay_PaidInFullDuringGrace_ChargesNothing()
     {
-        var paid = Allocation.Apply(Car36, Sek(6_170.85m), new DateOnly(2026, 2, 20)).Value.Schedule;
+        var paid = Allocation.Apply(Car36, CarTerms, Sek(6_170.85m), new DateOnly(2026, 2, 20)).Value.Schedule;
 
         Penalties.ForDay(paid, CarTerms, new DateOnly(2026, 2, 21))[0].PenaltyDue.Amount.ShouldBe(0m);
     }
