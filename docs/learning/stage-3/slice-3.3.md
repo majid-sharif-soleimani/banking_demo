@@ -16,7 +16,7 @@ Once a schedule exists, two things change it every day:
 ### 1.2 Why it is hard
 
 - **The order matters for money.** Paying principal before interest would leave the bank with unpaid interest that keeps a loan overdue, while the customer believes they paid. The order is a business rule, not a detail.
-- **Overpayment.** The stage file says an overpayment is *returned*, not applied to future items. That means the date of the payment decides which items may be paid at all (ADR 0003).
+- **Overpayment.** Money left after the due items prepays the next items in order. A partly covered item gets the money split between principal and interest in proportion (ADR 0003, point 5). Only money left after the whole loan is paid is returned.
 - **Grace boundaries.** Day 5 is still free and day 6 is not. An off-by-one here charges every late customer one day too many or too few.
 - **No penalty on penalty.** The base is unpaid principal plus unpaid interest only.
 
@@ -26,7 +26,7 @@ Once a schedule exists, two things change it every day:
 
 ```mermaid
 flowchart LR
-    S["schedule"] --> A["Allocation.Apply(schedule, amount, date)"]
+    S["schedule"] --> A["Allocation.Apply(schedule, terms, amount, date)"]
     A --> R["AllocationResult<br/>new schedule,<br/>ItemAllocation per item,<br/>Unallocated (returned)"]
     S --> P["Penalties.ForDay(schedule, terms, date)"]
     P --> S2["new schedule<br/>PenaltyDue increased<br/>on items past grace"]
@@ -35,12 +35,14 @@ flowchart LR
 ### 2.1 `Allocation.Apply` (`Logic/Allocation.cs`)
 
 1. **Rejections:** an amount ≤ 0 returns `payment_not_positive`, and an amount in another currency returns `currency_mismatch`.
-2. **Eligible items:** due on or before the payment date and not fully paid, ordered by due date and then number.
-3. For each eligible item, while money is left, `Take` pays the unpaid penalty, then the unpaid interest, then the unpaid principal. `Take` never pays more than is owed.
+2. **Eligible items:** every item not fully paid, ordered by due date and then number. Items due on or before the payment date therefore come first.
+3. For each item, while money is left:
+   - a due item, or a later item the money covers in full: `Take` pays the unpaid penalty, then the unpaid interest, then the unpaid principal. `Take` never pays more than is owed;
+   - a later item the money covers only in part: `ProRata` splits all the money between unpaid principal and unpaid interest in proportion. Principal is rounded with the loan's `MinorUnits` (the reason `Apply` takes `LoanTerms`), and interest takes the rest, so no cent is lost.
 4. **Result:**
    - the new schedule (the input is unchanged, ADR 0001);
    - one `ItemAllocation(Number, Penalty, Interest, Principal)` per item touched. Stage 6's ledger needs this split to book interest income separately from principal;
-   - `Unallocated`, what is left, to be returned.
+   - `Unallocated`, what is left after every item is paid, to be returned.
 
 ### 2.2 `Penalties.ForDay` (`Logic/Penalties.cs`)
 
@@ -57,7 +59,7 @@ It is one day per call and charged per item, rounded once per item per day. Beca
 
 ### 3.1 Interpretations (bank-lending ADR 0003, for your review)
 
-- **Only items due on or before the payment date are paid.** This is the most conservative reading of "overpayment is returned, not applied to future items".
+- **Prepayment (changed by Majid on 2026-11-02).** The first version paid only items due on or before the payment date and returned the rest, the most conservative reading of the stage file. In the review Majid chose to let the money prepay later items: in order, a partly covered one split pro rata between principal and interest, with no interest waived and no recalculated schedule. The price: a customer who prepays and later pays off early does not get back interest already prepaid. Majid accepted that for the demo scope.
 - **Unpaid penalty alone does not earn more penalty** (stated in the stage file), but it does keep the item unpaid. That matters for classification (slice 3.4).
 
 ### 3.2 Design choices I made (D2)
@@ -86,8 +88,10 @@ It is one day per call and charged per item, rounded once per item per day. Beca
 - an item with a penalty: 3.09 penalty, 1,158.33 interest and 5,009.43 principal, so 3.09 of principal stays unpaid;
 - two due items, oldest first;
 - an older item's penalty paid before a newer item's interest;
-- an overpayment of 829.15 returned, with the future item untouched;
-- a payment before any due date allocates nothing;
+- an overpayment of 829.15 prepays item 2 pro rata (677.41 principal, 151.74 interest);
+- an overpayment covering item 2 in full moves on to item 3;
+- more than the whole loan pays every item and returns the rest;
+- a payment before any due date prepays item 1 pro rata, and a second one splits on what is still unpaid;
 - paid items are skipped;
 - the input is unchanged;
 - non-positive amounts and another currency are rejected.
