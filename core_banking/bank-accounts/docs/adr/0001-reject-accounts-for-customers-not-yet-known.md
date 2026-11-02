@@ -1,6 +1,6 @@
 # 0001. Reject an account for a customer that Accounts does not know yet
 
-- Status: Accepted (to be reviewed by Majid)
+- Status: Accepted (reviewed and confirmed by Majid on 2026-11-02)
 - Date: 2026-10-31
 - Scope: bank-accounts
 - Design plan reference: section 4, ADR rows 04 and 11; section 6 (CustomerRegistered → Accounts)

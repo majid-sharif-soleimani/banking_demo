@@ -51,12 +51,22 @@ public class InvariantTests
         var withPenalty = Penalties.ForDay(schedule, terms, date);
         var amount = new Money(Math.Round(1m + (decimal)new Random(seed).NextDouble() * terms.Principal.Amount, 2), "SEK");
 
-        var result = Allocation.Apply(withPenalty, amount, date).Value;
+        var result = Allocation.Apply(withPenalty, terms, amount, date).Value;
 
         result.Schedule.ShouldAllBe(i => i.PaidPrincipal <= i.PrincipalDue && i.PaidInterest <= i.InterestDue && i.PaidPenalty <= i.PenaltyDue);
         (result.Allocations.Sum(a => a.Total.Amount) + result.Unallocated.Amount).ShouldBe(amount.Amount);
         result.Unallocated.Amount.ShouldBeGreaterThanOrEqualTo(0m);
-        result.Schedule.Where(i => i.DueDate > date).ShouldAllBe(i => i.PaidPrincipal.Amount == 0m && i.PaidInterest.Amount == 0m);
+        // Future items are prepaid only after every due item is paid, and money is returned only when the whole loan is paid (ADR 0003, point 5).
+        var prepaid = result.Allocations.Any(a => withPenalty.Single(i => i.Number == a.Number).DueDate > date);
+        if (prepaid)
+        {
+            result.Schedule.Where(i => i.DueDate <= date).ShouldAllBe(i => i.IsPaid);
+        }
+
+        if (result.Unallocated.Amount > 0m)
+        {
+            result.Schedule.ShouldAllBe(i => i.IsPaid);
+        }
     }
 
     [Theory]
