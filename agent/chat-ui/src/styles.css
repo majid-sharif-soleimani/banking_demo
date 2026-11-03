@@ -79,3 +79,39 @@ code { font-family: ui-monospace, monospace; background: var(--bg); border: 1px 
 .card .field { display: grid; grid-template-columns: minmax(8em, max-content) 1fr; gap: 12px; }
 .card dt { color: var(--muted); }
 .card dd { margin: 0; font-variant-numeric: tabular-nums; }
+/* Stage 3: forms, confirmation cards, uploads, charts, diagrams and the old chats. */
+button.secondary { background: transparent; color: var(--accent); border: 1px solid var(--border); }
+button.link { background: none; color: var(--text); padding: 8px 0; width: 100%; text-align: start; display: flex; flex-direction: column; gap: 2px; }
+.chat-slot { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.chat-slot[hidden] { display: none; }
+.form-card { display: flex; flex-direction: column; gap: 10px; border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+.form-card h2, .confirmation h2 { font-size: 0.95rem; margin: 0; }
+.form-card label { display: flex; flex-direction: column; gap: 4px; font-size: 0.9rem; color: var(--muted); }
+select { font: inherit; font-size: 16px; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
+.confirmation { border: 2px solid var(--accent); border-radius: 10px; padding: 10px 12px; }
+.actions { display: flex; gap: 8px; margin-top: 10px; }
+.history { display: flex; flex-direction: column; gap: 10px; flex: 1; min-height: 0; overflow-y: auto; }
+.chat-list { list-style: none; margin: 0; padding: 0; }
+.chat-list li { border-bottom: 1px solid var(--border); }
+.diagram-svg svg { max-width: 100%; height: auto; }
+.diagram-text { white-space: pre-wrap; font-size: 0.85rem; }
+/* Chart: categorical slots 1-4 of the dataviz reference palette, checked for colour-blind separation in both modes. */
+:root { --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a; --series-4: #eda100; }
+@media (prefers-color-scheme: dark) { :root { --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500; } }
+.chart svg { width: 100%; height: auto; display: block; }
+.chart .grid line { stroke: var(--border); stroke-width: 1; }
+.chart .grid text, .chart .axis-label { fill: var(--muted); font-size: 11px; }
+.chart .series polyline { stroke-width: 2; }
+.chart .series circle { stroke: var(--panel); stroke-width: 2; }
+.chart .s1 { fill: var(--series-1); stroke: var(--series-1); }
+.chart .s2 { fill: var(--series-2); stroke: var(--series-2); }
+.chart .s3 { fill: var(--series-3); stroke: var(--series-3); }
+.chart .s4 { fill: var(--series-4); stroke: var(--series-4); }
+.chart rect { stroke: none; }
+.chart polyline { fill: none !important; }
+.legend { list-style: none; display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0 0 6px; padding: 0; font-size: 0.85rem; color: var(--muted); }
+.legend li { display: flex; align-items: center; gap: 6px; }
+.swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.swatch.s1 { background: var(--series-1); } .swatch.s2 { background: var(--series-2); }
+.swatch.s3 { background: var(--series-3); } .swatch.s4 { background: var(--series-4); }
+.chart details { margin-top: 6px; font-size: 0.85rem; }

@@ -8,9 +8,20 @@ namespace Bank.Agent.Host.Data;
 /// <summary>The values of <see cref="ChatMessage.Kind"/>.</summary>
 public static class MessageKind
 {
+    // What the agent showed (author "assistant"): the JSON of a UI component.
     public const string Text = "text";
     public const string Table = "table";
     public const string Card = "card";
+    public const string Chart = "chart";
+    public const string Diagram = "diagram";
+    public const string Form = "form";
+    public const string Confirmation = "confirmation";
+    public const string DocumentRequest = "document_request";
+
+    // What the person did outside the text box (author "user"): the JSON of the action and its outcome.
+    public const string FormValues = "form_values";
+    public const string ChangeResult = "change_result";
+    public const string Document = "document";
 }
 
 public enum ChatStatus
@@ -69,8 +80,9 @@ public sealed class ChatMessage
     public required string Author { get; init; }
 
     /// <summary>
-    /// What <see cref="Content"/> holds: a <see cref="MessageKind"/>. "text" is plain text; "table" and "card" are the
-    /// JSON of a UI component the agent showed (phase 2 design plan, section 5), kept so the chat can be shown again.
+    /// What <see cref="Content"/> holds: a <see cref="MessageKind"/>. "text" is plain text; the other kinds are the JSON of
+    /// a UI component the agent showed (phase 2 design plan, section 5) or of an action the person took (a form sent, a
+    /// change confirmed, a document uploaded), kept so the chat can be shown again and the model remembers it.
     /// </summary>
     public string Kind { get; init; } = MessageKind.Text;
 
@@ -111,7 +123,7 @@ public sealed class AgentDbContext(DbContextOptions<AgentDbContext> options) : D
         {
             message.ToTable("chat_message");
             message.Property(m => m.Author).HasMaxLength(16);
-            message.Property(m => m.Kind).HasMaxLength(16).HasDefaultValue(MessageKind.Text);
+            message.Property(m => m.Kind).HasMaxLength(32).HasDefaultValue(MessageKind.Text);
             message.HasIndex(m => new { m.ChatId, m.Sequence }).IsUnique();
             Audit(message);
         });

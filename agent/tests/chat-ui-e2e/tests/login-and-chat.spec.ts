@@ -111,3 +111,27 @@ test("on a phone the message box stays on screen after many messages", async ({ 
   await expect(page.getByRole("button", { name: "Send" })).toBeInViewport();
   expect(await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight + 1)).toBeTruthy();
 });
+
+test("the old chats list the earlier chat of the same customer, read-only", async ({ page, request }) => {
+  const customer = await registerCustomer(request);
+  const logIn = async () => {
+    await page.getByLabel("Username").fill(customer.nationalId);
+    await page.getByLabel("Password").fill(customer.nationalId);
+    await page.getByRole("button", { name: "Log in" }).click();
+    await expect(page.getByText(`Hello ${customer.name}.`)).toBeVisible();
+  };
+  await page.goto("/");
+  await logIn();
+  await page.getByLabel("Message").fill("first chat question");
+  await page.getByRole("button", { name: "Send" }).click();
+  await expect(page.getByText("You said: first chat question")).toBeVisible();
+  await page.getByRole("button", { name: "Log out" }).click();
+  await logIn();
+
+  await page.getByRole("button", { name: "Old chats" }).click();
+  await page.getByRole("button", { name: /first chat question/ }).click();
+
+  await expect(page.getByText("You said: first chat question")).toBeVisible();
+  await expect(page.getByText(/read-only/)).toBeVisible();
+  await expect(page.getByLabel("Message")).toBeHidden();
+});

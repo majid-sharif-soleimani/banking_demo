@@ -45,4 +45,40 @@ public sealed class CustomerTools(BankApi bank)
     [Description("The loan products the bank offers: code, name, currency, repayment type, annual rate, minimum and maximum amount and term in months, penalty and grace rules, and early payoff limits. Amounts are in the product's currency.")]
     public Task<string> LoanProductsAsync(CancellationToken ct) =>
         bank.GetAsync("/api/lending/loan-products", ct);
+
+    [McpServerTool(Name = "standing_orders_list", ReadOnly = true)]
+    [Description("The customer's standing orders: id, from and to account ids, amount, frequency, start, end, next run date and status.")]
+    public Task<string> StandingOrdersAsync(CancellationToken ct) =>
+        bank.GetAsync($"/api/accounts/standing-orders?customerId={bank.CustomerId}", ct);
+
+    [McpServerTool(Name = "loan_simulation", ReadOnly = true)]
+    [Description("Simulates a loan of a product: the installment, total interest, total cost and schedule, or the bank's reason when the request is outside the product's limits. Changes nothing.")]
+    public Task<string> SimulateAsync(
+        [Description("The product code from loan_products_list.")] string productCode,
+        [Description("The amount, such as 150000.00.")] decimal amount,
+        [Description("The product's currency.")] string currency,
+        int termMonths,
+        CancellationToken ct) =>
+        bank.PostReadAsync($"/api/lending/loan-products/{Uri.EscapeDataString(productCode)}/simulation",
+            new { amount = new { amount = amount.ToString(System.Globalization.CultureInfo.InvariantCulture), currency }, termMonths, stages = (object?)null }, ct);
+
+    [McpServerTool(Name = "payoff_quote", ReadOnly = true)]
+    [Description("Today's early payoff quote of one loan: outstanding principal, unpaid penalty, interest to date, minimum interest, waived interest and the total.")]
+    public Task<string> PayoffQuoteAsync(Guid loanId, CancellationToken ct) =>
+        bank.GetAsync($"/api/lending/loans/{loanId}/payoff-quote", ct);
+
+    [McpServerTool(Name = "loan_applications_list", ReadOnly = true)]
+    [Description("The customer's loan applications with their status and history (Submitted, UnderReview, Approved, Rejected, Disbursed, Cancelled ...).")]
+    public Task<string> ApplicationsAsync(CancellationToken ct) =>
+        bank.GetAsync("/api/lending/loan-applications", ct);
+
+    [McpServerTool(Name = "appointments_list", ReadOnly = true)]
+    [Description("The customer's appointments: id, application, employee, start time and status.")]
+    public Task<string> AppointmentsAsync(CancellationToken ct) =>
+        bank.GetAsync($"/api/customers/appointments?customerId={bank.CustomerId}", ct);
+
+    [McpServerTool(Name = "appointment_slots", ReadOnly = true)]
+    [Description("Free appointment slots on one day after the current business date: employee id, name and start time (full hours, Stockholm time).")]
+    public Task<string> SlotsAsync([Description("The day, yyyy-MM-dd.")] DateOnly date, CancellationToken ct) =>
+        bank.GetAsync($"/api/customers/appointments/availability?date={date:yyyy-MM-dd}", ct);
 }

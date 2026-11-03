@@ -7,7 +7,7 @@ Phase 2: the chat UI and the agent host in front of the bank (`phase2-design-pla
 Schema `agent` (role `agent`, created by `core_banking/bank-platform/db/init/002-agent-role-and-schema.sql` when `AGENT_DB_PASSWORD` is set):
 
 - `chat`: one per login; `Open` until logout or the session ends, then `Closed` with `closed_reason` (`logout`, `session_expired`, `session_replaced`, `new_login`). Kept forever.
-- `chat_message`: `sequence` unique per chat, `author` `user` or `assistant`, `kind` `text`, `table` or `card` (a component's JSON is its content).
+- `chat_message`: `sequence` unique per chat, `author` `user` or `assistant`, `kind` (`MessageKind`: `text`, components such as `table`, `confirmation`, and the person's actions `form_values`, `change_result`, `document`; JSON content for all but text).
 
 Never stored or logged: passwords, bank tokens (tests check both).
 
@@ -19,7 +19,9 @@ Never stored or logged: passwords, bank tokens (tests check both).
 - The UI (`chat-ui/`) is built into `src/Bank.Agent.Host/wwwroot` and served from the same origin.
 - The model sits behind `IChatClient`: Claude (Anthropic SDK) when `Agent:Model:ApiKey` is set, else `EchoChatClient` (Production refuses to start without a key). Each run builds a `ChatClientAgent` with `AgentInstructions.For(principal)`, the customer's bank tools and the UI tools.
 - `Bank.Agent.Mcp` (resource `bank-mcp`): MCP server, `/mcp/customer` with five read tools, stateless. The host connects once per run (`McpBankTools`) with `Authorization: Bearer <token>` and `X-Customer-Id`; the model never sees either. Admin: no bank tools yet.
-- `show_table` / `show_card` run in the host (`UiTools`), are checked by `UiComponentCheck`, and reach the UI as finished AG-UI tool calls; bank tool calls never do. Tool calls are logged by name and outcome only (agent ADR 0002).
+- UI tools (`UiTools`: table, card, chart, diagram, form, request_document) run in the host, are checked (`UiComponentCheck`, `FormCheck`), and reach the UI as finished AG-UI tool calls; bank tool calls never do. Tool calls are logged by name and outcome only (agent ADR 0002).
+- Changes (agent ADR 0003): MCP tools with `ReadOnly = false` reach the model behind `ConfirmFirst`, which only stores a `PendingChange` in `HostSession.Pending` and shows `show_confirmation`. `POST /agent/changes/{id}/confirm|cancel`, `/agent/forms/{id}`, `/agent/documents/{id}` (`ActionEndpoints`) answer a pending item once; a confirmed change runs with `Idempotency-Key: <id>` (the MCP server refuses changes without it). The UI then appends "I confirmed the change." so the agent continues.
+- `GET /chats`, `GET /chats/{id}` (`ChatEndpoints`): old chats, read-only; admin reads of others' chats are logged.
 
 ## Gotchas
 

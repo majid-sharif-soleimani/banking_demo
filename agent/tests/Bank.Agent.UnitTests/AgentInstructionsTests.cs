@@ -9,12 +9,12 @@ public class AgentInstructionsTests
     private static readonly Principal Admin = new("admin", Role.Admin, null, "Admin");
 
     [Fact]
-    public void A_customer_is_named_and_told_what_the_chat_can_and_cannot_do()
+    public void A_customer_is_named_and_told_that_changes_need_a_confirmation()
     {
         var text = AgentInstructions.For(Anna);
 
         text.ShouldContain("Anna Andersson, a customer");
-        text.ShouldContain("not possible here yet");
+        text.ShouldContain("presses Confirm or Cancel");
         text.ShouldContain("business_date");
     }
 

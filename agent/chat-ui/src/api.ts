@@ -75,3 +75,57 @@ export function noticeFor(code: string): string | undefined {
 }
 
 export const sessionEndCodes = new Set(["session_expired", "session_replaced", "new_login", "chat_closed", "missing_session"]);
+
+// What the person does outside the text box (agent host ActionEndpoints): confirm or cancel a change, send a form,
+// upload a document. Each answers one item the agent showed, once.
+export type ActionAnswer =
+  | { ok: true; status: "done" | "failed" | "cancelled"; message?: string }
+  | { ok: false; code: string; errors?: Record<string, string> };
+
+async function actionAnswer(response: Response): Promise<ActionAnswer> {
+  const body = (await response.json().catch(() => ({}))) as { status?: string; message?: string; code?: string; errors?: Record<string, string> };
+  return response.ok
+    ? { ok: true, status: (body.status ?? "done") as "done" | "failed" | "cancelled", message: body.message }
+    : { ok: false, code: body.code ?? `http_${response.status}`, errors: body.errors };
+}
+
+export async function postAction(path: string, body?: unknown): Promise<ActionAnswer> {
+  try {
+    const response = await fetch(path, {
+      method: "POST",
+      headers: { ...clientHeaders, "Content-Type": "application/json" },
+      body: JSON.stringify(body ?? {}),
+    });
+    return await actionAnswer(response);
+  } catch {
+    return { ok: false, code: "bank_unavailable" };
+  }
+}
+
+export async function uploadDocument(requestId: string, file: File): Promise<ActionAnswer> {
+  const form = new FormData();
+  form.append("file", file);
+  try {
+    // No Content-Type here: the browser sets multipart/form-data with its boundary.
+    return await actionAnswer(await fetch(`/agent/documents/${encodeURIComponent(requestId)}`, { method: "POST", headers: clientHeaders, body: form }));
+  } catch {
+    return { ok: false, code: "bank_unavailable" };
+  }
+}
+
+// The old chats (GET /chats, GET /chats/{id}); read-only.
+export type ChatSummary = { id: string; username: string; status: string; openedAt: string; closedAt?: string; firstQuestion?: string };
+
+export type StoredMessage = { author: "user" | "assistant"; kind: string; content: string; createdAt: string };
+
+export type StoredChat = { id: string; username: string; status: string; openedAt: string; messages: StoredMessage[] };
+
+export async function listChats(): Promise<ChatSummary[]> {
+  const response = await fetch("/chats");
+  return response.ok ? ((await response.json()) as ChatSummary[]) : [];
+}
+
+export async function getChat(id: string): Promise<StoredChat | undefined> {
+  const response = await fetch(`/chats/${encodeURIComponent(id)}`);
+  return response.ok ? ((await response.json()) as StoredChat) : undefined;
+}

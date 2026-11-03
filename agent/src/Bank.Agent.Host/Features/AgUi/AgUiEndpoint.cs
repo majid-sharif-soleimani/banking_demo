@@ -122,13 +122,15 @@ public static class AgUiEndpoint
 
         await using (bank)
         {
-            var ui = new UiTools();
+            var ui = new UiTools(session);
+            // Reads go to the model as they are; every change goes behind ConfirmFirst, so calling it only asks the person.
+            IList<AITool> tools = [.. bank.Reads, .. bank.Changes.Select(c => new ConfirmFirst(c, session, ui)), .. ui.Tools];
             var agent = new ChatClientAgent(parts.Model, new ChatClientAgentOptions
             {
                 ChatOptions = new ChatOptions
                 {
                     Instructions = AgentInstructions.For(session.Principal),
-                    Tools = [.. bank.Tools, .. ui.Tools],
+                    Tools = tools,
                     MaxOutputTokens = parts.ModelOptions.MaxOutputTokens,
                 },
             });
@@ -232,14 +234,15 @@ public static class AgUiEndpoint
     }
 
     /// <summary>
-    /// A stored message as the model sees it in a later turn. A table or card becomes a short assistant note with its
-    /// data, so the model remembers what the person has already seen.
+    /// A stored message as the model sees it in a later turn. A component becomes a short assistant note with its data,
+    /// so the model remembers what the person has seen; an action of the person (a form sent, a change confirmed, a
+    /// document uploaded) becomes a short user note with its outcome.
     /// </summary>
     private static AiChatMessage ToModel(Data.ChatMessage m) => m switch
     {
-        { Author: "user" } => new AiChatMessage(ChatRole.User, m.Content),
-        { Kind: MessageKind.Text } => new AiChatMessage(ChatRole.Assistant, m.Content),
-        _ => new AiChatMessage(ChatRole.Assistant, $"(Shown to the person as a {m.Kind}: {m.Content})"),
+        { Kind: MessageKind.Text } => new AiChatMessage(m.Author == "user" ? ChatRole.User : ChatRole.Assistant, m.Content),
+        { Author: "user" } => new AiChatMessage(ChatRole.User, $"(My {m.Kind.Replace('_', ' ')}: {m.Content})"),
+        _ => new AiChatMessage(ChatRole.Assistant, $"(Shown to the person as a {m.Kind.Replace('_', ' ')}: {m.Content})"),
     };
 
     private static string RunId(RunAgentInput input) => string.IsNullOrWhiteSpace(input.RunId) ? Guid.NewGuid().ToString() : input.RunId;

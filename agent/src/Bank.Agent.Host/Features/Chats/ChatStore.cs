@@ -84,8 +84,57 @@ public sealed class ChatStore(AgentDbContext db, TimeProvider time)
             CreatedAt = now,
             PerformedBy = performedBy,
         };
-        db.Messages.Add(message);
-        await db.SaveChangesAsync(ct);
+        var entry = db.Messages.Add(message);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException)
+        {
+            // Forget the failed row, so the caller can try again on the same context.
+            entry.State = EntityState.Detached;
+            throw;
+        }
+
         return message;
     }
+
+    /// <summary>
+    /// Adds a message after the person's action, trying again when a run appended at the same moment. The action has
+    /// already happened at the bank, so its record must not be lost to a race for the next sequence number.
+    /// </summary>
+    public async Task AppendActionAsync(Chat chat, string kind, string content, string performedBy, CancellationToken ct)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                await AppendAsync(chat, "user", kind, content, performedBy, ct);
+                return;
+            }
+            catch (DbUpdateException) when (attempt < 5)
+            {
+                await Task.Delay(100 * attempt, ct);
+            }
+        }
+    }
+
+    /// <summary>The chats a person may read, newest first: their own, or every chat for the admin.</summary>
+    public async Task<IReadOnlyList<ChatSummary>> ListAsync(Principal reader, int limit, CancellationToken ct)
+    {
+        var chats = db.Chats.AsNoTracking();
+        if (reader.Role != Role.Admin)
+        {
+            chats = chats.Where(c => c.Username == reader.Username);
+        }
+
+        return await chats.OrderByDescending(c => c.OpenedAt).Take(limit)
+            .Select(c => new ChatSummary(
+                c.Id, c.Username, c.Status.ToString(), c.OpenedAt, c.ClosedAt,
+                c.Messages.Where(m => m.Author == "user" && m.Kind == MessageKind.Text).OrderBy(m => m.Sequence).Select(m => m.Content).FirstOrDefault()))
+            .ToListAsync(ct);
+    }
 }
+
+/// <summary>One line of the list of old chats. The first question stands in for a title.</summary>
+public sealed record ChatSummary(Guid Id, string Username, string Status, DateTimeOffset OpenedAt, DateTimeOffset? ClosedAt, string? FirstQuestion);

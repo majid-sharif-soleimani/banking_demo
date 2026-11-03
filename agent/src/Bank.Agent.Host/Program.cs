@@ -71,6 +71,8 @@ app.MapDefaultEndpoints();
 
 AuthEndpoints.Map(app);
 AgUiEndpoint.Map(app);
+ActionEndpoints.Map(app);
+ChatEndpoints.Map(app);
 
 // The chat UI (agent/chat-ui, built into wwwroot): same origin as the API, so the cookie needs no CORS.
 app.UseDefaultFiles();

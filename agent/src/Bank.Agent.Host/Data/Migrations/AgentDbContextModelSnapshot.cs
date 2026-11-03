@@ -118,8 +118,8 @@ namespace Bank.Agent.Host.Data.Migrations
                     b.Property<string>("Kind")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
                         .HasDefaultValue("text")
                         .HasColumnName("kind");
 

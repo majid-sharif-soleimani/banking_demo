@@ -79,18 +79,23 @@ public sealed class ScriptedModel(params ScriptedModel.Step[] steps) : IChatClie
 }
 
 /// <summary>
-/// Stands in for the bank MCP server: one fake accounts_list tool. Records which session each run opened its tools for,
-/// so a test can check that the token and customer id come from the session.
+/// Stands in for the bank MCP server: a read (accounts_list), a change (transfer_create) and the host-only upload.
+/// Records which session each run opened its tools for, and every change that really ran, with its confirmation id.
 /// </summary>
 public sealed class FakeBankTools : IBankTools
 {
     public const string AccountsJson = """[{"number":"5555 0000 1","balance":{"amount":1200.00,"currency":"SEK"}}]""";
 
+    public const string ReceiptJson = """{"transferId":"t-1","amount":{"amount":"250.00","currency":"SEK"}}""";
+
     public List<(string Token, Guid? CustomerId)> Opened { get; } = [];
+
+    /// <summary>Changes that reached the "bank": tool, confirmation id (idempotency key) and arguments.</summary>
+    public List<(string Tool, string? ConfirmationId, string Arguments)> Ran { get; } = [];
 
     public bool Down { get; set; }
 
-    public Task<BankToolSet> OpenForCustomerAsync(HostSession session, CancellationToken ct)
+    public Task<BankToolSet> OpenForCustomerAsync(HostSession session, CancellationToken ct, string? confirmationId = null)
     {
         if (Down)
         {
@@ -98,6 +103,21 @@ public sealed class FakeBankTools : IBankTools
         }
 
         Opened.Add((session.BankToken, session.Principal.CustomerId));
-        return Task.FromResult(new BankToolSet([AIFunctionFactory.Create(() => AccountsJson, "accounts_list", "The customer's accounts.")]));
+        var accounts = AIFunctionFactory.Create(() => AccountsJson, "accounts_list", "The customer's accounts.");
+        var transfer = AIFunctionFactory.Create(
+            (Guid fromAccountId, Guid toAccountId, decimal amount, string currency) =>
+            {
+                Ran.Add(("transfer_create", confirmationId, JsonSerializer.Serialize(new { fromAccountId, toAccountId, amount, currency })));
+                return ReceiptJson;
+            },
+            "transfer_create", "Moves money between the customer's accounts.");
+        var upload = AIFunctionFactory.Create(
+            (Guid applicationId, string fileName, string contentType, string contentBase64) =>
+            {
+                Ran.Add(("document_upload", confirmationId, JsonSerializer.Serialize(new { applicationId, fileName, contentType, size = Convert.FromBase64String(contentBase64).Length })));
+                return """{"id":"i-1"}""";
+            },
+            "document_upload", "Host only.");
+        return Task.FromResult(new BankToolSet([accounts], [transfer], [upload]));
     }
 }

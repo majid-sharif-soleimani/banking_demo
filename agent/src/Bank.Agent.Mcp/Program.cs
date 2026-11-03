@@ -32,7 +32,8 @@ builder.Services.AddHttpClient<BankApi>(client =>
 // and the customer id) are the only context a tool has. Nothing is remembered between calls.
 builder.Services.AddMcpServer()
     .WithHttpTransport(options => options.Stateless = true)
-    .WithTools<CustomerTools>();
+    .WithTools<CustomerTools>()
+    .WithTools<CustomerChangeTools>();
 
 var app = builder.Build();
 

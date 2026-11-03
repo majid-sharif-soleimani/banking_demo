@@ -42,7 +42,26 @@ public sealed class HostSession
 
     /// <summary>Set when a newer login of the same user ended this session; told to its browser once, then forgotten.</summary>
     public ChatCloseReason? EndedBy { get; set; }
+
+    /// <summary>
+    /// What waits for the person (phase 2 stage 3): a change to confirm, a form to fill in, a document to upload. Kept
+    /// here, in memory, by id; the browser answers with that id, and each one can be answered once. They end with the
+    /// session.
+    /// </summary>
+    public System.Collections.Concurrent.ConcurrentDictionary<string, PendingAction> Pending { get; } = new(StringComparer.Ordinal);
 }
+
+/// <summary>Something the agent asked the person for. The id is random and unguessable, like the cookie.</summary>
+public abstract record PendingAction(string Id);
+
+/// <summary>A change the model asked for: the tool and the exact arguments that will be sent on Confirm.</summary>
+public sealed record PendingChange(string Id, string Tool, string Title, System.Text.Json.JsonElement Arguments) : PendingAction(Id);
+
+/// <summary>A form shown to the person; its values are checked against these fields.</summary>
+public sealed record OpenForm(string Id, string Title, IReadOnlyList<FormField> Fields) : PendingAction(Id);
+
+/// <summary>A document the agent asked the person to upload for one of their loan applications.</summary>
+public sealed record DocumentRequest(string Id, Guid ApplicationId, string Description) : PendingAction(Id);
 
 public abstract record SessionLookup
 {

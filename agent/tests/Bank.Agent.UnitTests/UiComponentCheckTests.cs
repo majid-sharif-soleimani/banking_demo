@@ -30,4 +30,22 @@ public class UiComponentCheckTests
         UiComponentCheck.Card([]).ShouldNotBeNull();
         UiComponentCheck.Card(["Balance"]).ShouldBeNull();
     }
+
+    [Fact]
+    public void A_chart_needs_one_value_per_label_in_every_series()
+    {
+        UiComponentCheck.Chart("bar", 3, [3, 3]).ShouldBeNull();
+        UiComponentCheck.Chart("bar", 3, [3, 2]).ShouldBe("Every series needs one value per label (3).");
+        UiComponentCheck.Chart("pie", 3, [3]).ShouldNotBeNull();
+        UiComponentCheck.Chart("line", 0, []).ShouldNotBeNull();
+        UiComponentCheck.Chart("line", 2, [2, 2, 2, 2, 2]).ShouldBe("A chart can show at most 4 series. Use a table, or several charts.");
+    }
+
+    [Fact]
+    public void A_diagram_needs_text_of_a_sane_length()
+    {
+        UiComponentCheck.Diagram("flowchart LR\n A-->B").ShouldBeNull();
+        UiComponentCheck.Diagram(" ").ShouldNotBeNull();
+        UiComponentCheck.Diagram(new string('a', 5001)).ShouldNotBeNull();
+    }
 }

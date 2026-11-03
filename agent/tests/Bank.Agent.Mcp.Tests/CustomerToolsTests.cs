@@ -21,8 +21,12 @@ public class CustomerToolsTests
 
         var tools = await client.ListToolsAsync(cancellationToken: Ct);
 
-        tools.Select(t => t.Name).Order().ShouldBe(["account_statement", "accounts_list", "business_date", "loan_products_list", "loans_list"]);
-        tools.ShouldAllBe(t => t.ProtocolTool.Annotations!.ReadOnlyHint == true);
+        tools.Where(t => t.ProtocolTool.Annotations!.ReadOnlyHint == true).Select(t => t.Name).Order().ShouldBe([
+            "account_statement", "accounts_list", "appointment_slots", "appointments_list", "business_date", "loan_applications_list",
+            "loan_products_list", "loan_simulation", "loans_list", "payoff_quote", "standing_orders_list"]);
+        tools.Where(t => t.ProtocolTool.Annotations!.ReadOnlyHint == false).Select(t => t.Name).Order().ShouldBe([
+            "appointment_book", "appointment_cancel", "card_payment", "document_upload", "loan_application_submit", "payoff_request",
+            "standing_order_cancel", "standing_order_create", "transfer_create"]);
     }
 
     [Theory]
@@ -30,6 +34,9 @@ public class CustomerToolsTests
     [InlineData("accounts_list", "/api/accounts/accounts?customerId=7a1c2a0e-0000-4000-8000-000000000001")]
     [InlineData("loans_list", "/api/lending/loans?customerId=7a1c2a0e-0000-4000-8000-000000000001")]
     [InlineData("loan_products_list", "/api/lending/loan-products")]
+    [InlineData("standing_orders_list", "/api/accounts/standing-orders?customerId=7a1c2a0e-0000-4000-8000-000000000001")]
+    [InlineData("appointments_list", "/api/customers/appointments?customerId=7a1c2a0e-0000-4000-8000-000000000001")]
+    [InlineData("loan_applications_list", "/api/lending/loan-applications")]
     public async Task A_tool_calls_its_bank_path_with_the_token_and_the_key_and_returns_the_bank_json(string tool, string path)
     {
         await using var app = new McpServerApp();

@@ -19,9 +19,14 @@ public sealed class McpServerApp : WebApplicationFactory<Program>
 
     public FakeGateway Gateway { get; } = new();
 
-    public async Task<McpClient> ConnectAsync(string? token, Guid? customerId)
+    public async Task<McpClient> ConnectAsync(string? token, Guid? customerId, string? idempotencyKey = null)
     {
         var headers = new Dictionary<string, string>();
+        if (idempotencyKey is not null)
+        {
+            headers[BankApi.IdempotencyKeyHeader] = idempotencyKey;
+        }
+
         if (token is not null)
         {
             headers["Authorization"] = $"Bearer {token}";
@@ -52,16 +57,22 @@ public sealed class FakeGateway : HttpMessageHandler
 {
     public ConcurrentQueue<(string PathAndQuery, string? Authorization, string? ApiKey)> Requests { get; } = new();
 
+    /// <summary>Method, idempotency key and body of every call, for the change tools.</summary>
+    public ConcurrentQueue<(HttpMethod Method, string? IdempotencyKey, string? Body)> Sent { get; } = new();
+
     public HttpStatusCode Status { get; set; } = HttpStatusCode.OK;
 
     public string Body { get; set; } = """{"ok":true}""";
 
-    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
     {
+        Sent.Enqueue((request.Method,
+            request.Headers.TryGetValues("Idempotency-Key", out var idempotency) ? idempotency.Single() : null,
+            request.Content is null ? null : await request.Content.ReadAsStringAsync(ct)));
         Requests.Enqueue((
             request.RequestUri!.PathAndQuery,
             request.Headers.Authorization?.ToString(),
             request.Headers.TryGetValues("X-Api-Key", out var keys) ? keys.Single() : null));
-        return Task.FromResult(new HttpResponseMessage(Status) { Content = new StringContent(Body, Encoding.UTF8, "application/json") });
+        return new HttpResponseMessage(Status) { Content = new StringContent(Body, Encoding.UTF8, "application/json") };
     }
 }

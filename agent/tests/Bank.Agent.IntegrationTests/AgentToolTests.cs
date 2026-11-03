@@ -19,6 +19,9 @@ public class AgentToolTests(PostgresFixture postgres)
         rows = new[] { new[] { "5555 0000 1", "1 200.00 SEK" } },
     };
 
+    /// <summary>The UI tools every role gets; the upload tool never reaches the model.</summary>
+    public static readonly string[] UiToolNames = ["request_document", "show_card", "show_chart", "show_diagram", "show_form", "show_table"];
+
     private static string[] Types(List<JsonElement> events) => [.. events.Select(e => e.GetProperty("type").GetString()!)];
 
     private static async Task<List<(string Author, string Kind, string Content)>> Messages(AgentApp app, Guid chatId)
@@ -73,7 +76,7 @@ public class AgentToolTests(PostgresFixture postgres)
 
         var token = app.Gateway.IssuedTokens.Single();
         app.BankTools.Opened.ShouldBe([(token, StubGateway.TesterCustomerId)]);
-        model.ToolNamesOfFirstCall.Order().ShouldBe(["accounts_list", "show_card", "show_table"]);
+        model.ToolNamesOfFirstCall.Order().ShouldBe([.. new[] { "accounts_list", "transfer_create" }.Concat(UiToolNames).Order()]);
         var seen = model.EverythingSeen;
         seen.ShouldContain("5555 0000 1");          // the tool result reached the model
         seen.ShouldContain("Tess Tester");          // the instructions name the person
@@ -93,7 +96,7 @@ public class AgentToolTests(PostgresFixture postgres)
         await browser.RunAsync("Show the trial balance");
 
         app.BankTools.Opened.ShouldBeEmpty();
-        model.ToolNamesOfFirstCall.Order().ShouldBe(["show_card", "show_table"]);
+        model.ToolNamesOfFirstCall.Order().ShouldBe(UiToolNames.Order());
     }
 
     [Fact]

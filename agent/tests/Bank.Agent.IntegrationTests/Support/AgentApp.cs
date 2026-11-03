@@ -138,6 +138,14 @@ public sealed class Browser(HttpClient client)
         return await SendAsync(request, withClientHeader: true);
     }
 
+    public async Task<HttpResponseMessage> PostFileAsync(string path, byte[] content, string fileName, string contentType)
+    {
+        var file = new ByteArrayContent(content);
+        file.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
+        using var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = new MultipartFormDataContent { { file, "file", fileName } } };
+        return await SendAsync(request, withClientHeader: true);
+    }
+
     public Task<HttpResponseMessage> LoginAsync(string username, string password) => PostAsync("/auth/login", new { username, password });
 
     public async Task<JsonElement> LoginOkAsync(string username, string password)

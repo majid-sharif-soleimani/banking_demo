@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { HttpAgent } from "@ag-ui/client";
 import { AssistantRuntimeProvider, ComposerPrimitive, MessagePrimitive, ThreadPrimitive } from "@assistant-ui/react";
 import { useAgUiRuntime } from "@assistant-ui/react-ag-ui";
-import { CardTool, TableTool } from "./components";
+import { CardTool, ChartTool, ConfirmationTool, DiagramTool, DocumentRequestTool, FormTool, TableTool } from "./components";
 import { clientHeaders, me, noticeFor, sessionEndCodes, type SessionInfo } from "./api";
 
 type Props = {
@@ -19,7 +19,20 @@ function UserMessage() {
 }
 
 // The tools the agent uses to show something, by name; any other tool call (none reach the browser today) is not drawn.
-const toolComponents = { tools: { by_name: { show_table: TableTool, show_card: CardTool }, Fallback: () => null } };
+const toolComponents = {
+  tools: {
+    by_name: {
+      show_table: TableTool,
+      show_card: CardTool,
+      show_chart: ChartTool,
+      show_diagram: DiagramTool,
+      show_form: FormTool,
+      show_confirmation: ConfirmationTool,
+      request_document: DocumentRequestTool,
+    },
+    Fallback: () => null,
+  },
+};
 
 function AssistantMessage() {
   return (

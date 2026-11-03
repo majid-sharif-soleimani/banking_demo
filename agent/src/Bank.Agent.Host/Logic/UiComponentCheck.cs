@@ -36,4 +36,40 @@ public static class UiComponentCheck
     /// <returns>Null when the card can be shown, otherwise what is wrong, written for the model.</returns>
     public static string? Card(IReadOnlyList<string> labels) =>
         labels.Count == 0 ? "A card needs at least one field." : null;
+
+    public static readonly string[] ChartKinds = ["line", "bar"];
+
+    public const int MaxDiagramLength = 5000;
+
+    public const int MaxSeries = 4;
+
+    /// <returns>Null when the chart can be shown, otherwise what is wrong, written for the model.</returns>
+    public static string? Chart(string kind, int labelCount, IReadOnlyList<int> seriesLengths)
+    {
+        if (!ChartKinds.Contains(kind))
+        {
+            return $"Unknown chart kind '{kind}'. Use line or bar.";
+        }
+
+        if (labelCount == 0 || seriesLengths.Count == 0)
+        {
+            return "A chart needs labels and at least one series.";
+        }
+
+        // Four colours stay apart for colour-blind readers too; more series need a table or several charts.
+        if (seriesLengths.Count > MaxSeries)
+        {
+            return $"A chart can show at most {MaxSeries} series. Use a table, or several charts.";
+        }
+
+        return seriesLengths.Any(n => n != labelCount)
+            ? $"Every series needs one value per label ({labelCount})."
+            : null;
+    }
+
+    /// <returns>Null when the diagram can be shown, otherwise what is wrong, written for the model.</returns>
+    public static string? Diagram(string mermaid) =>
+        string.IsNullOrWhiteSpace(mermaid) ? "A diagram needs Mermaid text."
+        : mermaid.Length > MaxDiagramLength ? $"A diagram can have at most {MaxDiagramLength} characters."
+        : null;
 }
