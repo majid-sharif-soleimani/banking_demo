@@ -2,6 +2,12 @@
 
 Phase 1 is complete (closed 2026-11-03). It is reopened only to fix bugs. Phase 2 (the agent) started on 2026-11-03.
 
+## Phase 2
+
+| Step | Name | Status | Closed on | Notes |
+| --- | --- | --- | --- | --- |
+| 0 | Design and requirements | In progress | | `phase2-design-plan.md` drafted 2026-11-03; open decisions in its section 7 |
+
 ## Phase 1
 
 Updated by `/close-stage`. One row per stage from section 10 of `phase1-design-plan.md`. Statuses: Not started, In progress, Ready for review, Done. The project runs in learning mode (`docs/implementation-decisions.md`); what was learned per stage is in `docs/learning-log.md`.
