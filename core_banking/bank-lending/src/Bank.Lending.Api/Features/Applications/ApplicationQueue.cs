@@ -7,7 +7,8 @@ namespace Bank.Lending.Api.Features.Applications;
 
 /// <summary>
 /// GET /loan-applications?status=&amp;customerId=&amp;limit=&amp;cursor=: the review queue. Oldest first by (created_at, id), keyset
-/// paging (workspace ADR 0004), staff only (ADR 0006). A GET, because its filters are only ids and statuses (ADR 0005).
+/// paging (workspace ADR 0004). Staff see every application (ADR 0006); a customer sees only their own, whatever
+/// customerId they send (phase 2 design plan, section 8). A GET, because its filters are only ids and statuses (ADR 0005).
 /// </summary>
 public static class ApplicationQueue
 {
@@ -16,7 +17,7 @@ public static class ApplicationQueue
     public static void Map(IEndpointRouteBuilder app) =>
         app.MapGet("/loan-applications", ListAsync)
             .WithName("ListLoanApplications").WithTags("Applications")
-            .WithSummary("List loan applications, oldest first. Filter by one or more statuses and a customer. Staff only.")
+            .WithSummary("List loan applications, oldest first. Filter by one or more statuses and a customer. A customer sees only their own.")
             .Produces<Page<ApplicationResponse>>()
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -26,9 +27,22 @@ public static class ApplicationQueue
         [FromQuery(Name = "status")] string[]? statuses, Guid? customerId, int? limit, string? cursor,
         HttpRequest http, LendingDbContext db, CancellationToken ct)
     {
-        if ((StaffAccess.Problem(http) ?? Paging.LimitProblem(limit)) is { } problem)
+        var isCustomer = CustomerAccess.IsCustomerCall(http);
+        if (((isCustomer ? null : StaffAccess.Problem(http)) ?? Paging.LimitProblem(limit)) is { } problem)
         {
             return problem;
+        }
+
+        if (isCustomer)
+        {
+            // A customer's list is always their own: another customer's id gives an empty page, no id means their own.
+            if (customerId is { } asked && CustomerAccess.IsOtherCustomer(http, asked)
+                || !Guid.TryParse(http.Headers[CustomerAccess.HeaderName], out var caller))
+            {
+                return Results.Ok(new Page<ApplicationResponse>([], null));
+            }
+
+            customerId = caller;
         }
 
         var wanted = new List<ApplicationStatus>();

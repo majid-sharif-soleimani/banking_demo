@@ -206,6 +206,22 @@ public class StandingOrderTests(PostgresFixture postgres)
     }
 
     [Fact]
+    public async Task A_customer_lists_their_own_orders_and_sees_none_of_another_customers()
+    {
+        await using var app = await AccountsApp.StartAsync(postgres);
+        var from = await app.OpenAccountAsync();
+        var to = await app.OpenAccountAsync();
+        var first = await CreateAsync(app, from.Id, to.Id, 10m);
+        var second = await CreateAsync(app, from.Id, to.Id, 20m, "Weekly");
+
+        var own = await app.Client(customerId: app.CustomerId).GetFromJsonAsync<List<StandingOrderResponse>>($"/standing-orders?customerId={app.CustomerId}", Ct);
+        var other = await app.Client(customerId: Guid.NewGuid()).GetFromJsonAsync<List<StandingOrderResponse>>($"/standing-orders?customerId={app.CustomerId}", Ct);
+
+        own!.Select(o => o.Id).ShouldBe([first.Id, second.Id]);
+        other.ShouldBeEmpty();
+    }
+
+    [Fact]
     public async Task A_retried_create_with_the_same_key_makes_one_order()
     {
         await using var app = await AccountsApp.StartAsync(postgres);

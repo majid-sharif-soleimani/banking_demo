@@ -18,7 +18,7 @@ public sealed record StandingOrderResponse(
 }
 
 /// <summary>
-/// POST /standing-orders, GET /standing-orders/{id}, DELETE /standing-orders/{id} (cancel). An order can be created
+/// POST /standing-orders, GET /standing-orders?customerId=, GET /standing-orders/{id}, DELETE /standing-orders/{id} (cancel). An order can be created
 /// without enough money; the balance is checked when it runs (design plan section 2). It runs at the end of its start
 /// date at the earliest, so the start date may be today's business date but not earlier.
 /// </summary>
@@ -29,6 +29,7 @@ public static class StandingOrderEndpoints
     public static void Map(IEndpointRouteBuilder app)
     {
         app.MapPost("/standing-orders", CreateAsync).WithName("CreateStandingOrder").WithTags("Standing orders");
+        app.MapGet("/standing-orders", ListAsync).WithName("ListStandingOrders").WithTags("Standing orders");
         app.MapGet("/standing-orders/{id:guid}", GetAsync).WithName("GetStandingOrder").WithTags("Standing orders");
         app.MapDelete("/standing-orders/{id:guid}", CancelAsync).WithName("CancelStandingOrder").WithTags("Standing orders");
     }
@@ -89,6 +90,18 @@ public static class StandingOrderEndpoints
         db.ChangeTracker.Clear(); // the source account was loaded tracked; nothing about it changes here
         db.StandingOrders.Add(order);
         return Outcome.Ok(StandingOrderResponse.From(order), StatusCodes.Status201Created);
+    }
+
+    /// <summary>A customer's orders, oldest first, like GET /accounts?customerId=: another customer's id gives an empty list (phase 2 design plan, section 8).</summary>
+    private static async Task<IResult> ListAsync(Guid customerId, HttpRequest http, AccountsDbContext db, CancellationToken ct)
+    {
+        if (CustomerAccess.IsOtherCustomer(http, customerId))
+        {
+            return Results.Ok(Array.Empty<StandingOrderResponse>());
+        }
+
+        var orders = await db.StandingOrders.AsNoTracking().Where(o => o.CustomerId == customerId).OrderBy(o => o.CreatedAt).ToListAsync(ct);
+        return Results.Ok(orders.Select(StandingOrderResponse.From));
     }
 
     private static async Task<IResult> GetAsync(Guid id, HttpRequest http, AccountsDbContext db, CancellationToken ct)

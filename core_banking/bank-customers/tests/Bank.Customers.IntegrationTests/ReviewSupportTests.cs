@@ -164,6 +164,23 @@ public class ReviewSupportTests(PostgresFixture postgres)
     }
 
     [Fact]
+    public async Task A_customer_lists_their_own_appointments_and_none_of_another_customers()
+    {
+        var (app, customer) = await StartWithCustomerAsync(postgres);
+        await using var _ = app;
+        var slot = (await app.GetJsonAsync<SlotResponse[]>($"/appointments/availability?date={Tomorrow:yyyy-MM-dd}")).First();
+        var booked = await app.PostJsonAsync("/appointments",
+            new AppointmentEndpoints.BookRequest(await SubmittedApplicationAsync(app, customer.Id), customer.Id, slot.EmployeeId, slot.StartsAt));
+        var appointment = (await booked.Content.ReadFromJsonAsync<AppointmentResponse>(Ct))!;
+
+        var own = await app.Client(customerId: customer.Id).GetFromJsonAsync<AppointmentResponse[]>($"/appointments?customerId={customer.Id}", Ct);
+        var other = await app.Client(customerId: Guid.NewGuid()).GetFromJsonAsync<AppointmentResponse[]>($"/appointments?customerId={customer.Id}", Ct);
+
+        own!.ShouldHaveSingleItem().Id.ShouldBe(appointment.Id);
+        other.ShouldBeEmpty();
+    }
+
+    [Fact]
     public async Task Slots_must_be_full_hours_on_a_later_day()
     {
         var (app, customer) = await StartWithCustomerAsync(postgres);

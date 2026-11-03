@@ -106,17 +106,29 @@ public class ApplicationQueueTests(PostgresFixture postgres)
     }
 
     [Fact]
-    public async Task A_customer_and_a_caller_without_an_actor_are_refused()
+    public async Task A_caller_without_an_actor_is_refused()
     {
         await using var app = await LendingApp.StartAsync(postgres);
 
-        var customer = await app.Client(customerId: app.CustomerId).GetAsync("/loan-applications", Ct);
         var anonymous = await app.CreateClient().GetAsync("/loan-applications", Ct);
 
-        customer.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
-        (await ApplicationTests.Code(customer)).ShouldBe("staff_only");
         anonymous.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
         (await ApplicationTests.Code(anonymous)).ShouldBe("missing_actor");
+    }
+
+    [Fact]
+    public async Task A_customer_sees_only_their_own_applications_whatever_customer_id_they_send()
+    {
+        await using var app = await LendingApp.StartAsync(postgres);
+        var own = (await app.SubmitOkAsync()).Id;
+        await SubmitForAnotherCustomerAsync(app);
+        var client = app.Client(customerId: app.CustomerId);
+
+        var all = await client.GetFromJsonAsync<Page<ApplicationResponse>>("/loan-applications", Ct);
+        var other = await client.GetFromJsonAsync<Page<ApplicationResponse>>($"/loan-applications?customerId={Guid.NewGuid()}", Ct);
+
+        all!.Items.Select(a => a.Id).ShouldBe([own]);
+        other!.Items.ShouldBeEmpty();
     }
 
     [Theory]

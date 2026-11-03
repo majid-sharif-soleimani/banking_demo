@@ -25,6 +25,7 @@ public static class AppointmentEndpoints
     public static void Map(IEndpointRouteBuilder app)
     {
         app.MapGet("/appointments/availability", AvailabilityAsync).WithTags("Appointments");
+        app.MapGet("/appointments", ListAsync).WithTags("Appointments");
         app.MapPost("/appointments", BookAsync).WithTags("Appointments");
         app.MapDelete("/appointments/{id:guid}", CancelAsync).WithTags("Appointments");
     }
@@ -49,6 +50,21 @@ public static class AppointmentEndpoints
             from employee in employees
             where !taken.Any(t => t.EmployeeId == employee.Id && t.StartsAt == slot)
             select new SlotResponse(employee.Id, employee.Name, slot));
+    }
+
+    /// <summary>
+    /// GET /appointments?customerId=: a customer's appointments, soonest first, scheduled and cancelled (phase 2 design
+    /// plan, section 8). Another customer's id gives an empty list, like the other per-customer lists.
+    /// </summary>
+    private static async Task<IResult> ListAsync(Guid customerId, HttpRequest http, CustomersDbContext db, CancellationToken ct)
+    {
+        if (CustomerAccess.IsOtherCustomer(http, customerId))
+        {
+            return Results.Ok(Array.Empty<AppointmentResponse>());
+        }
+
+        var appointments = await db.Appointments.AsNoTracking().Where(a => a.CustomerId == customerId).OrderBy(a => a.StartsAt).ToListAsync(ct);
+        return Results.Ok(appointments.Select(ToResponse));
     }
 
     private static async Task<IResult> BookAsync(
