@@ -171,6 +171,9 @@ namespace Bank.Accounts.Api.Data.Migrations
                     b.HasIndex("AccountId", "Sequence")
                         .HasDatabaseName("ix_account_entry_account_id_sequence");
 
+                    b.HasIndex("BusinessDate", "Sequence")
+                        .HasDatabaseName("ix_account_entry_business_date_sequence");
+
                     b.ToTable("account_entry", (string)null);
                 });
 

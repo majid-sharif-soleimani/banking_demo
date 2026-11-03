@@ -23,6 +23,10 @@ Accounts and money movements: accounts, deposits and withdrawals, transfers (wit
 - A customer missing from `customer_ref` → 422 `customer_not_found` (ADR 0001); the caller retries.
 - `X-Customer-Id` for another customer → 404.
 
+## Transaction search (branch feat-agent-read-apis)
+
+- `POST /transactions/search` (`Features/Movements/SearchTransactions.cs`): entries joined with their account; filters from/to (business dates), min/max amount (size, one currency), currency, kinds, customer, account. Checks in `Logic/TransactionSearch`. Oldest first by (business_date, sequence), keyset via `Features/Paging.cs` (workspace ADR 0004), POST (0005), staff only via `StaffAccess` (0006). Index `ix_account_entry_business_date_sequence` only (ADR 0004).
+
 ## End of day
 
 - `AccountsEndOfDayHandler` on `DayClosed(D)`: every active order with next run ≤ D, each in its own scope and transaction (one rerun on an xmin conflict); failures are recorded and published, never retried (an order that still fails after its rerun is recorded as `technical_error`, so it cannot block the day); next run date advances either way; then `end_of_day_run` + `DayCompleted` with the inbox row. A second `DayClosed(D)` (new id) is a no-op.
@@ -37,6 +41,8 @@ Accounts and money movements: accounts, deposits and withdrawals, transfers (wit
 ## Gotchas
 
 - Opposite transfers can deadlock (40P01); `IdempotentCommand` treats it like a version conflict: one rerun, then 409.
+- The two entries of one transfer have no fixed sequence order; tests compare them without order.
+- After `Join` in LINQ, project to an anonymous type, not a positional record, or later `Where`s cannot be translated (500).
 - `TransferMoney.ExecuteAsync` is shared by `POST /transfers` and standing orders; it never saves.
 
 - Do not store responses as jsonb: it reorders keys and breaks byte-identical replays.

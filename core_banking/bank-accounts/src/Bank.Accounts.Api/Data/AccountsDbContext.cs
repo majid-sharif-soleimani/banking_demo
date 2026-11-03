@@ -61,6 +61,8 @@ public sealed class AccountsDbContext(DbContextOptions<AccountsDbContext> option
             entry.ToTable("account_entry");
             entry.Property(e => e.Sequence).ValueGeneratedOnAdd();
             entry.HasIndex(e => new { e.AccountId, e.Sequence });
+            // Transaction search across accounts (bank-accounts ADR 0004): date range + keyset order (business_date, sequence).
+            entry.HasIndex(e => new { e.BusinessDate, e.Sequence }).HasDatabaseName("ix_account_entry_business_date_sequence");
             // One disbursement credit per loan, enforced by the database (non-negotiable: a unique business key on financial effects).
             entry.HasIndex(e => e.Reference).IsUnique().HasFilter("kind = 'LoanDisbursement'").HasDatabaseName("ux_account_entry_loan_disbursement");
             entry.Property(e => e.Amount).HasColumnType("numeric");

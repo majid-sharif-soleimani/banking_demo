@@ -67,6 +67,7 @@ GetAccounts.Map(app);
 CashMovements.Map(app);
 TransferEndpoints.Map(app);
 Statements.Map(app);
+SearchTransactions.Map(app);
 StandingOrderEndpoints.Map(app);
 
 app.Run();
