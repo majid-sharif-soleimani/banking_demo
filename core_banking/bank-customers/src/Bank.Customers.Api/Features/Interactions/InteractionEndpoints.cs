@@ -22,6 +22,9 @@ public static class InteractionEndpoints
 {
     public const long MaxFileBytes = 10 * 1024 * 1024;
 
+    /// <summary>The open-request queue is a work list, not an export: the oldest 100 are enough for one look.</summary>
+    public const int OpenQueueLimit = 100;
+
     public static void Map(IEndpointRouteBuilder app)
     {
         app.MapPost("/customers/{id:guid}/interactions", AddAsync).DisableAntiforgery().WithTags("Interactions");
@@ -113,8 +116,24 @@ public static class InteractionEndpoints
         return Results.Stream(await files.OpenReadAsync(interaction.FileKey, ct), interaction.ContentType ?? "application/octet-stream", interaction.FileName);
     }
 
-    private static async Task<IResult> RequestsAsync(Guid applicationId, HttpRequest http, CustomersDbContext db, CancellationToken ct)
+    /// <summary>
+    /// With <paramref name="applicationId"/>: that application's requests (a customer sees only their own). Without it:
+    /// the staff queue of every open request, oldest first (phase 2 stage 4, the admin's information request queue).
+    /// </summary>
+    private static async Task<IResult> RequestsAsync(Guid? applicationId, HttpRequest http, CustomersDbContext db, CancellationToken ct)
     {
+        if (applicationId is null)
+        {
+            if (StaffAccess.Problem(http) is { } problem)
+            {
+                return problem;
+            }
+
+            var open = await db.InformationRequests.AsNoTracking().Where(r => r.Status == InformationRequestStatus.Open)
+                .OrderBy(r => r.RequestedOn).ThenBy(r => r.CreatedAt).Take(OpenQueueLimit).ToListAsync(ct);
+            return Results.Ok(open.Select(ToResponse));
+        }
+
         var requests = await db.InformationRequests.AsNoTracking().Where(r => r.ApplicationId == applicationId).OrderBy(r => r.CreatedAt).ToListAsync(ct);
         return Results.Ok(requests.Where(r => !CustomerAccess.IsOtherCustomer(http, r.CustomerId)).Select(ToResponse));
     }

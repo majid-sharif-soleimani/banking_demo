@@ -13,7 +13,7 @@ Double-entry general ledger, per currency, posted only from events (design plan 
 - `Logic/PostingRules`: one pure function per event (ADR 0001); `JournalDraft.IsBalanced`. Handlers in `Features/Posting.cs` map event → rule → `Posting.PostAsync` (idempotent by message id; unbalanced → throws).
 - Posts from `MoneyDeposited`, `MoneyWithdrawn`, `MoneyTransferred` (only across currencies, two entries through FxPosition), `LoanDisbursed`, `LoanPaymentAllocated` (Account/Payoff → CustomerDeposits, Card → CardClearing; `Unallocated` → 2100 CustomerPayable, ADR 0002).
 - The chart (8 accounts) is created on `CurrencyActivated` or on first use, whichever comes first. Never from `PaymentCollected`, `CardPaymentCaptured` or `LoanPaidOffEarly`.
-- `GET /journal-entries?from=&to=`, `GET /trial-balance?date=&currency=` (date defaults to the business date).
+- `GET /journal-entries?from=&to=`, `GET /trial-balance?date=&currency=` (date defaults to the business date). Staff only: a call with `X-Customer-Id` gets 403 `staff_only` (`Features/StaffOnly.cs`, phase 2 stage 4).
 
 ## Commands
 

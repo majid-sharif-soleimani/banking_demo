@@ -18,8 +18,9 @@ public static class Reports
 {
     public static void Map(IEndpointRouteBuilder app)
     {
-        app.MapGet("/journal-entries", async (DateOnly from, DateOnly to, LedgerDbContext db, CancellationToken ct) =>
+        app.MapGet("/journal-entries", async (DateOnly from, DateOnly to, HttpRequest http, LedgerDbContext db, CancellationToken ct) =>
         {
+            if (StaffOnly.Refuse(http) is { } refused) return refused;
             var entries = await db.Entries.AsNoTracking().Include(e => e.Lines)
                 .Where(e => e.BusinessDate >= from && e.BusinessDate <= to).OrderBy(e => e.BusinessDate).ThenBy(e => e.Id).ToListAsync(ct);
             return Results.Ok(entries.Select(e => new JournalEntryResponse(e.Id, e.BusinessDate, e.Currency, e.Description, e.SourceEvent,
@@ -27,8 +28,9 @@ public static class Reports
                     .Select(l => new JournalLineResponse((int)l.GlCode, GlAccounts.Of(l.GlCode).Name, l.Debit, l.Credit))])));
         }).WithTags("Ledger");
 
-        app.MapGet("/trial-balance", async (DateOnly? date, string currency, LedgerDbContext db, IBusinessClock clock, CancellationToken ct) =>
+        app.MapGet("/trial-balance", async (DateOnly? date, string currency, HttpRequest http, LedgerDbContext db, IBusinessClock clock, CancellationToken ct) =>
         {
+            if (StaffOnly.Refuse(http) is { } refused) return refused;
             var on = date ?? clock.Today;
             var lines = await db.Lines.AsNoTracking()
                 .Where(l => l.Currency == currency && db.Entries.Any(e => e.Id == l.EntryId && e.BusinessDate <= on))

@@ -19,10 +19,16 @@ public static class CloseBusinessDay
 
     private static async Task<Results<Ok<BusinessDayResponse>, ProblemHttpResult>> HandleAsync(
         [FromHeader(Name = PerformedBy.HeaderName)] string? performedBy,
+        HttpRequest http,
         OperationsDbContext db,
         IEventPublisher publisher,
         CancellationToken ct)
     {
+        if (StaffOnly.Refuse(http) is { } refused)
+        {
+            return refused;
+        }
+
         var day = await db.BusinessDays.CurrentAsync(ct);
         if (day is null || day.Status != BusinessDayStatus.Open)
         {

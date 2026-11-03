@@ -19,6 +19,8 @@ Customers and what the bank tells them. Stage 4: registration and notifications.
 
 `POST /customers/search` (`Features/Customers/SearchCustomers.cs`, branch feat-agent-read-apis): name contains (ILIKE, wildcards escaped), email equal ignoring case, phone equal on digits (`CustomersDbContext.RegexpReplace` with 'g'), customer number = customer id, national id equal after trimming (used by bank-identity's login, workspace ADR 0007); AND; returns `CustomerSummary`. Keyset paging on (name, id) via `Features/Paging.cs` (workspace ADR 0004), POST so personal data stays out of URLs (0005), staff only via `StaffAccess` (0006). No index (ADR 0001): sequential scan, revisit with pg_trgm when the table grows.
 
+`GET /information-requests?applicationId=` lists one application's requests (a customer sees only their own). Without `applicationId` it is the staff queue: every `Open` request, oldest first, at most 100, via `StaffAccess` (phase 2 stage 4).
+
 ## Gotchas
 
 - The email is sent before the handler's transaction commits: at least once, never zero. A crash in between can send it twice.

@@ -189,3 +189,24 @@ public class BusinessDayTests(PostgresFixture postgres)
         (await app.GetJsonAsync<BusinessDayResponse>("/business-days/current")).ShouldBe(new(Day1, "Open"));
     }
 }
+
+public class StaffOnlyTests(PostgresFixture postgres)
+{
+    private static CancellationToken Ct => TestContext.Current.CancellationToken;
+
+    [Theory]
+    [InlineData("/business-days/current/close")]
+    [InlineData("/currencies/EUR/activate")]
+    public async Task A_customer_cannot_close_the_day_or_activate_a_currency(string path)
+    {
+        await using var app = await OperationsApp.StartAsync(postgres);
+        var client = app.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Customer-Id", Guid.NewGuid().ToString());
+
+        using var response = await client.PostAsync(path, null, Ct);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await response.Content.ReadFromJsonAsync<ProblemDetails>(Ct))!.Extensions["code"]!.ToString().ShouldBe("staff_only");
+        (await app.GetJsonAsync<BusinessDayResponse>("/business-days/current")).Status.ShouldBe("Open");
+    }
+}

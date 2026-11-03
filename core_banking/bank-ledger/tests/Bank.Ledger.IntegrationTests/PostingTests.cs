@@ -131,3 +131,20 @@ public class PostingTests(PostgresFixture postgres)
 
     private static decimal Balance(TrialBalanceResponse balance, string account) => balance.Rows.Single(r => r.Name == account).Balance;
 }
+
+public class StaffOnlyTests(PostgresFixture postgres)
+{
+    [Theory]
+    [InlineData("/journal-entries?from=2026-03-02&to=2026-03-02")]
+    [InlineData("/trial-balance?currency=SEK")]
+    public async Task A_customer_cannot_read_the_books(string path)
+    {
+        await using var app = await LedgerApp.StartAsync(postgres);
+        var client = app.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Customer-Id", Guid.NewGuid().ToString());
+
+        using var response = await client.GetAsync(path, TestContext.Current.CancellationToken);
+
+        response.StatusCode.ShouldBe(System.Net.HttpStatusCode.Forbidden);
+    }
+}

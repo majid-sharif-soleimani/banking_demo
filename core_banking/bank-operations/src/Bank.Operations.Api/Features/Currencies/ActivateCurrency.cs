@@ -21,10 +21,16 @@ public static class ActivateCurrency
     private static async Task<Results<Ok<CurrencyResponse>, ProblemHttpResult>> HandleAsync(
         string code,
         [FromHeader(Name = PerformedBy.HeaderName)] string? performedBy,
+        HttpRequest http,
         OperationsDbContext db,
         IEventPublisher publisher,
         CancellationToken ct)
     {
+        if (StaffOnly.Refuse(http) is { } refused)
+        {
+            return refused;
+        }
+
         var currencyCode = code.ToUpperInvariant();
         var currency = await db.Currencies.SingleOrDefaultAsync(c => c.Code == currencyCode, ct);
         if (currency is null)

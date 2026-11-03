@@ -22,6 +22,8 @@ Owns the bank's currencies and business date, and runs the end-of-day cycle (des
 
 ## Gotchas
 
+- Closing the day and activating a currency are staff only: a call with `X-Customer-Id` gets 403 `staff_only` (`Features/StaffOnly.cs`, phase 2 stage 4).
+
 - Running the whole system with the AppHost before stage 4: the default participants (`accounts`, `lending`) do not exist yet, so a close leaves the day Closing. Expected until those services reply.
 - `business_day` has a deferred exclusion constraint `ex_business_day_one_current`: at most one day is not Closed, checked at commit.
 - `DayCompletedHandler` locks the current day first (`CurrentForUpdateAsync`, `FOR UPDATE`, ADR 0001). Anything else that changes the current day from a handler must take the same lock, or the lost-close race comes back.

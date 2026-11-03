@@ -100,6 +100,28 @@ public class ReviewSupportTests(PostgresFixture postgres)
     }
 
     [Fact]
+    public async Task Without_an_application_staff_get_the_open_requests_oldest_first_and_customers_get_403()
+    {
+        var (app, customer) = await StartWithCustomerAsync(postgres);
+        await using var _ = app;
+        var older = new InformationRequested(Guid.NewGuid(), CustomersApp.Today, "E001", Guid.NewGuid(), Guid.NewGuid(), customer.Id, "Payslip");
+        var newer = new InformationRequested(Guid.NewGuid(), Tomorrow, "E001", Guid.NewGuid(), Guid.NewGuid(), customer.Id, "ID copy");
+        var done = new InformationRequested(Guid.NewGuid(), CustomersApp.Today, "E001", Guid.NewGuid(), Guid.NewGuid(), customer.Id, "Contract");
+        await app.DeliverAsync(newer, newer.ApplicationId.ToString());
+        await app.DeliverAsync(older, older.ApplicationId.ToString());
+        await app.DeliverAsync(done, done.ApplicationId.ToString());
+        await app.Client(performedBy: "E001").PostAsync($"/information-requests/{done.InformationRequestId}/complete", null, Ct);
+
+        var queue = await app.Client(performedBy: "E001").GetFromJsonAsync<InformationRequestResponse[]>("/information-requests", Ct);
+        var asCustomer = await app.Client(customerId: customer.Id).GetAsync("/information-requests", Ct);
+        var anonymous = await app.CreateClient().GetAsync("/information-requests", Ct);
+
+        queue!.Select(r => r.Id).ShouldBe([older.InformationRequestId, newer.InformationRequestId]);
+        asCustomer.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        anonymous.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
     public async Task Application_events_are_recorded_once_in_the_interaction_history()
     {
         var (app, customer) = await StartWithCustomerAsync(postgres);
