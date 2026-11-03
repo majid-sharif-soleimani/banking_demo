@@ -35,6 +35,13 @@ var options = new ImportOptions(
     Force: args.Contains("--force"));
 
 using var http = new HttpClient { BaseAddress = new Uri(gateway), Timeout = TimeSpan.FromMinutes(2) };
+// The gateway's key, when it asks for one (always outside Development). From the environment (Import__ApiKey), not the
+// command line, so it stays out of the shell history.
+if (configuration["Import:ApiKey"] is { Length: > 0 } apiKey)
+{
+    http.DefaultRequestHeaders.Add("X-Api-Key", apiKey);
+}
+
 var importer = new Importer(http, options, Console.Out);
 var reportPath = configuration["Import:Report"] ?? "data/import-report.md";
 Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(reportPath))!);

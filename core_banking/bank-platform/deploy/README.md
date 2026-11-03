@@ -39,6 +39,7 @@ Why it is built this way: bank-platform ADRs 0002 (instance and start/stop), 000
    ```
    Then restart the instance (`stop.sh`, `start.sh`), or run `sudo systemctl restart bank` on it. The JSON holds:
    - `POSTGRES_PASSWORD`, plus `OPERATIONS_DB_PASSWORD`, `CUSTOMERS_DB_PASSWORD`, `ACCOUNTS_DB_PASSWORD`, `CARDS_DB_PASSWORD`, `LENDING_DB_PASSWORD` and `LEDGER_DB_PASSWORD`. Each must be **at least 24 letters and digits**, with no symbols: the values go into env files and connection strings. For example, `openssl rand -hex 16` for each;
+   - `GATEWAY_API_KEY`: the key every caller sends to the gateway in `X-Api-Key`, **at least 32 letters and digits** (`openssl rand -hex 32`);
    - `GHCR_OWNER`: the GitHub account that owns the images (`ghcr.io/<GHCR_OWNER>/bank-<service>`). It is not a secret, but it stays out of the repository;
    - optionally `GHCR_TOKEN` and `GHCR_USER` (defaults to `GHCR_OWNER`).
 
@@ -54,6 +55,7 @@ User data runs only at the first boot. After a change to `docker-compose.aws.yml
 | --- | --- | --- |
 | `POSTGRES_PASSWORD` | the stack's Secrets Manager secret | PostgreSQL admin (init only) |
 | `<SERVICE>_DB_PASSWORD` (six) | the same secret | the init script creates each role with it; each service connects with its own |
+| `GATEWAY_API_KEY` | the same secret | the gateway asks every `/api` caller for it in `X-Api-Key` (`Gateway__ApiKey`) |
 | `GHCR_OWNER` | the same secret | image names in `docker-compose.aws.yml` |
 | `GHCR_TOKEN`, `GHCR_USER` (optional) | the same secret | `docker login ghcr.io` for private images |
 

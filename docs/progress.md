@@ -17,6 +17,7 @@ Updated by `/close-stage`. One row per stage from section 10 of `phase1-design-p
 ## Hosting
 
 - 2026-11-03: the bank runs on a private host machine by `core_banking/bank-platform/deploy/home-hosting.md` (Docker Compose, images tagged `home`). Platform 47 and end-to-end 5 green before the build. Loaded with generated synthetic data (option C: 100 customers, 363 business days, verification passed; current business date 2026-12-30). Step 7 checks pass locally and through Tailscale. Published with Tailscale Funnel (open to the internet); public relays served it about 3 minutes after `funnel` was turned on. Reboot check still to do.
+- 2026-11-03: the gateway asks every `/api` caller for a shared key in `X-Api-Key` (`Gateway__ApiKey`; at home in the gitignored `deploy/env/gateway.env`, on AWS `GATEWAY_API_KEY` in the stack secret). Outside Development it refuses to start without one. Gateway tests 16 green; live on the home bank. Tailscale to move from Funnel to serve (tailnet only). The identity headers are still taken as given: real per-customer authentication waits for phase 2.
 
 ## Open questions
 
