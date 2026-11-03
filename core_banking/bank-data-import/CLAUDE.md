@@ -9,6 +9,8 @@ Console tool `Bank.DataImport`: loads ~100 customers with up to two years of his
 dotnet run --project src/Bank.DataImport -- --gateway http://localhost:<port> [--force]
 ```
 
+- Without the export: `python3 tools/generate-sample-data.py` writes synthetic CSVs with the default column names into `data/raw/` (100 customers, one year, fixed seed; `--years 2`, `--seed N`). The history meets the selection targets and the product ranges.
+
 - Fresh bank only: it stops before writing anything when a customer already exists (409 on `IMP-<id>`), and stops before closing any day when no account was opened. `--force` lets existing customers be skipped instead (they cannot be looked up, so a second run never resumes). The replay is anchored on the current business date. Writes `data/import-report.md` (gitignored), also a partial one when it stops (exit 4). Exit code 0 only when verification passed.
 - **Column names** of the real export are mapped in `appsettings.json` (`Import:Columns`); the defaults match the test fixture and must be checked against the real files.
 

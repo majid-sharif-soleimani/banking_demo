@@ -14,6 +14,10 @@ Updated by `/close-stage`. One row per stage from section 10 of `phase1-design-p
 | 7 | Gateway and data import | Done | 2026-11-02 | Slices 7.1–7.5; gateway 9, data-import 34, platform 47 green (2026-11-02 after merging master); data-import 0001 confirmed by Majid; column mapping still to check against the real export; retro skipped; merged into master |
 | 8 | End-to-end and AWS | Done | 2026-11-02 | Slices 8.1–8.5; end-to-end 5/5, cdk synth and compose config OK (2026-11-02 after merging master); platform 0002 and 0004 confirmed, 0003 changed by Majid (e2e on every push to master); not deployed, CDK review with /explain before the first deploy; retro skipped; merged into master |
 
+## Hosting
+
+- 2026-11-03: the bank runs on a private host machine by `core_banking/bank-platform/deploy/home-hosting.md` (Docker Compose, images tagged `home`). Platform 47 and end-to-end 5 green before the build. Loaded with generated synthetic data (option C: 100 customers, 363 business days, verification passed; current business date 2026-12-30). Step 7 checks pass locally and through Tailscale. Published with Tailscale Funnel (open to the internet); public relays served it about 3 minutes after `funnel` was turned on. Reboot check still to do.
+
 ## Open questions
 
 - 2026-10-31: Majid delegated D1 decisions for stages 2–8 to Claude (no questions). Resolved 2026-11-02: every stage was reviewed (stage 5 accepted without review) and merged into `master`; each stage plan has a sign-off section.

@@ -114,6 +114,15 @@ grep Verification data/import-report.md    # Verification: passed
 
 Option B, the real databasesample.com export (about 100 customers, two years): put the CSV files in `data/raw/` (gitignored), check the column names in `src/Bank.DataImport/appsettings.json` (`Import:Columns`) against the files, then run the same command without `--data`. This takes much longer, because every business day is closed one at a time.
 
+Option C, generated synthetic data (100 customers, one year; no download, no personal data). The generator writes the six files into `data/raw/` with the column names the tool expects. Its history meets the import's selection targets: 44 borrowers, 14 with late payments, 2 who stop paying and reach Default, and 20 standing orders. All loan amounts and terms fall inside the product ranges. About 9,000 transactions and 363 business days are replayed, so expect a long run.
+
+```bash
+cd core_banking/bank-data-import
+python3 tools/generate-sample-data.py            # --years 2 for two years, --seed N for another data set
+dotnet run --project src/Bank.DataImport -- --gateway http://127.0.0.1:8080
+grep Verification data/import-report.md          # Verification: passed
+```
+
 To start over with an empty bank: `docker compose -f docker-compose.aws.yml -f docker-compose.home.yml down -v`, then steps 4 and 5. The passwords in `env/` stay valid, because the roles are created again from them.
 
 ## 6. Publish the gateway through Tailscale
@@ -130,6 +139,8 @@ sudo tailscale funnel --bg 8080       # the first time, it prints a link to enab
 tailscale serve status                # shows what is published
 sudo tailscale serve reset            # stops A; "sudo tailscale funnel reset" stops B
 ```
+
+`serve` and `funnel` write the same entry for port 443; `funnel` only adds the internet flag, so running both leaves one entry. After `funnel` is turned on, the public relays take a few minutes (about 3 on 2026-11-03) before every one of them serves the URL; until then, devices outside the tailnet may get a TLS error.
 
 With Funnel, anyone who knows the URL can call the API. The gateway only asks for an `X-Performed-By` or `X-Customer-Id` header. Keep only synthetic data in this bank.
 
@@ -162,6 +173,24 @@ curl -fsS -H 'X-Performed-By: smoke-test' http://127.0.0.1:8080/api/operations/b
 ```
 
 Rebooting the host machine is the full check: after login, step 7 passes again without running any command.
+
+## Bring the bank back up (quick guide)
+
+The bank is already installed: images built, passwords in `env/`, data in the volumes, Funnel saved in Tailscale. Nothing below deletes data.
+
+```bash
+cd ~/repos/banking_demo/core_banking/bank-platform/deploy
+alias bank='docker compose -f docker-compose.aws.yml -f docker-compose.home.yml'
+
+bank ps                                    # 1. what is running? After a reboot, usually everything already is.
+bank up -d --wait                          # 2. start whatever is stopped (safe to run any time)
+curl -fsS http://127.0.0.1:8080/health; echo                  # 3. Healthy
+tailscale funnel status                    # 4. shows "(Funnel on)" for the tailnet URL
+sudo tailscale funnel --bg 8080            #    only if step 4 shows nothing
+curl -fsS "https://$(tailscale status --json | python3 -c 'import sys,json;print(json.load(sys.stdin)["Self"]["DNSName"].rstrip("."))')/health"; echo   # 5. Healthy
+```
+
+If `bank up` fails with "no such image", the images were removed: run the image build in step 2 again. Do not run `bank down -v` and do not delete `env/`: `-v` erases all data, and new passwords no longer match the database roles. If a step still fails, `bank logs --tail 50 <service>` shows why.
 
 ## Day to day
 
