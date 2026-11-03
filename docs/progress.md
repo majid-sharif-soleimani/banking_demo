@@ -6,7 +6,8 @@ Phase 1 is complete (closed 2026-11-03). It is reopened only to fix bugs. Phase 
 
 | Step | Name | Status | Closed on | Notes |
 | --- | --- | --- | --- | --- |
-| 0 | Design and requirements | In progress | | `phase2-design-plan.md` drafted 2026-11-03; open decisions in its section 7 |
+| 0 | Design and requirements | Done | 2026-11-03 | `phase2-design-plan.md`: decisions A1–A13 and the business answers in section 7 made by Majid; workspace ADR 0008 |
+| 1 | Chat shell and login | Ready for review | | Branch `p2-stage-1-chat-shell`. Agent host (BFF, in-memory sessions, schema `agent`, AG-UI echo run) and chat UI (assistant-ui); agent ADR 0001. Unit 23, integration 24, chat-ui 14, Playwright 4 (AppHost), platform 54 green. Not merged; not on the home bank |
 
 ## Phase 1
 

@@ -36,6 +36,9 @@ public sealed class HostSession
     public required Guid ChatId { get; init; }
 
     public DateTimeOffset LastSeen { get; set; }
+
+    /// <summary>Set when a newer login of the same user ended this session; told to its browser once, then forgotten.</summary>
+    public ChatCloseReason? EndedBy { get; set; }
 }
 
 public abstract record SessionLookup
@@ -44,6 +47,9 @@ public abstract record SessionLookup
 
     /// <summary>Unused for the idle timeout; already removed. Its chat still has to be closed.</summary>
     public sealed record Idle(HostSession Session) : SessionLookup;
+
+    /// <summary>Ended by a newer login (its chat is already closed); already removed after this one answer.</summary>
+    public sealed record Ended(HostSession Session, ChatCloseReason Reason) : SessionLookup;
 
     public sealed record Unknown : SessionLookup;
 }
@@ -89,6 +95,12 @@ public sealed class HostSessions(TimeProvider time, IOptions<AgentOptions> optio
                 return new SessionLookup.Unknown();
             }
 
+            if (session.EndedBy is { } reason)
+            {
+                byId.Remove(id);
+                return new SessionLookup.Ended(session, reason);
+            }
+
             if (SessionEnd.IsIdle(session.LastSeen, now, options.Value.IdleTimeout))
             {
                 byId.Remove(id);
@@ -113,21 +125,29 @@ public sealed class HostSessions(TimeProvider time, IOptions<AgentOptions> optio
         }
     }
 
-    /// <summary>Every session of a user (a new login replaces them all, like identity), plus every idle one.</summary>
+    /// <summary>
+    /// A new login of <paramref name="username"/>: every other session of that user ends (like identity, the newer login
+    /// wins) and stays only to tell its browser why, once. Idle sessions of anyone, including ended ones nobody asked
+    /// about, are removed on the way, which keeps the store bounded. Returns the sessions whose chats must be closed.
+    /// </summary>
     public IReadOnlyList<HostSession> EndForNewLogin(string username)
     {
         var now = time.GetUtcNow();
         lock (gate)
         {
-            var ended = byId.Values
-                .Where(s => s.Principal.Username == username || SessionEnd.IsIdle(s.LastSeen, now, options.Value.IdleTimeout))
-                .ToList();
-            foreach (var session in ended)
+            var idle = byId.Values.Where(s => SessionEnd.IsIdle(s.LastSeen, now, options.Value.IdleTimeout)).ToList();
+            foreach (var session in idle)
             {
                 byId.Remove(session.Id);
             }
 
-            return ended;
+            var replaced = byId.Values.Where(s => s.Principal.Username == username && s.EndedBy is null).ToList();
+            foreach (var session in replaced)
+            {
+                session.EndedBy = ChatCloseReason.SessionReplaced;
+            }
+
+            return [.. idle.Where(s => s.EndedBy is null), .. replaced];
         }
     }
 }

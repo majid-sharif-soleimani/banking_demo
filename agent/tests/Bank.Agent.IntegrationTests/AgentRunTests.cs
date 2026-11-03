@@ -115,6 +115,20 @@ public class AgentRunTests(PostgresFixture postgres)
     }
 
     [Fact]
+    public async Task A_run_in_a_browser_whose_session_a_newer_login_ended_fails_with_session_replaced()
+    {
+        await using var app = await AgentApp.StartAsync(postgres);
+        var first = app.NewBrowser();
+        await first.LoginOkAsync("IMP-C001", "IMP-C001");
+        await app.NewBrowser().LoginOkAsync("IMP-C001", "IMP-C001");
+
+        var events = await first.RunAsync("still there?");
+
+        Types(events).ShouldBe(["RUN_STARTED", "RUN_ERROR"]);
+        events[1].GetProperty("code").GetString().ShouldBe("session_replaced");
+    }
+
+    [Fact]
     public async Task A_run_without_a_session_is_401_before_any_stream()
     {
         await using var app = await AgentApp.StartAsync(postgres);

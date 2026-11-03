@@ -1,0 +1,52 @@
+:root {
+  --bg: #f6f7f9;
+  --panel: #ffffff;
+  --text: #1c2430;
+  --muted: #5d6b7a;
+  --accent: #1f5fbf;
+  --user: #e3edfb;
+  --border: #d9dee5;
+  --error: #b42318;
+  font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+  color: var(--text);
+  background: var(--bg);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #12161c;
+    --panel: #1b2129;
+    --text: #e6eaef;
+    --muted: #9aa7b5;
+    --accent: #6ea2f0;
+    --user: #22324a;
+    --border: #2c3542;
+    --error: #f97066;
+  }
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); }
+.app { max-width: 760px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; padding: 0 16px; }
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.top h1 { font-size: 1.1rem; margin: 0; }
+.who { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 0.9rem; }
+main { flex: 1; display: flex; flex-direction: column; padding: 16px 0; }
+.thread { flex: 1; display: flex; flex-direction: column; gap: 12px; }
+.messages { flex: 1; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+.bubble { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px; max-width: 85%; }
+.bubble p { margin: 0 0 6px; }
+.bubble p:last-child { margin-bottom: 0; }
+.bubble.user { align-self: flex-end; background: var(--user); }
+.bubble.assistant { align-self: flex-start; }
+.login { display: flex; flex-direction: column; gap: 10px; }
+.form { display: flex; flex-direction: column; gap: 10px; min-width: min(320px, 100%); }
+.form label { display: flex; flex-direction: column; gap: 4px; font-size: 0.9rem; color: var(--muted); }
+input, textarea { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
+button { font: inherit; border: 0; border-radius: 8px; padding: 8px 14px; background: var(--accent); color: #fff; cursor: pointer; }
+button:disabled { opacity: 0.6; cursor: default; }
+.notice { color: var(--muted); }
+.error { color: var(--error); margin: 0; }
+.composer { display: flex; gap: 8px; align-items: flex-end; }
+.composer-input { flex: 1; resize: none; min-height: 40px; }
+.loading { color: var(--muted); }

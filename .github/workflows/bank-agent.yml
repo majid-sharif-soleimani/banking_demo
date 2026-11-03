@@ -1,0 +1,53 @@
+name: bank-agent
+
+on:
+  push:
+    paths:
+      - "agent/**"
+      - "core_banking/bank-platform/src/Bank.ServiceDefaults/**"
+      - "core_banking/bank-contracts/src/Bank.Toolkit.Data/**"
+      - "core_banking/bank-contracts/src/Bank.Testing/**"
+      - ".github/workflows/bank-agent.yml"
+  pull_request:
+    paths:
+      - "agent/**"
+      - "core_banking/bank-platform/src/Bank.ServiceDefaults/**"
+      - "core_banking/bank-contracts/src/Bank.Toolkit.Data/**"
+      - "core_banking/bank-contracts/src/Bank.Testing/**"
+      - ".github/workflows/bank-agent.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  host:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: agent
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      # The local feed is gitignored: build the shared Bank.* packages from this commit into it. Nothing is published.
+      - run: dotnet pack ../core_banking/bank-contracts -c Release -o ../core_banking/.local-feed
+      - run: dotnet pack ../core_banking/bank-platform/src/Bank.ServiceDefaults -c Release -o ../core_banking/.local-feed
+      - run: dotnet restore
+      - run: dotnet build --no-restore -c Release
+      # Integration tests use Testcontainers PostgreSQL (Docker is available on the runner).
+      - run: dotnet test --no-build -c Release
+
+  chat-ui:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: agent/chat-ui
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - run: npm ci
+      - run: npm test
+      - run: npm run build

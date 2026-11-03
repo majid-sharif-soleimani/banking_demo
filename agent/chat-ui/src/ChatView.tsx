@@ -1,0 +1,72 @@
+import { useMemo } from "react";
+import { HttpAgent } from "@ag-ui/client";
+import { AssistantRuntimeProvider, ComposerPrimitive, MessagePrimitive, ThreadPrimitive } from "@assistant-ui/react";
+import { useAgUiRuntime } from "@assistant-ui/react-ag-ui";
+import { clientHeaders, me, sessionEndCodes, type SessionInfo } from "./api";
+
+type Props = {
+  session: SessionInfo;
+  onEnded: (code: string) => void;
+};
+
+function UserMessage() {
+  return (
+    <MessagePrimitive.Root className="bubble user" dir="auto">
+      <MessagePrimitive.Parts />
+    </MessagePrimitive.Root>
+  );
+}
+
+function AssistantMessage() {
+  return (
+    <MessagePrimitive.Root className="bubble assistant" dir="auto">
+      <MessagePrimitive.Parts />
+    </MessagePrimitive.Root>
+  );
+}
+
+// One chat of one login. App mounts it with key={chatId}, so a new login always starts from an empty thread: nothing
+// of an earlier chat, and nothing of the login form, is in this component's state.
+export function ChatView({ session, onEnded }: Props) {
+  // The agent talks to POST /agent on the same origin; fetch sends the session cookie itself. The thread id is only
+  // a label: the host writes to the session's own chat whatever the client says.
+  const agent = useMemo(() => new HttpAgent({ url: "/agent", headers: { ...clientHeaders }, threadId: session.chatId }), [session.chatId]);
+
+  const runtime = useAgUiRuntime({
+    agent,
+    showThinking: false,
+    onError: (error) => {
+      const code = (error as Error & { code?: unknown }).code;
+      if (typeof code === "string" && sessionEndCodes.has(code)) {
+        onEnded(code);
+        return;
+      }
+
+      // An HTTP error before the stream (no session) has no code: ask the host what is left of the session.
+      void me().then((answer) => {
+        if (!answer.ok) onEnded(answer.code);
+      });
+    },
+  });
+
+  return (
+    <AssistantRuntimeProvider runtime={runtime}>
+      <ThreadPrimitive.Root className="thread">
+        <ThreadPrimitive.Viewport className="messages">
+          <ThreadPrimitive.Empty>
+            <div className="bubble assistant">
+              <p>
+                Hello {session.name}. You are logged in as {session.role === "admin" ? "the admin" : "a customer"}. How can I help?
+              </p>
+            </div>
+          </ThreadPrimitive.Empty>
+          <ThreadPrimitive.Messages components={{ UserMessage, AssistantMessage }} />
+        </ThreadPrimitive.Viewport>
+        <ComposerPrimitive.Root className="composer">
+          <ComposerPrimitive.Input className="composer-input" placeholder="Write a message" aria-label="Message" dir="auto" />
+          <ComposerPrimitive.Send className="composer-send">Send</ComposerPrimitive.Send>
+        </ComposerPrimitive.Root>
+      </ThreadPrimitive.Root>
+    </AssistantRuntimeProvider>
+  );
+}

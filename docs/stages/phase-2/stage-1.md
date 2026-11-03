@@ -54,7 +54,7 @@ No column, row or log line holds a password or a bank token.
 | `POST /auth/login` | Body `{username, password}`. Calls `POST /api/identity/login` through the gateway. On success: ends the caller's previous host session if any (its chat closes with `new_login`), starts a host session holding the bank token, opens a new chat, sets the session cookie, returns `{role, name, chatId}`. On failure: 401 `invalid_credentials` (same body for every cause), 503 `bank_unavailable`. |
 | `POST /auth/logout` | Ends the host session and the bank session (`POST /api/identity/logout`), closes the chat with `logout`, clears the cookie. 204. |
 | `GET /auth/me` | `{role, name, chatId}` of the current session, or 401 with `missing_session`, `session_expired` or `session_replaced`. |
-| `POST /agent` | The AG-UI endpoint. Needs a valid host session and the session's open chat. Each run first checks the bank session (`GET /api/identity/sessions/current`), which also keeps it alive while the person chats. Stores the user message, answers with an echo (`You said: ...`) streamed as AG-UI events, stores the answer. When the bank session has ended, the run fails with an AG-UI error event carrying `session_expired` or `session_replaced`, the chat closes with that reason, and the host session ends. |
+| `POST /agent` | The AG-UI endpoint. Needs a valid host session and the session's open chat. Each run first checks the bank session (`GET /api/identity/sessions/current`), which also keeps it alive while the person chats. Stores the user message, answers with an echo (`You said: ...`) streamed as AG-UI events, stores the answer. When the bank session has ended, the run fails with an AG-UI error event carrying `session_expired` or `session_replaced`, the chat closes with that reason, and the host session ends. Without any host session the answer is HTTP 401 before a stream starts. |
 
 Cookie: random opaque session id, `HttpOnly`, `Secure` (outside Development), `SameSite=Strict`, path `/`. State-changing endpoints also require a custom request header, so a form on another site cannot call them.
 
@@ -79,6 +79,6 @@ Cookie: random opaque session id, `HttpOnly`, `Secure` (outside Development), `S
 ```bash
 (cd agent && dotnet build && dotnet test)
 (cd agent/chat-ui && npm ci && npm run build && npm test)
-(cd agent/tests/chat-ui-e2e && npm ci && npx playwright test)
+(cd agent/tests/chat-ui-e2e && npm ci && npx playwright test)   # with the AppHost running (its README)
 (cd core_banking/bank-platform && dotnet test)
 ```

@@ -129,9 +129,12 @@ public class AuthTests(PostgresFixture postgres)
 
         secondChat.ShouldNotBe(firstChat);
         (await ChatRow(app, firstChat)).ShouldBe(("Closed", "new_login"));
+        // Told once, like identity's session_replaced; after that the session is simply gone.
         using var me = await first.GetAsync("/auth/me");
         me.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
-        (await CodeOf(me)).ShouldBe("missing_session");
+        (await CodeOf(me)).ShouldBe("session_replaced");
+        using var again = await first.GetAsync("/auth/me");
+        (await CodeOf(again)).ShouldBe("missing_session");
     }
 
     [Fact]

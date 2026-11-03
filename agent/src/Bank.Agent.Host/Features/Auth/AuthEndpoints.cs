@@ -123,6 +123,10 @@ public sealed class SessionGuard(HostSessions sessions, BankGateway bank, ChatSt
             case SessionLookup.Unknown:
                 SessionCookie.Clear(http.Response);
                 return new GuardResult.Denied(Problems.MissingSession(), "missing_session");
+            case SessionLookup.Ended(_, var reason):
+                // A newer login closed the chat already; this browser only learns why.
+                SessionCookie.Clear(http.Response);
+                return new GuardResult.Denied(Problems.SessionEnded(reason), SessionEnd.Code(reason));
             case SessionLookup.Idle(var idle):
                 await chats.CloseAsync(idle.ChatId, ChatCloseReason.SessionExpired, ct);
                 SessionCookie.Clear(http.Response);
