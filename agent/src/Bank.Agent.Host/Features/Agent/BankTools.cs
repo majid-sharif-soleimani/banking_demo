@@ -1,4 +1,5 @@
 using Bank.Agent.Host.Features.Auth;
+using Bank.Agent.Host.Logic;
 using Microsoft.Extensions.AI;
 using ModelContextProtocol.Client;
 
@@ -33,11 +34,11 @@ public sealed class BankToolSet(
 public interface IBankTools
 {
     /// <summary>
-    /// Opens the customer's bank tools, acting for the session's customer with its bank token. With
-    /// <paramref name="confirmationId"/> (only after the person confirmed), the change tools may run; the id becomes the
-    /// bank's idempotency key, so a confirmation sent twice makes one change.
+    /// Opens the bank tools of the session's role (the customer's or the admin's set), acting with the session's bank
+    /// token. With <paramref name="confirmationId"/> (only after the person confirmed), the change tools may run; the id
+    /// becomes the bank's idempotency key, so a confirmation sent twice makes one change.
     /// </summary>
-    Task<BankToolSet> OpenForCustomerAsync(HostSession session, CancellationToken ct, string? confirmationId = null);
+    Task<BankToolSet> OpenAsync(HostSession session, CancellationToken ct, string? confirmationId = null);
 }
 
 /// <summary>
@@ -48,6 +49,10 @@ public interface IBankTools
 /// arguments (an account id, two dates). It never sees the headers, so it cannot read, repeat or change them.
 ///
 /// One connection per run keeps it simple: the headers are those of this session, and nothing outlives the run.
+///
+/// Each role has its own path on the MCP server, and the server offers only that role's tools there: /mcp/customer
+/// for a customer (with X-Customer-Id), /mcp/admin for the admin (no customer id; the admin's tools take one as a
+/// parameter). Which path is chosen comes from the session, never from the model.
 /// </summary>
 public sealed class McpBankTools(IHttpClientFactory httpClients, ILoggerFactory loggers) : IBankTools
 {
@@ -56,21 +61,23 @@ public sealed class McpBankTools(IHttpClientFactory httpClients, ILoggerFactory 
     /// <summary>Tools of the MCP server that only the host calls (Bank.Agent.Mcp, CustomerChangeTools.DocumentUpload).</summary>
     public static readonly string[] HostOnlyTools = ["document_upload"];
 
-    public async Task<BankToolSet> OpenForCustomerAsync(HostSession session, CancellationToken ct, string? confirmationId = null)
+    public async Task<BankToolSet> OpenAsync(HostSession session, CancellationToken ct, string? confirmationId = null)
     {
         var http = httpClients.CreateClient(HttpClientName);
-        var headers = new Dictionary<string, string>
+        var isAdmin = session.Principal.Role == Role.Admin;
+        var headers = new Dictionary<string, string> { ["Authorization"] = $"Bearer {session.BankToken}" };
+        if (!isAdmin)
         {
-            ["Authorization"] = $"Bearer {session.BankToken}",
-            ["X-Customer-Id"] = session.Principal.CustomerId?.ToString() ?? "",
-        };
+            headers["X-Customer-Id"] = session.Principal.CustomerId?.ToString() ?? "";
+        }
+
         if (confirmationId is not null)
         {
             headers["Idempotency-Key"] = confirmationId;
         }
 
         var transport = new HttpClientTransport(
-            new HttpClientTransportOptions { Endpoint = new Uri(http.BaseAddress!, "/mcp/customer"), AdditionalHeaders = headers },
+            new HttpClientTransportOptions { Endpoint = new Uri(http.BaseAddress!, isAdmin ? "/mcp/admin" : "/mcp/customer"), AdditionalHeaders = headers },
             http, loggers, ownsHttpClient: true);
         var client = await McpClient.CreateAsync(transport, loggerFactory: loggers, cancellationToken: ct);
         try

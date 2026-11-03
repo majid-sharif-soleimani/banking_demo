@@ -19,12 +19,14 @@ public class AgentInstructionsTests
     }
 
     [Fact]
-    public void The_admin_is_told_there_are_no_bank_tools_yet()
+    public void The_admin_is_told_their_tools_and_that_loan_decisions_are_the_admins()
     {
         var text = AgentInstructions.For(Admin);
 
         text.ShouldContain("the bank's admin");
-        text.ShouldContain("none yet");
+        text.ShouldContain("trial balance");
+        text.ShouldContain("You never decide");
+        text.ShouldContain("presses Confirm or Cancel");
     }
 
     [Theory]

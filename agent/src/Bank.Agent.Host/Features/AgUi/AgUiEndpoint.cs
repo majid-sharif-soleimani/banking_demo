@@ -195,14 +195,9 @@ public static class AgUiEndpoint
 
     private static async Task<BankToolSet?> OpenBankToolsAsync(HostSession session, AgentParts parts, CancellationToken ct)
     {
-        if (session.Principal.Role != Role.Customer)
-        {
-            return BankToolSet.None;
-        }
-
         try
         {
-            return await parts.BankTools.OpenForCustomerAsync(session, ct);
+            return await parts.BankTools.OpenAsync(session, ct);
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)
         {

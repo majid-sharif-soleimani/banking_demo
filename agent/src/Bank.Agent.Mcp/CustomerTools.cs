@@ -13,15 +13,11 @@ namespace Bank.Agent.Mcp;
 ///
 /// Each tool is one bank call, without business logic. The customer id is never a parameter: it comes from the MCP
 /// connection (<see cref="BankApi.CustomerId"/>), so the model cannot ask for another customer's data.
+/// The business date and the loan products are in <see cref="SharedTools"/>: both roles get them.
 /// </summary>
 [McpServerToolType]
 public sealed class CustomerTools(BankApi bank)
 {
-    [McpServerTool(Name = "business_date", ReadOnly = true)]
-    [Description("The bank's current business date and its status. Use it to turn words like 'today' or 'last month' into dates; the bank's dates are business dates, not the calendar on the wall.")]
-    public Task<string> BusinessDateAsync(CancellationToken ct) =>
-        bank.GetAsync("/api/operations/business-days/current", ct);
-
     [McpServerTool(Name = "accounts_list", ReadOnly = true)]
     [Description("The logged-in customer's accounts: id, number, type, currency, balance (amount and currency) and status.")]
     public Task<string> AccountsAsync(CancellationToken ct) =>
@@ -40,11 +36,6 @@ public sealed class CustomerTools(BankApi bank)
     [Description("The customer's loans: principal, outstanding principal, overdue amount, days past due, status, classification (Current, Overdue, Default) and the full schedule of installments with what is due and what is paid.")]
     public Task<string> LoansAsync(CancellationToken ct) =>
         bank.GetAsync($"/api/lending/loans?customerId={bank.CustomerId}", ct);
-
-    [McpServerTool(Name = "loan_products_list", ReadOnly = true)]
-    [Description("The loan products the bank offers: code, name, currency, repayment type, annual rate, minimum and maximum amount and term in months, penalty and grace rules, and early payoff limits. Amounts are in the product's currency.")]
-    public Task<string> LoanProductsAsync(CancellationToken ct) =>
-        bank.GetAsync("/api/lending/loan-products", ct);
 
     [McpServerTool(Name = "standing_orders_list", ReadOnly = true)]
     [Description("The customer's standing orders: id, from and to account ids, amount, frequency, start, end, next run date and status.")]

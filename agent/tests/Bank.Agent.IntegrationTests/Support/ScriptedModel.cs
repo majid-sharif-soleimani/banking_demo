@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using System.Text.Json;
 using Bank.Agent.Host.Features.Agent;
 using Bank.Agent.Host.Features.Auth;
+using Bank.Agent.Host.Logic;
 using Microsoft.Extensions.AI;
 
 namespace Bank.Agent.IntegrationTests.Support;
@@ -79,12 +80,15 @@ public sealed class ScriptedModel(params ScriptedModel.Step[] steps) : IChatClie
 }
 
 /// <summary>
-/// Stands in for the bank MCP server: a read (accounts_list), a change (transfer_create) and the host-only upload.
-/// Records which session each run opened its tools for, and every change that really ran, with its confirmation id.
+/// Stands in for the bank MCP server. The customer gets a read (accounts_list), a change (transfer_create) and the
+/// host-only upload; the admin gets a read (trial_balance) and a change (loan_application_approve). Records which
+/// session each run opened its tools for, and every change that really ran, with its confirmation id.
 /// </summary>
 public sealed class FakeBankTools : IBankTools
 {
     public const string AccountsJson = """[{"number":"5555 0000 1","balance":{"amount":1200.00,"currency":"SEK"}}]""";
+
+    public const string TrialBalanceJson = """{"currency":"SEK","totalDebit":100.00,"totalCredit":100.00}""";
 
     public const string ReceiptJson = """{"transferId":"t-1","amount":{"amount":"250.00","currency":"SEK"}}""";
 
@@ -95,7 +99,7 @@ public sealed class FakeBankTools : IBankTools
 
     public bool Down { get; set; }
 
-    public Task<BankToolSet> OpenForCustomerAsync(HostSession session, CancellationToken ct, string? confirmationId = null)
+    public Task<BankToolSet> OpenAsync(HostSession session, CancellationToken ct, string? confirmationId = null)
     {
         if (Down)
         {
@@ -103,6 +107,19 @@ public sealed class FakeBankTools : IBankTools
         }
 
         Opened.Add((session.BankToken, session.Principal.CustomerId));
+        if (session.Principal.Role == Role.Admin)
+        {
+            var trialBalance = AIFunctionFactory.Create((string currency) => TrialBalanceJson, "trial_balance", "The trial balance.");
+            var approve = AIFunctionFactory.Create(
+                (Guid applicationId) =>
+                {
+                    Ran.Add(("loan_application_approve", confirmationId, JsonSerializer.Serialize(new { applicationId })));
+                    return """{"status":"Approved"}""";
+                },
+                "loan_application_approve", "Approves an application.");
+            return Task.FromResult(new BankToolSet([trialBalance], [approve], []));
+        }
+
         var accounts = AIFunctionFactory.Create(() => AccountsJson, "accounts_list", "The customer's accounts.");
         var transfer = AIFunctionFactory.Create(
             (Guid fromAccountId, Guid toAccountId, decimal amount, string currency) =>

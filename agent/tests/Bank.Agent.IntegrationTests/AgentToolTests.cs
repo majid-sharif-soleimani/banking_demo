@@ -86,17 +86,20 @@ public class AgentToolTests(PostgresFixture postgres)
     }
 
     [Fact]
-    public async Task The_admin_gets_no_bank_tools_in_this_stage()
+    public async Task The_admin_gets_the_admin_tools_with_the_admin_token_and_no_customer_id()
     {
-        var model = new ScriptedModel(new Answer("Admin tools come later."));
+        var model = new ScriptedModel(new CallTool("trial_balance", new { currency = "SEK" }), new Answer("Debit equals credit."));
         await using var app = await AgentApp.StartAsync(postgres, model);
         var browser = app.NewBrowser();
         await browser.LoginOkAsync("admin", "admin");
 
         await browser.RunAsync("Show the trial balance");
 
-        app.BankTools.Opened.ShouldBeEmpty();
-        model.ToolNamesOfFirstCall.Order().ShouldBe(UiToolNames.Order());
+        app.BankTools.Opened.ShouldHaveSingleItem().CustomerId.ShouldBeNull();
+        model.ToolNamesOfFirstCall.ShouldContain("trial_balance");
+        model.ToolNamesOfFirstCall.ShouldContain("loan_application_approve");
+        model.ToolNamesOfFirstCall.ShouldNotContain("accounts_list");
+        model.EverythingSeen.ShouldContain("totalDebit");
     }
 
     [Fact]

@@ -172,7 +172,7 @@ public static class ActionEndpoints
     {
         try
         {
-            await using var bank = await bankTools.OpenForCustomerAsync(session, ct, confirmationId);
+            await using var bank = await bankTools.OpenAsync(session, ct, confirmationId);
             var function = bank.Find(tool) ?? throw new InvalidOperationException($"The bank has no tool '{tool}'.");
             return ToolResult.ToOutcome(await function.InvokeAsync(new AIFunctionArguments(arguments), ct));
         }

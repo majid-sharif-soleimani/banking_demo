@@ -22,6 +22,14 @@ public static class ChangeSummary
         ["appointment_book"] = "Book an appointment",
         ["appointment_cancel"] = "Cancel an appointment",
         ["loan_application_submit"] = "Submit a loan application",
+        ["currency_activate"] = "Activate a currency",
+        ["business_day_close"] = "Close the business day",
+        ["loan_application_start_review"] = "Start reviewing a loan application",
+        ["loan_application_approve"] = "Approve a loan application",
+        ["loan_application_reject"] = "Reject a loan application",
+        ["loan_application_disburse"] = "Pay out a loan",
+        ["loan_application_request_information"] = "Ask the customer for documents",
+        ["information_request_complete"] = "Mark an information request as completed",
     };
 
     public static string Title(string tool) => Titles.GetValueOrDefault(tool, Label(tool));

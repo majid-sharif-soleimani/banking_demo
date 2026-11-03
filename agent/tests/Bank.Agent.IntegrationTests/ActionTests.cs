@@ -215,6 +215,29 @@ public class ActionTests(PostgresFixture postgres)
     }
 
     [Fact]
+    public async Task An_admin_approval_waits_for_the_admins_click_and_runs_once_with_the_key()
+    {
+        var applicationId = Guid.NewGuid();
+        var model = new ScriptedModel(new CallTool("loan_application_approve", new { applicationId }), new Answer("Please press Confirm."));
+        await using var app = await AgentApp.StartAsync(postgres, model);
+        var admin = app.NewBrowser();
+        await admin.LoginOkAsync("admin", "admin");
+
+        var events = await admin.RunAsync("Approve it");
+        var card = ToolArgs(events, "show_confirmation");
+        app.BankTools.Ran.ShouldBeEmpty();
+        using var confirmed = await admin.PostAsync($"/agent/changes/{card.GetProperty("changeId").GetString()}/confirm");
+
+        card.GetProperty("title").GetString().ShouldBe("Approve a loan application");
+        confirmed.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var ran = app.BankTools.Ran.ShouldHaveSingleItem();
+        ran.Tool.ShouldBe("loan_application_approve");
+        ran.ConfirmationId.ShouldBe(card.GetProperty("changeId").GetString());
+        ran.Arguments.ShouldContain(applicationId.ToString());
+        app.LogLines.ShouldContain(l => l.Contains("Change loan_application_approve in chat") && l.Contains("Admin"));
+    }
+
+    [Fact]
     public async Task A_chart_with_a_missing_value_is_refused()
     {
         var chart = new { title = "Spending", kind = "bar", labels = new[] { "Oct", "Nov" }, series = new[] { new { name = "SEK", values = new[] { 1m } } }, unit = "SEK" };

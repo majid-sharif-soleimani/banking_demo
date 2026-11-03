@@ -31,15 +31,23 @@ builder.Services.AddHttpClient<BankApi>(client =>
 // Streamable HTTP transport, stateless: every MCP request stands alone, so the headers of that request (the bank token
 // and the customer id) are the only context a tool has. Nothing is remembered between calls.
 builder.Services.AddMcpServer()
-    .WithHttpTransport(options => options.Stateless = true)
+    .WithHttpTransport(options =>
+    {
+        options.Stateless = true;
+        options.ConfigureSessionOptions = ToolSets.KeepToolsOfPath;
+    })
+    .WithTools<SharedTools>()
     .WithTools<CustomerTools>()
-    .WithTools<CustomerChangeTools>();
+    .WithTools<CustomerChangeTools>()
+    .WithTools<AdminTools>()
+    .WithTools<AdminChangeTools>();
 
 var app = builder.Build();
 
 app.MapDefaultEndpoints();
-// One tool set per role (least privilege, design plan section 6). The admin set comes in stage 4 at /mcp/admin.
-app.MapMcp("/mcp/customer");
+// One tool set per role (least privilege, design plan section 6); ToolSets decides which tools each path offers.
+app.MapMcp(ToolSets.CustomerPath);
+app.MapMcp(ToolSets.AdminPath);
 
 app.Run();
 

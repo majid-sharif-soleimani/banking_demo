@@ -19,7 +19,11 @@ public sealed class McpServerApp : WebApplicationFactory<Program>
 
     public FakeGateway Gateway { get; } = new();
 
-    public async Task<McpClient> ConnectAsync(string? token, Guid? customerId, string? idempotencyKey = null)
+    /// <summary>The admin's connection: the admin's bank token and no customer id, on the admin path.</summary>
+    public Task<McpClient> ConnectAdminAsync(string token, string? idempotencyKey = null) =>
+        ConnectAsync(token, null, idempotencyKey, ToolSets.AdminPath);
+
+    public async Task<McpClient> ConnectAsync(string? token, Guid? customerId, string? idempotencyKey = null, string path = ToolSets.CustomerPath)
     {
         var headers = new Dictionary<string, string>();
         if (idempotencyKey is not null)
@@ -38,7 +42,7 @@ public sealed class McpServerApp : WebApplicationFactory<Program>
         }
 
         var transport = new HttpClientTransport(
-            new HttpClientTransportOptions { Endpoint = new Uri(Server.BaseAddress, "/mcp/customer"), AdditionalHeaders = headers },
+            new HttpClientTransportOptions { Endpoint = new Uri(Server.BaseAddress, path), AdditionalHeaders = headers },
             CreateClient(), ownsHttpClient: true);
         return await McpClient.CreateAsync(transport, cancellationToken: TestContext.Current.CancellationToken);
     }
