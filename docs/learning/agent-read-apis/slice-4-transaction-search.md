@@ -120,7 +120,7 @@ Passed!  - Failed: 0, Passed: 74, Skipped: 0, Total: 74 - Bank.Accounts.Integrat
 
 ## What to watch later
 
-- Index use was not checked with `EXPLAIN` on realistic volumes. The test tables are too small for PostgreSQL to choose an index. Check it on the home bank's data before relying on the speed.
+- Index use was checked on the home bank after deployment (10,385 entries): a one-week SEK search for sizes of 10,000 or more uses an index scan on `ix_account_entry_business_date_sequence` and takes 0.22 ms. The test tables are too small for PostgreSQL to choose an index, so tests cannot show this.
 - A search without a period reads the whole table.
 - The investigation itself (patterns, thresholds, alerts) is phase 2 work for the agent. Any threshold it uses must come from configuration, not code.
 
