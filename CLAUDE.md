@@ -12,7 +12,7 @@ Read the stage file and the sections it points to; do not load whole files when 
 
 ## Where this workspace lives
 
-- The single source of truth is the folder `~/repos/banking_demo` on Majid's computer (`~/repos/banking_demo`). Every session, from Claude Code or the Claude desktop app, works on this folder. GitHub is only for backup and sync.
+- The single source of truth is the folder `~/repos/banking_demo` on Majid's computer. Every session, from Claude Code or the Claude desktop app, works on this folder. GitHub is only for backup and sync.
 - IMPORTANT: before changing any file, check where you are running (`pwd` and the machine name). If you are not working directly in that folder on Majid's computer (for example a cloud container with its own clone, or a git worktree), stop and tell Majid before making any change. Do not create commits or branches that exist only outside his folder.
 - If Majid has linked his computer to a cloud session, change his folder through that link and tell him which git commands to run there. Do not keep a separate copy of the work in the cloud.
 

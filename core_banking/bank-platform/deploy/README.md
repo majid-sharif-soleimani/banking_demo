@@ -39,7 +39,8 @@ Why it is built this way: bank-platform ADRs 0002 (instance and start/stop), 000
    ```
    Then restart the instance (`stop.sh`, `start.sh`), or run `sudo systemctl restart bank` on it. The JSON holds:
    - `POSTGRES_PASSWORD`, plus `OPERATIONS_DB_PASSWORD`, `CUSTOMERS_DB_PASSWORD`, `ACCOUNTS_DB_PASSWORD`, `CARDS_DB_PASSWORD`, `LENDING_DB_PASSWORD` and `LEDGER_DB_PASSWORD`. Each must be **at least 24 letters and digits**, with no symbols: the values go into env files and connection strings. For example, `openssl rand -hex 16` for each;
-   - optionally `GHCR_TOKEN` and `GHCR_USER`.
+   - `GHCR_OWNER`: the GitHub account that owns the images (`ghcr.io/<GHCR_OWNER>/bank-<service>`). It is not a secret, but it stays out of the repository;
+   - optionally `GHCR_TOKEN` and `GHCR_USER` (defaults to `GHCR_OWNER`).
 
    `start-bank.sh` refuses to start, and writes nothing, while a key is missing, empty or malformed. The database creates its roles only once, so a wrong first value would be permanent.
 
@@ -53,6 +54,7 @@ User data runs only at the first boot. After a change to `docker-compose.aws.yml
 | --- | --- | --- |
 | `POSTGRES_PASSWORD` | the stack's Secrets Manager secret | PostgreSQL admin (init only) |
 | `<SERVICE>_DB_PASSWORD` (six) | the same secret | the init script creates each role with it; each service connects with its own |
+| `GHCR_OWNER` | the same secret | image names in `docker-compose.aws.yml` |
 | `GHCR_TOKEN`, `GHCR_USER` (optional) | the same secret | `docker login ghcr.io` for private images |
 
 Only the Customers container can reach the instance role (for S3); `start-bank.sh` blocks the metadata service for every other container. The role can read the secret, so a compromised Customers container could too (bank-platform ADR 0004).

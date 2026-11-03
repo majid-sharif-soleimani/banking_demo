@@ -6,7 +6,7 @@ The Aspire AppHost cannot do this: it starts with an empty database on every run
 
 ```mermaid
 flowchart LR
-  Agent[AI agent] -->|HTTPS| TS[Tailscale serve / funnel<br/><machine>.<tailnet>.ts.net]
+  Agent[AI agent] -->|HTTPS| TS[Tailscale serve / funnel<br/>machine.tailnet.ts.net]
   TS -->|http://127.0.0.1:8080| GW[gateway]
   GW --> OPS[operations] & CUS[customers] & ACC[accounts] & CRD[cards] & LEN[lending] & LED[ledger]
   OPS & CUS & ACC & CRD & LEN & LED --> PG[(PostgreSQL<br/>volume bank_postgres-data)]
@@ -127,7 +127,7 @@ To start over with an empty bank: `docker compose -f docker-compose.aws.yml -f d
 
 ## 6. Publish the gateway through Tailscale
 
-Pick one. Both serve `https://<machine>.<tailnet>.ts.net` with a certificate from Tailscale. Plain `http://` is not served.
+Pick one. Both serve `https://<machine>.<tailnet>.ts.net` with a certificate from Tailscale. Plain `http://` is not served. The real name is not written in this repository (it would point anyone to the host machine); the command in step 7 prints it.
 
 ```bash
 # A: only devices in the tailnet (the agent runs on a machine logged in to Tailscale)
@@ -149,7 +149,8 @@ With Funnel, anyone who knows the URL can call the API. The gateway only asks fo
 Run the checks locally first, then through Tailscale. For Funnel, test from a device outside the tailnet, such as a phone on mobile data.
 
 ```bash
-for GW in http://127.0.0.1:8080 https://<machine>.<tailnet>.ts.net; do
+TS_URL="https://$(tailscale status --json | python3 -c 'import sys,json;print(json.load(sys.stdin)["Self"]["DNSName"].rstrip("."))')"   # this machine's tailnet name
+for GW in http://127.0.0.1:8080 "$TS_URL"; do
   echo "== $GW"
   H='X-Performed-By: smoke-test'
   curl -fsS "$GW/health"; echo                                                        # Healthy

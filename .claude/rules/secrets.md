@@ -8,6 +8,7 @@ Applies to every file in the workspace, in every stage.
 - Connection strings that contain a password or a non-local host (PostgreSQL, Kafka, S3, Mailpit/SES).
 - AWS access keys, AWS account IDs, ARNs that contain an account ID, and real host names or IP addresses of deployed machines.
 - Majid's own personal data: real name in config, email, phone, home address, personal URLs. Use placeholders such as `demo@example.com`.
+- Details of Majid's machines and accounts: machine names, absolute home paths (`/home/<user>/...`; write `~/repos/banking_demo`), Tailscale machine or tailnet names (write `<machine>.<tailnet>.ts.net`), and the GitHub account name (CI uses `${{ github.repository_owner }}`, the instance reads `GHCR_OWNER` from the secret). Environment checks at the start of a stage are reported in the chat, not written to files.
 
 When unsure, treat it as a secret.
 
@@ -48,6 +49,21 @@ appsettings.*.local.json
 cdk.context.json
 cdk.out/
 ```
+
+## Local guard before GitHub
+
+Git hooks in `.githooks/` block a commit or a push whose content, message or author contains a secret or personal data. They check generic patterns (cloud keys, private keys, tokens, personal email domains, real tailnet names) plus Majid's own values from `.git/info/personal-patterns`. That list stays outside the repository, because committing it would publish what it protects. Commits use GitHub's noreply address, set in the repository's local git config.
+
+Once per clone:
+
+```bash
+git config core.hooksPath .githooks
+git config user.name "<name>"
+git config user.email "<id>+<user>@users.noreply.github.com"
+$EDITOR .git/info/personal-patterns     # one extended regex per line: own name, machine name, tailnet, email
+```
+
+On GitHub, also turn on "Keep my email addresses private" and "Block command line pushes that expose my email" (Settings, Emails), and secret scanning with push protection for the repository.
 
 ## What Claude does
 

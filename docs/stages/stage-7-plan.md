@@ -9,7 +9,7 @@ Stages 2–6 are Ready for review (not merged). Stage 7 gives the bank **one ent
 - a re-run must not duplicate anything (idempotency keys from the source rows);
 - at the end, the books must verify: every balance equals its statement, and the trial balance is zero.
 
-Environment: `~/repos/banking_demo` on `<machine>`, branch `stage-7-gateway-import` (from `stage-6-cards-ledger`).
+Environment: the main folder on Majid's computer, branch `stage-7-gateway-import` (from `stage-6-cards-ledger`).
 
 **Working mode (Majid, 2026-10-31):** Claude writes everything, with a learning document per slice. D1 decisions are made by Claude under Majid's delegation.
 

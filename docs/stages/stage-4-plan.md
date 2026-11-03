@@ -8,7 +8,7 @@ Stages 2 and 3 are Ready for review (not merged). Stage 4 adds the first two cus
 - a retried request must not move money twice (Idempotency-Key);
 - each service must work from its own copies of other services' data (`customer_ref`, `currency_ref`, `business_day`), which arrive *eventually*.
 
-Environment: `~/repos/banking_demo` on `<machine>`, branch `stage-4-customers-accounts` (from `stage-3-lending-logic`).
+Environment: the main folder on Majid's computer, branch `stage-4-customers-accounts` (from `stage-3-lending-logic`).
 
 **Working mode (Majid, 2026-10-31):** Claude writes everything, including the "Majid writes" items, test first for `Logic/`, with a learning document per slice. D1 decisions are made by Claude under Majid's delegation and listed under "Decisions to review".
 

@@ -4,7 +4,7 @@
 
 Stage 2 is Ready for review (not merged, see `docs/progress.md`). Stage 3 writes every loan calculation as a pure, fully tested function in `core_banking/bank-lending/src/Bank.Lending.Api/Logic/`, before Lending has a database, endpoints or events (stage 5). The functions take the loan's terms and schedule as values and return new values: no clock, no I/O, no exceptions for business outcomes (`.claude/rules/financial-logic.md`). The hard part is not the formulas but their edges: rounding to the cent with the difference in the last installment, month ends and leap years, the grace period boundary, the classification thresholds, and early payoff when little interest remains.
 
-Environment: `~/repos/banking_demo` on `<machine>`, branch `stage-3-lending-logic` (from `stage-2-operations`).
+Environment: the main folder on Majid's computer, branch `stage-3-lending-logic` (from `stage-2-operations`).
 
 **Working mode (Majid, 2026-10-31):** Claude writes everything, including the tests the stage file assigns to Majid, test first, with a learning document per slice. D1 decisions are made by Claude under Majid's delegation and listed under "Decisions to review". No questions to Majid during the run.
 

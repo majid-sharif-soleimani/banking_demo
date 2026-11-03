@@ -44,11 +44,17 @@ iptables -D DOCKER-USER -s 172.30.0.10 -d 169.254.169.254 -j ACCEPT 2>/dev/null 
 iptables -I DOCKER-USER -d 169.254.169.254 -j DROP
 iptables -I DOCKER-USER -s 172.30.0.10 -d 169.254.169.254 -j ACCEPT
 
-# Private images need a token with read:packages; public images need none.
-if token=$(jq -er '.GHCR_TOKEN // empty' <<<"$secret"); then
-  echo "$token" | docker login ghcr.io -u "$(jq -r '.GHCR_USER // "<owner>"' <<<"$secret")" --password-stdin
+# The GitHub account that owns the images (ghcr.io/<owner>/bank-<service>), kept out of the repository.
+if ! GHCR_OWNER=$(jq -er '.GHCR_OWNER | select(type == "string" and length > 0)' <<<"$secret"); then
+  echo "The secret has no non-empty GHCR_OWNER (deploy/README.md). Nothing was started." >&2
+  exit 1
 fi
 
-export BANK_IMAGE_TAG
+# Private images need a token with read:packages; public images need none.
+if token=$(jq -er '.GHCR_TOKEN // empty' <<<"$secret"); then
+  echo "$token" | docker login ghcr.io -u "$(jq -r --arg o "$GHCR_OWNER" '.GHCR_USER // $o' <<<"$secret")" --password-stdin
+fi
+
+export BANK_IMAGE_TAG GHCR_OWNER
 docker compose -f docker-compose.aws.yml pull
 docker compose -f docker-compose.aws.yml up -d --wait

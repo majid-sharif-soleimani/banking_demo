@@ -12,7 +12,7 @@ The hard parts are not the endpoints. They are:
 
 All four events this stage needs (`CurrencyActivated`, `BusinessDayOpened`, `DayClosed`, `DayCompleted`) and `IBusinessClock` already exist in `bank-contracts` 0.1.0. No new contract is needed for slices 1–3.
 
-Environment checked: running in `~/repos/banking_demo` on `<machine>` (no worktree).
+Environment checked: running in the main folder on Majid's computer (no worktree).
 
 **Working mode for stage 2 (Majid, 2026-10-30), replacing the stage file's "Majid writes" column for this stage:**
 - Claude writes everything: code, tests and all ADRs, including the items the stage file lists under "Majid writes".

@@ -16,7 +16,7 @@ Customers gains the documents, information requests and appointments that the re
 - money that is never debited twice for one installment, even when events are duplicated or overtake each other;
 - an end of day that runs exactly once per loan and date.
 
-Environment: `~/repos/banking_demo` on `<machine>`, branch `stage-5-lending-service` (from `stage-4-customers-accounts`).
+Environment: the main folder on Majid's computer, branch `stage-5-lending-service` (from `stage-4-customers-accounts`).
 
 **Working mode (Majid, 2026-10-31):** Claude writes everything, including the "Majid writes" items, with a learning document per slice. D1 decisions are made by Claude under Majid's delegation and listed under "Decisions to review".
 

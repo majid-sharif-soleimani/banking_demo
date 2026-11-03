@@ -2,7 +2,7 @@
 
 ## Context
 
-Stage 0 is Done (docs/progress.md). Stage 1 builds the shared packages (`bank-contracts`) and the local platform (`bank-platform`) so that an event can travel from one service's outbox through Kafka to another service's handler, exactly once in effect. Environment checked: running in `~/repos/banking_demo` on `<machine>` (no worktree).
+Stage 0 is Done (docs/progress.md). Stage 1 builds the shared packages (`bank-contracts`) and the local platform (`bank-platform`) so that an event can travel from one service's outbox through Kafka to another service's handler, exactly once in effect. Environment checked: running in the main folder on Majid's computer (no worktree).
 
 **Working mode for stage 1 (Majid, 2026-10-30), replacing the stage file's "Majid writes" column for this stage only:**
 - Claude writes everything: code, tests, SQL and all ADRs.

@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Scans every commit about to leave this machine: its diff, its message, and its author and committer.
+# A last check for what pre-commit could not see (commits made with --no-verify, or before the hooks were enabled).
+set -euo pipefail
+hooks=$(dirname "$0")
+zero=$(git hash-object --stdin </dev/null | tr '0-9a-f' '0')
+while read -r _local_ref local_sha _remote_ref remote_sha; do
+  [[ $local_sha == "$zero" ]] && continue                     # deleting a remote branch sends nothing
+  if [[ $remote_sha == "$zero" ]]; then
+    range=("$local_sha" --not --remotes)                      # new branch: everything the remote does not have
+  else
+    range=("$remote_sha..$local_sha")
+  fi
+  git log -p --no-color --no-ext-diff --format='%an <%ae>%n%cn <%ce>%n%B' "${range[@]}" |
+    "$hooks/scan-personal-data.sh" "a commit being pushed"
+done

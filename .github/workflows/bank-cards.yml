@@ -38,7 +38,7 @@ jobs:
 
   image:
     # Builds the linux-arm64 image (for the t4g instance) with the SDK's container support and pushes it to
-    # ghcr.io/<owner>/bank-cards, on master only. Disabled until Majid sets the repository variable
+    # ghcr.io/<repository owner>/bank-cards, on master only. Disabled until Majid sets the repository variable
     # PUBLISH_IMAGES to "true" (bank-platform ADR 0003).
     if: github.event_name == 'push' && github.ref == 'refs/heads/master' && vars.PUBLISH_IMAGES == 'true'
     needs: build-and-test

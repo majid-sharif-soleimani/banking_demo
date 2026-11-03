@@ -13,7 +13,7 @@ The hard parts:
 - **Eventual consistency.** Collections, allocations and journal entries arrive through Kafka after a day opens, so every check waits until the state settles.
 - **Nothing on AWS happens here.** Claude writes the code; `cdk deploy`, every `aws` command and every image push are Majid's (stage file, workspace rules). `cdk synth` must work without an AWS account.
 
-Environment: `~/repos/banking_demo` on `<machine>`, branch `stage-8-e2e-aws` (from `stage-7-gateway-import`).
+Environment: the main folder on Majid's computer, branch `stage-8-e2e-aws` (from `stage-7-gateway-import`).
 
 **Working mode (Majid, 2026-10-31):** Claude writes everything, including the "Majid writes" item (scenario 3), with a learning document per slice. D1 decisions are made by Claude under Majid's delegation and listed below. The CDK review with `/explain` before deployment stays Majid's, and so do all deployments.
 

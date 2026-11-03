@@ -15,7 +15,7 @@ The hard parts:
 - the trial balance must be zero after any mix of events;
 - reports must answer "as of a date" without querying another service.
 
-Environment: `~/repos/banking_demo` on `<machine>`, branch `stage-6-cards-ledger` (from `stage-5-lending-service`).
+Environment: the main folder on Majid's computer, branch `stage-6-cards-ledger` (from `stage-5-lending-service`).
 
 **Working mode (Majid, 2026-10-31):** Claude writes everything, with a learning document per slice. D1 decisions are made by Claude under Majid's delegation and listed below.
 

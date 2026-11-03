@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Scans the lines this commit adds, and the author email it will be recorded with.
+set -euo pipefail
+hooks=$(dirname "$0")
+{
+  git diff --cached -U0 --no-color --no-ext-diff | grep '^+' | grep -v '^+++' || true
+  git var GIT_AUTHOR_IDENT
+} | "$hooks/scan-personal-data.sh" "the staged changes or the author identity"

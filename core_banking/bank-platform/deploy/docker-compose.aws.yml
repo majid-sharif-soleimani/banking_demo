@@ -5,6 +5,8 @@
 # Manager, then runs  docker compose -f docker-compose.aws.yml up -d.  Each container reads only its own file, so a
 # service never sees another service's password (bank-platform ADR 0004). No secret is written here, and
 # "docker compose config" is valid without the env files (they are optional until the instance writes them).
+# GHCR_OWNER is the GitHub account that owns the images; start-bank.sh exports it from the secret, so no account name
+# is written here. The default only keeps docker-compose.home.yml (local images) working without it.
 #
 # Only the gateway is published on all interfaces. Mailpit, Kafka UI and the dashboard listen on 127.0.0.1 and are
 # reached through an SSH tunnel (ssh -L 18888:localhost:18888 ...).
@@ -35,7 +37,7 @@ x-environment: &environment
 services:
   operations:
     <<: *service
-    image: ghcr.io/<owner>/bank-operations:${BANK_IMAGE_TAG:-latest}
+    image: ghcr.io/${GHCR_OWNER:-ghcr-owner-not-set}/bank-operations:${BANK_IMAGE_TAG:-latest}
     environment:
       <<: *environment
       OTEL_SERVICE_NAME: operations
@@ -44,7 +46,7 @@ services:
 
   customers:
     <<: *service
-    image: ghcr.io/<owner>/bank-customers:${BANK_IMAGE_TAG:-latest}
+    image: ghcr.io/${GHCR_OWNER:-ghcr-owner-not-set}/bank-customers:${BANK_IMAGE_TAG:-latest}
     environment:
       <<: *environment
       OTEL_SERVICE_NAME: customers
@@ -62,7 +64,7 @@ services:
 
   accounts:
     <<: *service
-    image: ghcr.io/<owner>/bank-accounts:${BANK_IMAGE_TAG:-latest}
+    image: ghcr.io/${GHCR_OWNER:-ghcr-owner-not-set}/bank-accounts:${BANK_IMAGE_TAG:-latest}
     environment:
       <<: *environment
       OTEL_SERVICE_NAME: accounts
@@ -71,7 +73,7 @@ services:
 
   cards:
     <<: *service
-    image: ghcr.io/<owner>/bank-cards:${BANK_IMAGE_TAG:-latest}
+    image: ghcr.io/${GHCR_OWNER:-ghcr-owner-not-set}/bank-cards:${BANK_IMAGE_TAG:-latest}
     environment:
       <<: *environment
       OTEL_SERVICE_NAME: cards
@@ -80,7 +82,7 @@ services:
 
   lending:
     <<: *service
-    image: ghcr.io/<owner>/bank-lending:${BANK_IMAGE_TAG:-latest}
+    image: ghcr.io/${GHCR_OWNER:-ghcr-owner-not-set}/bank-lending:${BANK_IMAGE_TAG:-latest}
     environment:
       <<: *environment
       OTEL_SERVICE_NAME: lending
@@ -89,7 +91,7 @@ services:
 
   ledger:
     <<: *service
-    image: ghcr.io/<owner>/bank-ledger:${BANK_IMAGE_TAG:-latest}
+    image: ghcr.io/${GHCR_OWNER:-ghcr-owner-not-set}/bank-ledger:${BANK_IMAGE_TAG:-latest}
     environment:
       <<: *environment
       OTEL_SERVICE_NAME: ledger
@@ -98,7 +100,7 @@ services:
 
   gateway:
     networks: [bank]
-    image: ghcr.io/<owner>/bank-gateway:${BANK_IMAGE_TAG:-latest}
+    image: ghcr.io/${GHCR_OWNER:-ghcr-owner-not-set}/bank-gateway:${BANK_IMAGE_TAG:-latest}
     restart: unless-stopped
     environment:
       ASPNETCORE_ENVIRONMENT: Production

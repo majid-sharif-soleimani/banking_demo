@@ -12,7 +12,7 @@ On AWS the passwords (PostgreSQL admin, six service roles, optionally a GHCR tok
 
 ## Decision
 
-- CDK creates **one secret** with a random placeholder and grants the instance role read access. Majid sets its value once, as JSON with the keys `POSTGRES_PASSWORD`, `OPERATIONS_DB_PASSWORD`, `CUSTOMERS_DB_PASSWORD`, `ACCOUNTS_DB_PASSWORD`, `CARDS_DB_PASSWORD`, `LENDING_DB_PASSWORD`, `LEDGER_DB_PASSWORD`, and optionally `GHCR_TOKEN` and `GHCR_USER`.
+- CDK creates **one secret** with a random placeholder and grants the instance role read access. Majid sets its value once, as JSON with the keys `POSTGRES_PASSWORD`, `OPERATIONS_DB_PASSWORD`, `CUSTOMERS_DB_PASSWORD`, `ACCOUNTS_DB_PASSWORD`, `CARDS_DB_PASSWORD`, `LENDING_DB_PASSWORD`, `LEDGER_DB_PASSWORD`, `GHCR_OWNER` (the GitHub account that owns the images, kept out of the repository), and optionally `GHCR_TOKEN` and `GHCR_USER`.
 - At every boot, `start-bank.sh` (a systemd service on the instance) reads the secret with the instance role through the AWS CLI. It then writes **one env file per container** in `/opt/bank/deploy/env/`, readable by root only:
   - `postgres.env` gets all the passwords, because the init script creates the roles;
   - `<service>.env` gets only that service's connection string.
