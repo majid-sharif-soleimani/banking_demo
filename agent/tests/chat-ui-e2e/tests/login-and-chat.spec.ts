@@ -92,3 +92,22 @@ test("a wrong password keeps the login form and says so", async ({ page }) => {
   await expect(page.getByRole("alert")).toHaveText("Wrong username or password.");
   await expect(page.getByLabel("Password")).toHaveValue("");
 });
+
+test("on a phone the message box stays on screen after many messages", async ({ browser }) => {
+  const page = await (await browser.newContext({ viewport: { width: 390, height: 664 }, isMobile: true, hasTouch: true })).newPage();
+  await page.goto("/");
+  await page.getByLabel("Username").fill("admin");
+  await page.getByLabel("Password").fill("admin");
+  await page.getByRole("button", { name: "Log in" }).click();
+
+  for (let i = 1; i <= 8; i++) {
+    await page.getByLabel("Message").fill(`message number ${i} with a little more text so the bubbles take some room`);
+    await page.getByRole("button", { name: "Send" }).click();
+    await expect(page.getByText(`You said: message number ${i}`)).toBeVisible();
+  }
+
+  // The whole page is one screen high: the message box and the send button are inside the visible area.
+  await expect(page.getByLabel("Message")).toBeInViewport();
+  await expect(page.getByRole("button", { name: "Send" })).toBeInViewport();
+  expect(await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight + 1)).toBeTruthy();
+});
