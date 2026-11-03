@@ -1,10 +1,11 @@
 # Banking Demo Workspace
 
-Event-driven core banking system in C#/.NET, built in two phases. Phase 1 (current): the banking system itself, with unit and integration tests. Phase 2 (later): an AI agent on top. Do not work on the agent until Majid says phase 2 has started.
+Event-driven core banking system in C#/.NET, built in two phases. Phase 1 (done 2026-11-03, reopened only for bug fixes): the banking system itself, with unit and integration tests. Phase 2 (current, started 2026-11-03): an AI agent with a chat UI on top, designed in `phase2-design-plan.md`.
 
 Where things are decided:
 
 - `phase1-design-plan.md`: business rules, ADRs, data model, events. Source of truth for business rules.
+- `phase2-design-plan.md`: the agent and the chat UI (roles, capabilities, components, flows, decisions). Source of truth for phase 2.
 - `docs/implementation-decisions.md`: cross-cutting technical choices, seed data, and the learning mode (who decides and who writes what). Source of truth for implementation details.
 - `docs/stages/stage-N.md`: the self-contained spec for stage N (folders, data, endpoints, events, tests, done-when commands).
 

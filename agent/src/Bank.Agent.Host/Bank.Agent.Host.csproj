@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <!-- Only an id: local secrets (Agent:Gateway:ApiKey) live in the user profile, never in the repo. -->
+    <UserSecretsId>bank-agent-host</UserSecretsId>
+    <!-- The chat UI build (agent/chat-ui) writes here. Built output, not source: see .gitignore. -->
+    <ChatUiDir>$(MSBuildProjectDirectory)/../../chat-ui</ChatUiDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="AGUI.Abstractions" />
+    <PackageReference Include="Bank.ServiceDefaults" />
+    <PackageReference Include="Bank.Toolkit.Data" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
+    <PackageReference Include="Microsoft.Extensions.AI.Abstractions" />
+    <!-- Only for dotnet ef migrations add. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Bank.Agent.UnitTests" />
+    <InternalsVisibleTo Include="Bank.Agent.IntegrationTests" />
+  </ItemGroup>
+  <!-- A published image always carries a fresh UI build; dotnet build and dotnet test do not need Node. It runs before
+       the static web assets are collected, so the asset list matches the files the UI build just wrote. -->
+  <Target Name="BuildChatUi" BeforeTargets="ResolveProjectStaticWebAssets" Condition="'$(_IsPublishing)' == 'true'">
+    <Exec Command="npm ci" WorkingDirectory="$(ChatUiDir)" />
+    <Exec Command="npm run build" WorkingDirectory="$(ChatUiDir)" />
+    <!-- The wwwroot files were listed when the project loaded; list them again now that the build replaced them. -->
+    <ItemGroup>
+      <Content Remove="wwwroot/**" />
+      <Content Include="wwwroot/**" CopyToPublishDirectory="PreserveNewest" />
+    </ItemGroup>
+  </Target>
+</Project>

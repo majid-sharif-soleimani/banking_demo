@@ -192,6 +192,43 @@ curl -fsS -H "$K" -H "Authorization: Bearer $T" http://127.0.0.1:8080/api/operat
 
 Rebooting the host machine is the full check: after login, step 7 passes again without running any command.
 
+## 8. The chat (phase 2)
+
+The agent host serves the chat UI and keeps chats in its own schema `agent` (workspace ADR 0008). It runs as the container `agent` on `127.0.0.1:8090` and reaches the bank through the gateway with the gateway's key.
+
+Once, on a bank whose database was created before `db/init/002-agent-role-and-schema.sql` existed (back up first, step "Day to day"):
+
+```bash
+cd core_banking/bank-platform/deploy
+alias bank='docker compose -f docker-compose.aws.yml -f docker-compose.home.yml'
+umask 077
+grep -q '^AGENT_DB_PASSWORD=' env/postgres.env || echo "AGENT_DB_PASSWORD=$(openssl rand -hex 16)" >> env/postgres.env
+pw=$(grep '^AGENT_DB_PASSWORD=' env/postgres.env | cut -d= -f2)
+key=$(grep '^Gateway__ApiKey=' env/gateway.env | cut -d= -f2-)
+printf 'ConnectionStrings__agent-db=Host=postgres;Port=5432;Database=bank;Username=agent;Password=%s\nAgent__Gateway__ApiKey=%s\n' "$pw" "$key" > env/agent.env
+bank exec -T -e AGENT_DB_PASSWORD="$pw" postgres psql -U postgres -d bank -q -f /docker-entrypoint-initdb.d/002-agent-role-and-schema.sql
+```
+
+On a fresh volume, step 3 already wrote `AGENT_DB_PASSWORD` if you add it there, and the init script creates the role by itself.
+
+Build and start it (the publish builds the chat UI first, so Node must be installed):
+
+```bash
+(cd agent && dotnet publish src/Bank.Agent.Host -c Release --os linux --arch "$(uname -m | sed 's/x86_64/x64/;s/aarch64/arm64/')" /t:PublishContainer \
+   -p:ContainerRepository=bank-agent -p:ContainerImageTags=home)
+cd core_banking/bank-platform/deploy && bank up -d --wait --no-deps agent
+curl -fsS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8090/     # 200
+```
+
+Publish it in the tailnet on its own HTTPS port, next to the gateway on 443:
+
+```bash
+sudo tailscale serve --bg --https=8443 http://127.0.0.1:8090
+tailscale serve status        # https://<machine>.<tailnet>.ts.net:8443 (tailnet only)
+```
+
+Open that address on a device logged in to the tailnet and log in as `admin` / `admin` or as a customer with their national id. Design decision A13 later moves the chat to 443 and takes the gateway off Tailscale.
+
 ## Bring the bank back up (quick guide)
 
 The bank is already installed: images built, passwords and the API key in `env/`, data in the volumes, the Tailscale entry saved. Nothing below deletes data.

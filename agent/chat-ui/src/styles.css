@@ -1,0 +1,68 @@
+:root {
+  --bg: #f6f7f9;
+  --panel: #ffffff;
+  --text: #1c2430;
+  --muted: #5d6b7a;
+  --accent: #1f5fbf;
+  --user: #e3edfb;
+  --border: #d9dee5;
+  --error: #b42318;
+  font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+  color: var(--text);
+  background: var(--bg);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #12161c;
+    --panel: #1b2129;
+    --text: #e6eaef;
+    --muted: #9aa7b5;
+    --accent: #6ea2f0;
+    --user: #22324a;
+    --border: #2c3542;
+    --error: #f97066;
+  }
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; }
+body { margin: 0; background: var(--bg); }
+/* One screen high, whatever the device: 100dvh follows the visible area on phones (100vh would include the address
+   bar and push the message box out of view). Only the message list scrolls. */
+.app { max-width: 760px; margin: 0 auto; height: 100vh; height: 100dvh; display: flex; flex-direction: column;
+  padding: 0 16px; padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); }
+.top { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.top h1 { font-size: 1.1rem; margin: 0; }
+.who { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 0.9rem; }
+main { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 16px 0 0; overflow-y: auto; }
+.thread { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 12px; }
+.messages { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; overscroll-behavior: contain; }
+.bubble { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px; max-width: 85%; overflow-wrap: anywhere; }
+.bubble p { margin: 0 0 6px; }
+.bubble p:last-child { margin-bottom: 0; }
+.bubble.user { align-self: flex-end; background: var(--user); }
+.bubble.assistant { align-self: flex-start; }
+.login { display: flex; flex-direction: column; gap: 10px; padding-bottom: 16px; }
+.form { display: flex; flex-direction: column; gap: 10px; min-width: min(320px, 100%); }
+.form label { display: flex; flex-direction: column; gap: 4px; font-size: 0.9rem; color: var(--muted); }
+/* 16px keeps iOS from zooming in when a field gets focus. */
+input, textarea { font: inherit; font-size: 16px; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
+button { font: inherit; border: 0; border-radius: 8px; padding: 8px 14px; background: var(--accent); color: #fff; cursor: pointer; }
+button:disabled { opacity: 0.6; cursor: default; }
+.notice { color: var(--muted); }
+.error { color: var(--error); margin: 0; }
+.composer { flex: none; display: flex; gap: 8px; align-items: flex-end; padding: 8px 0 12px; padding-bottom: max(12px, env(safe-area-inset-bottom));
+  background: var(--bg); border-top: 1px solid var(--border); }
+.composer-input { flex: 1; resize: none; min-height: 40px; max-height: 35dvh; overflow-y: auto; }
+@media (max-width: 480px) {
+  .bubble { max-width: 92%; }
+  .who span { display: none; }
+  .form { min-width: 0; }
+}
+.loading { color: var(--muted); }
+.demo-note { color: var(--muted); font-size: 0.9rem; }
+.test-logins { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 6px 0 0; font-size: 0.9rem; }
+.test-logins dt { font-weight: 600; }
+.test-logins dd { margin: 0; }
+code { font-family: ui-monospace, monospace; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; }
