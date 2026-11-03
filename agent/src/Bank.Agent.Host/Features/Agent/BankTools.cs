@@ -24,7 +24,7 @@ public sealed class BankToolSet(
 
     public IReadOnlyList<AIFunction> HostOnly { get; } = hostOnly;
 
-    /// <summary>A change or host-only tool by name, for the host to run after the person's action.</summary>
+    /// <summary>A change or host-only tool by name, for the host to run itself.</summary>
     public AIFunction? Find(string name) => Changes.Concat(HostOnly).FirstOrDefault(t => t.Name == name);
 
     public ValueTask DisposeAsync() => connection?.DisposeAsync() ?? ValueTask.CompletedTask;
@@ -58,8 +58,11 @@ public sealed class McpBankTools(IHttpClientFactory httpClients, ILoggerFactory 
 {
     public const string HttpClientName = "bank-mcp";
 
-    /// <summary>Tools of the MCP server that only the host calls (Bank.Agent.Mcp, CustomerChangeTools.DocumentUpload).</summary>
-    public static readonly string[] HostOnlyTools = ["document_upload"];
+    /// <summary>
+    /// Tools of the MCP server that only the host calls: the upload (CustomerChangeTools.DocumentUpload) and the raw
+    /// document (AdminTools.CustomerDocument, read through <see cref="DocumentReader"/>).
+    /// </summary>
+    public static readonly string[] HostOnlyTools = ["document_upload", "customer_document"];
 
     public async Task<BankToolSet> OpenAsync(HostSession session, CancellationToken ct, string? confirmationId = null)
     {

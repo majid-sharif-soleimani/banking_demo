@@ -13,7 +13,7 @@ namespace Bank.Agent.Mcp;
 ///
 /// Each tool is one bank call, without business logic. The customer id is never a parameter: it comes from the MCP
 /// connection (<see cref="BankApi.CustomerId"/>), so the model cannot ask for another customer's data.
-/// The business date and the loan products are in <see cref="SharedTools"/>: both roles get them.
+/// The business date, the loan products and the free appointment slots are in <see cref="SharedTools"/>: both roles get them.
 /// </summary>
 [McpServerToolType]
 public sealed class CustomerTools(BankApi bank)
@@ -67,9 +67,4 @@ public sealed class CustomerTools(BankApi bank)
     [Description("The customer's appointments: id, application, employee, start time and status.")]
     public Task<string> AppointmentsAsync(CancellationToken ct) =>
         bank.GetAsync($"/api/customers/appointments?customerId={bank.CustomerId}", ct);
-
-    [McpServerTool(Name = "appointment_slots", ReadOnly = true)]
-    [Description("Free appointment slots on one day after the current business date: employee id, name and start time (full hours, Stockholm time).")]
-    public Task<string> SlotsAsync([Description("The day, yyyy-MM-dd.")] DateOnly date, CancellationToken ct) =>
-        bank.GetAsync($"/api/customers/appointments/availability?date={date:yyyy-MM-dd}", ct);
 }

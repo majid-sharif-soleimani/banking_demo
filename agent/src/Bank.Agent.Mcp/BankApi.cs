@@ -66,6 +66,25 @@ public sealed class BankApi(HttpClient http, IHttpContextAccessor context)
             : SendAsync(method, path, body, ct, key);
     }
 
+    /// <summary>
+    /// A stored file (a customer's upload), as bytes with its type and name. Only the agent host asks for it, to read the
+    /// document in isolation (agent ADR 0005); the model never gets the bytes.
+    /// </summary>
+    public async Task<(byte[] Content, string ContentType, string? FileName)> GetFileAsync(string path, CancellationToken ct)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, path);
+        request.Headers.Authorization = AuthenticationHeaderValue.Parse(Bearer());
+        using var response = await http.SendAsync(request, ct);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new McpException($"The bank refused the call ({(int)response.StatusCode}).");
+        }
+
+        return (await response.Content.ReadAsByteArrayAsync(ct),
+            response.Content.Headers.ContentType?.MediaType ?? "application/octet-stream",
+            response.Content.Headers.ContentDisposition?.FileNameStar ?? response.Content.Headers.ContentDisposition?.FileName?.Trim('"'));
+    }
+
     /// <summary>A document the person uploaded in the chat, sent to Customers as a multipart form. A change like the others.</summary>
     public Task<string> UploadAsync(string path, Guid applicationId, string fileName, string contentType, byte[] content, CancellationToken ct)
     {
@@ -82,14 +101,8 @@ public sealed class BankApi(HttpClient http, IHttpContextAccessor context)
 
     private async Task<string> SendAsync(HttpMethod method, string path, object? body, CancellationToken ct, string? idempotencyKey = null)
     {
-        var authorization = Incoming().Headers.Authorization.ToString();
-        if (!authorization.StartsWith("Bearer ", StringComparison.Ordinal))
-        {
-            throw new McpException("No bank session came with this call. Ask the person to log in again.");
-        }
-
         using var request = new HttpRequestMessage(method, path);
-        request.Headers.Authorization = AuthenticationHeaderValue.Parse(authorization);
+        request.Headers.Authorization = AuthenticationHeaderValue.Parse(Bearer());
         if (idempotencyKey is not null)
         {
             request.Headers.Add(IdempotencyKeyHeader, idempotencyKey);
@@ -114,6 +127,14 @@ public sealed class BankApi(HttpClient http, IHttpContextAccessor context)
         throw response.StatusCode == HttpStatusCode.Unauthorized
             ? new McpException("The bank session has ended. Tell the person to log in again.")
             : new McpException($"The bank refused the call ({(int)response.StatusCode}): {text}");
+    }
+
+    private string Bearer()
+    {
+        var authorization = Incoming().Headers.Authorization.ToString();
+        return authorization.StartsWith("Bearer ", StringComparison.Ordinal)
+            ? authorization
+            : throw new McpException("No bank session came with this call. Ask the person to log in again.");
     }
 
     private HttpRequest Incoming() =>

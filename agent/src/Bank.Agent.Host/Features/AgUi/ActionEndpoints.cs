@@ -207,6 +207,7 @@ public static class ToolResult
         {
             null => null,
             string s => s,
+            JsonElement { ValueKind: JsonValueKind.String } e => e.GetString(),
             JsonElement e => e.GetRawText(),
             _ => JsonSerializer.Serialize(result),
         });

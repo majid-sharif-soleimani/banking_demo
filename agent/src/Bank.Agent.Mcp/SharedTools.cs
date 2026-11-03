@@ -16,4 +16,9 @@ public sealed class SharedTools(BankApi bank)
     [Description("The loan products the bank offers: code, name, currency, repayment type, annual rate, minimum and maximum amount and term in months, penalty and grace rules, and early payoff limits. Amounts are in the product's currency.")]
     public Task<string> LoanProductsAsync(CancellationToken ct) =>
         bank.GetAsync("/api/lending/loan-products", ct);
+
+    [McpServerTool(Name = "appointment_slots", ReadOnly = true)]
+    [Description("Free appointment slots on one day after the current business date: employee id, name and start time (full hours, Stockholm time).")]
+    public Task<string> SlotsAsync([Description("The day, yyyy-MM-dd.")] DateOnly date, CancellationToken ct) =>
+        bank.GetAsync($"/api/customers/appointments/availability?date={date:yyyy-MM-dd}", ct);
 }

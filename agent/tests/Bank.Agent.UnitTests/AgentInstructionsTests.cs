@@ -29,6 +29,36 @@ public class AgentInstructionsTests
         text.ShouldContain("presses Confirm or Cancel");
     }
 
+    [Fact]
+    public void The_customer_gets_the_loan_advisor_workflow()
+    {
+        var text = AgentInstructions.For(Anna);
+
+        text.ShouldContain("Loan advisor");
+        text.ShouldContain("loan_simulation");
+        text.ShouldContain("never decide or promise a loan");
+    }
+
+    [Fact]
+    public void The_admin_gets_the_document_arrears_and_report_workflows()
+    {
+        var text = AgentInstructions.For(Admin);
+
+        text.ShouldContain("document_read");
+        text.ShouldContain("loans_by_classification");
+        text.ShouldContain("Management report");
+    }
+
+    [Theory]
+    [MemberData(nameof(Both))]
+    public void Both_roles_are_told_what_the_untrusted_markers_mean(Principal principal)
+    {
+        var text = AgentInstructions.For(principal);
+
+        text.ShouldContain(UntrustedContent.Begin);
+        text.ShouldContain(UntrustedContent.End);
+    }
+
     [Theory]
     [MemberData(nameof(Both))]
     public void Both_roles_get_the_language_topic_and_number_rules(Principal principal)

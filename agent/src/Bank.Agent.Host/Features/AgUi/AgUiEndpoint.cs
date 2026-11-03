@@ -111,8 +111,8 @@ public static class AgUiEndpoint
             yield break;
         }
 
-        // The tools of this run: the role's bank tools (customers only; least privilege, design plan section 6) and the
-        // UI tools. A customer's bank tools need the MCP server; if it does not answer, the run fails like a bank outage.
+        // The tools of this run: the role's bank tools (least privilege, design plan section 6) and the UI tools. The
+        // bank tools need the MCP server; if it does not answer, the run fails like a bank outage.
         var bank = await OpenBankToolsAsync(session, parts, ct);
         if (bank is null)
         {
@@ -123,8 +123,18 @@ public static class AgUiEndpoint
         await using (bank)
         {
             var ui = new UiTools(session);
-            // Reads go to the model as they are; every change goes behind ConfirmFirst, so calling it only asks the person.
-            IList<AITool> tools = [.. bank.Reads, .. bank.Changes.Select(c => new ConfirmFirst(c, session, ui)), .. ui.Tools];
+            // Reads go to the model as they are, those with customer-written text between untrusted markers; every change
+            // goes behind ConfirmFirst, so calling it only asks the person. Documents are read by DocumentReader.
+            IList<AITool> tools =
+            [
+                .. bank.Reads.Select(MarkUntrusted.Around),
+                .. bank.Changes.Select(c => new ConfirmFirst(c, session, ui)),
+                .. ui.Tools,
+            ];
+            if (bank.Find("customer_document") is { } documentFile)
+            {
+                tools.Add(new DocumentReader(parts.Model, documentFile).Tool);
+            }
             var agent = new ChatClientAgent(parts.Model, new ChatClientAgentOptions
             {
                 ChatOptions = new ChatOptions

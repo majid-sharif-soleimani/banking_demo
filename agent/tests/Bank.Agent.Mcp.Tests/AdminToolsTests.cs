@@ -23,13 +23,14 @@ public class AdminToolsTests
         var tools = await client.ListToolsAsync(cancellationToken: Ct);
 
         tools.Where(t => t.ProtocolTool.Annotations!.ReadOnlyHint == true).Select(t => t.Name).Order().ShouldBe([
-            "arrears_report", "business_date", "currencies_list", "customer_accounts", "customer_appointments", "customer_get",
-            "customer_interactions", "customer_loans", "customer_standing_orders", "customers_search", "information_requests_of_application",
-            "information_requests_open", "journal_entries", "loan_application_get", "loan_applications_queue", "loan_products_list",
-            "portfolio_report", "trial_balance"]);
+            "appointment_slots", "arrears_report", "business_date", "currencies_list", "customer_accounts", "customer_appointments",
+            "customer_document", "customer_get", "customer_interactions", "customer_loans", "customer_standing_orders", "customers_search",
+            "information_requests_of_application", "information_requests_open", "journal_entries", "loan_application_get",
+            "loan_applications_queue", "loan_products_list", "loans_by_classification", "portfolio_report", "trial_balance"]);
         tools.Where(t => t.ProtocolTool.Annotations!.ReadOnlyHint == false).Select(t => t.Name).Order().ShouldBe([
-            "business_day_close", "currency_activate", "information_request_complete", "loan_application_approve",
-            "loan_application_disburse", "loan_application_reject", "loan_application_request_information", "loan_application_start_review"]);
+            "appointment_book_for_customer", "business_day_close", "currency_activate", "customer_note_add", "information_request_complete",
+            "loan_application_approve", "loan_application_disburse", "loan_application_reject", "loan_application_request_information",
+            "loan_application_start_review"]);
     }
 
     [Fact]
@@ -69,6 +70,7 @@ public class AdminToolsTests
     [InlineData("customer_interactions", """{"customerId":"7a1c2a0e-0000-4000-8000-000000000001"}""", "/api/customers/customers/7a1c2a0e-0000-4000-8000-000000000001/interactions")]
     [InlineData("loan_applications_queue", """{"statuses":["Submitted","UnderReview"]}""", "/api/lending/loan-applications?status=Submitted&status=UnderReview&limit=20")]
     [InlineData("information_requests_open", "{}", "/api/customers/information-requests")]
+    [InlineData("loans_by_classification", """{"classification":"Overdue"}""", "/api/lending/loans?classification=Overdue")]
     public async Task An_admin_read_calls_its_bank_path_with_the_admin_token(string tool, string arguments, string path)
     {
         await using var app = new McpServerApp();
@@ -121,5 +123,38 @@ public class AdminToolsTests
         var sent = app.Gateway.Sent.ShouldHaveSingleItem();
         sent.IdempotencyKey.ShouldBe("confirm-9");
         sent.Body.ShouldBe("""{"reason":"Income too low"}""");
+    }
+
+    [Fact]
+    public async Task A_document_comes_back_as_base64_for_the_host()
+    {
+        await using var app = new McpServerApp();
+        app.Gateway.Body = "%PDF-1.7 payslip";
+        await using var client = await app.ConnectAdminAsync(Token);
+        var interaction = Guid.NewGuid();
+
+        var result = await client.CallToolAsync("customer_document",
+            new Dictionary<string, object?> { ["customerId"] = Customer, ["interactionId"] = interaction }, cancellationToken: Ct);
+
+        app.Gateway.Requests.ShouldHaveSingleItem().ShouldBe(
+            ($"/api/customers/customers/{Customer}/interactions/{interaction}/file", $"Bearer {Token}", McpServerApp.ApiKey));
+        var json = System.Text.Json.JsonDocument.Parse(Text(result)).RootElement;
+        Convert.FromBase64String(json.GetProperty("contentBase64").GetString()!).ShouldBe("%PDF-1.7 payslip"u8.ToArray());
+    }
+
+    [Fact]
+    public async Task A_confirmed_note_is_a_multipart_note_on_the_customers_history()
+    {
+        await using var app = new McpServerApp();
+        await using var client = await app.ConnectAdminAsync(Token, idempotencyKey: "confirm-10");
+
+        await client.CallToolAsync("customer_note_add",
+            new Dictionary<string, object?> { ["customerId"] = Customer, ["text"] = "Called about the overdue installment." }, cancellationToken: Ct);
+
+        app.Gateway.Requests.ShouldHaveSingleItem().PathAndQuery.ShouldBe($"/api/customers/customers/{Customer}/interactions");
+        var body = app.Gateway.Sent.ShouldHaveSingleItem().Body!;
+        body.ShouldContain("name=kind");
+        body.ShouldContain("Note");
+        body.ShouldContain("Called about the overdue installment.");
     }
 }

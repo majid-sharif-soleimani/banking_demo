@@ -53,4 +53,31 @@ public sealed class AdminChangeTools(BankApi bank)
     [Description("Marks an open information request as completed, after the admin has checked the documents. The application goes back to UnderReview.")]
     public Task<string> CompleteInformationRequestAsync(Guid informationRequestId, CancellationToken ct) =>
         bank.ChangeAsync(HttpMethod.Post, $"/api/customers/information-requests/{informationRequestId}/complete", null, ct);
+
+    [McpServerTool(Name = "customer_note_add", ReadOnly = false, Destructive = false)]
+    [Description("Adds a note to a customer's contact history, such as a follow-up about an overdue loan. The customer does not see it.")]
+    public Task<string> AddNoteAsync(
+        Guid customerId,
+        [Description("The note, in plain text.")] string text,
+        CancellationToken ct,
+        [Description("The loan application the note is about, if any.")] Guid? applicationId = null)
+    {
+        var form = new MultipartFormDataContent { { new StringContent("Note"), "kind" }, { new StringContent(text), "content" } };
+        if (applicationId is { } id)
+        {
+            form.Add(new StringContent(id.ToString()), "applicationId");
+        }
+
+        return bank.ChangeAsync(HttpMethod.Post, $"/api/customers/customers/{customerId}/interactions", form, ct);
+    }
+
+    [McpServerTool(Name = "appointment_book_for_customer", ReadOnly = false, Destructive = false)]
+    [Description("Books an in-person meeting with a customer about one of their loan applications (a loan's applicationId works too), in a free slot from appointment_slots. The bank emails the customer.")]
+    public Task<string> BookAppointmentAsync(
+        Guid customerId,
+        Guid applicationId,
+        [Description("The employee id from the slot, such as E002.")] string employeeId,
+        [Description("The slot's start time exactly as appointment_slots gave it.")] DateTimeOffset startsAt,
+        CancellationToken ct) =>
+        bank.ChangeAsync(HttpMethod.Post, "/api/customers/appointments", new { applicationId, customerId, employeeId, startsAt }, ct);
 }

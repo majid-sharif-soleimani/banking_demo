@@ -118,6 +118,22 @@ public sealed class AdminTools(BankApi bank)
     public Task<string> ApplicationInformationRequestsAsync(Guid applicationId, CancellationToken ct) =>
         bank.GetAsync($"/api/customers/information-requests?applicationId={applicationId}", ct);
 
+    [McpServerTool(Name = "loans_by_classification", ReadOnly = true)]
+    [Description("Running loans of one classification (Current, Overdue or Default), oldest first, at most 100: customer id, overdue amount, days past due and schedule. Use it to follow up the customers behind the arrears report.")]
+    public Task<string> LoansByClassificationAsync([Description("Current, Overdue or Default.")] string classification, CancellationToken ct) =>
+        bank.GetAsync($"/api/lending/loans?classification={Uri.EscapeDataString(classification)}", ct);
+
+    /// <summary>The name of the document tool. Only the agent host calls it (to read a document in isolation); the model does not get it.</summary>
+    public const string CustomerDocument = "customer_document";
+
+    [McpServerTool(Name = CustomerDocument, ReadOnly = true)]
+    [Description("Host only: the bytes of one uploaded file as base64, with its type and name.")]
+    public async Task<string> DocumentAsync(Guid customerId, Guid interactionId, CancellationToken ct)
+    {
+        var (content, contentType, fileName) = await bank.GetFileAsync($"/api/customers/customers/{customerId}/interactions/{interactionId}/file", ct);
+        return System.Text.Json.JsonSerializer.Serialize(new { fileName, contentType, contentBase64 = Convert.ToBase64String(content) });
+    }
+
     private static string DateQuery(DateOnly? date, string separator) =>
         date is { } d ? $"{separator}date={d:yyyy-MM-dd}" : "";
 }
