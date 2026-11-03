@@ -24,5 +24,10 @@
   <Target Name="BuildChatUi" BeforeTargets="ResolveProjectStaticWebAssets" Condition="'$(_IsPublishing)' == 'true'">
     <Exec Command="npm ci" WorkingDirectory="$(ChatUiDir)" />
     <Exec Command="npm run build" WorkingDirectory="$(ChatUiDir)" />
+    <!-- The wwwroot files were listed when the project loaded; list them again now that the build replaced them. -->
+    <ItemGroup>
+      <Content Remove="wwwroot/**" />
+      <Content Include="wwwroot/**" CopyToPublishDirectory="PreserveNewest" />
+    </ItemGroup>
   </Target>
 </Project>
