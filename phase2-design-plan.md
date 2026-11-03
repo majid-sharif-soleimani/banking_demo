@@ -1,6 +1,6 @@
 # AI Agent and Chat UI: Phase 2 Design Plan
 
-Date: 2026-11-03 · Author: Majid · Status: draft, open decisions in section 7
+Date: 2026-11-03 · Author: Majid · Status: decisions in section 7 made on 2026-11-03; roadmap (section 9) to approve
 
 ## 1. The big picture
 
@@ -34,6 +34,7 @@ The project stays a learning and portfolio project. The goal is a working demo, 
 3. The first screen is a login form inside the chat: username and password.
 4. After a successful login, the UI opens a **new chat**. Nothing from the login chat (fields, messages, errors) is in the new chat, in its history or in the model's context.
 5. Every chat belongs to one login. Logging out, or a session that ends, closes the chat for further input.
+6. A customer can open a list of their own old chats, and the admin a list of every chat. Old chats are read-only.
 
 ### 2.2 Agent capabilities
 
@@ -59,7 +60,7 @@ Customer:
 | Spending analysis | Complex | Read several months of movements, group them, show trends and outliers |
 | Explain a debit | Complex | "What was this?": trace it through the statement, standing orders and loan installments |
 | Cash-flow forecast | Complex | Balance plus coming standing orders and installments, warn about a shortfall, suggest a transfer |
-| Loan advisor | Complex | Ask for the goal and what the customer can pay, simulate several products, compare, submit an application |
+| Loan advisor | Complex | Ask for the goal and what the customer can pay, simulate several products, compare, assess whether the customer can get the loan; if so, submit the application with the customer's documents for admin review |
 | Answer an information request | Complex | Read the open request, explain what is needed, upload a document, check it is complete |
 
 Admin:
@@ -73,7 +74,7 @@ Admin:
 | Customer 360 | Medium | Profile, accounts, loans, interactions and appointments in one summary |
 | Information request queue | Medium | Open requests by age; close the completed ones |
 | Close the day with checks | Medium | Check the trial balance, close the day, wait for the next one, report changes in loan classification |
-| Loan application review | Complex | Queue of waiting applications; read history and documents; assess affordability; recommend approve, reject or ask for information, with reasons; the admin decides |
+| Loan application review | Complex | The admin's list of work waiting for review; for each application the request, history and documents; the admin approves or rejects with their own click, and the bank tells the customer |
 | Arrears follow-up | Complex | Arrears report; for each customer the contact history, a draft message in their language, an appointment |
 | Management report | Complex | Portfolio, arrears and trial balance combined into a written report with trends and risks, in English, Swedish or Persian |
 | Ledger reconciliation | Complex | Compare journal entries with account and loan balances; find and explain differences |
@@ -93,6 +94,7 @@ flowchart LR
   H -->|model calls<br/>no secrets| M[(Language model<br/>Claude by default)]
   H -->|tool calls<br/>role + bank token| MCP[Bank MCP server]
   H -->|login, logout| GW
+  H --> DB[(PostgreSQL<br/>schema agent<br/>chat history)]
   MCP -->|X-Api-Key + Bearer token| GW[Gateway]
   GW --> ID[identity]
   GW --> S[six bank services]
@@ -107,7 +109,7 @@ A web app in the browser. It renders messages and the component types in section
 An ASP.NET Core service with two jobs.
 
 - **Backend for frontend (BFF).** It owns the login. `POST /auth/login` receives the username and password from the login form, calls `POST /api/identity/login` through the gateway, keeps the bank token in a server-side session, and returns a cookie. The model is not involved. `POST /auth/logout` ends both. Each server-side session holds the role, the customer id, the bank token and the open chat.
-- **Agent runtime.** It runs the agent on Microsoft Agent Framework with `IChatClient` (design plan ADR 24). For each person it builds an agent with the system instructions and the tools of that person's role. It streams the answer and the UI components to the chat UI.
+- **Agent runtime.** It runs the agent on Microsoft Agent Framework with `IChatClient` (design plan ADR 24). For each person it builds an agent with the system instructions and the tools of that person's role. It streams the answer and the UI components to the chat UI, and stores every chat's messages in its own PostgreSQL schema `agent` (decision 4).
 
 ### 3.3 Bank MCP server (`agent/src/Bank.Agent.Mcp/`)
 
@@ -190,7 +192,7 @@ Every tool that changes data is marked as needing approval. The agent host, not 
 
 ### 4.4 A session that ends
 
-When a tool call returns 401 `session_expired` or `session_replaced`, the agent host ends the server session and tells the UI. The UI shows why ("you were away for 5 minutes", "you logged in somewhere else"), closes the chat for input and shows the login form. A new login opens a new chat (section 7, decision 6).
+When a tool call returns 401 `session_expired` or `session_replaced`, the agent host ends the server session and tells the UI. The UI shows why ("you were away for 5 minutes", "you logged in somewhere else"), closes the chat for input and shows the login form. A new login opens a new chat; the old chat stays in storage, closed (section 7, decision 6).
 
 ## 5. UI components
 
@@ -232,45 +234,52 @@ The phase 1 rules in `CLAUDE.md` still apply. In addition:
 | A4 | The agent reaches the bank only through the gateway | Design plan section 3 |
 | A5 | Test logins (`admin/admin`, customers by national id), one sliding 5-minute session per user | Workspace ADR 0007 |
 | A6 | Two roles, customer and admin; a chat UI with text, tables, cards, diagrams and forms; login inside the chat and a new chat after it | Majid, 2026-11-03 (this document) |
+| A7 | Chat UI in React with an AG-UI client (for example CopilotKit) | Majid, 2026-11-03 (section 7.2, decision 1) |
+| A8 | UI components as tools (`show_table`, `show_form`, ...), one JSON Schema per component; form values return as the tool result | Majid, 2026-11-03 (section 7.2, decision 2) |
+| A9 | The bank token lives in the agent host's server-side session behind an `HttpOnly` cookie (BFF); never in the browser or the model | Majid, 2026-11-03 (section 7.2, decision 3) |
+| A10 | Chat history in PostgreSQL, own schema `agent` (same rules as a bank service: own role, `CreatedAt`, `PerformedBy`, `Version`); never contains passwords or tokens | Majid, 2026-11-03 (section 7.2, decision 4) |
+| A11 | Every tool that changes data needs the person's confirmation in the UI, enforced by the agent host; read-only tools need none | Majid, 2026-11-03 (section 7.2, decision 5) |
+| A12 | When a session ends, its chat is closed (kept in storage); every login opens a new, empty chat | Majid, 2026-11-03 (section 7.2, decision 6) |
+| A13 | Agent host, MCP server and chat UI run on the host machine in the bank's Docker Compose project; only the chat UI is published through Tailscale, the gateway stays internal | Majid, 2026-11-03 (section 7.2, decision 7) |
 
 ### 7.2 Open decisions for Majid (D1)
 
 Each needs an ADR. Claude's recommendation is marked.
 
-**1. UI technology.**
+**1. UI technology.** Decided by Majid on 2026-11-03: option a. ADR to write.
 
 - a. React with an AG-UI client (for example CopilotKit). Chat, streaming, generative UI and approvals are ready to use, and AG-UI is the protocol Microsoft Agent Framework hosts. Price: a second language (TypeScript) and toolchain. **Recommended**: the components in section 5 are the hard part, and this option gives most of them.
 - b. Blazor (server or WebAssembly). One language. Price: chat, streaming components and the AG-UI client are mostly ours to build.
 - c. A plain page with a small script. Least to learn. Price: everything in section 5 is hand-made.
 
-**2. Contract between the agent and the UI components.**
+**2. Contract between the agent and the UI components.** Decided by Majid on 2026-11-03: option a. ADR to write.
 
 - a. UI components as tools: the agent calls `show_table`, `show_form` and so on, and the arguments follow a JSON Schema per component (AG-UI frontend tools). **Recommended**: typed, checked, and form values come back as the tool result.
 - b. A declarative UI format such as A2UI. Richer layouts. Price: a newer format to learn, more than the components in section 5 need.
 - c. Our own JSON blocks inside the text. Price: parsing free text and no checking.
 
-**3. Where the bank token lives.**
+**3. Where the bank token lives.** Decided by Majid on 2026-11-03: option a. ADR to write.
 
 - a. In the agent host's server-side session, behind an `HttpOnly` cookie (BFF). **Recommended**: the browser and the model never see it.
 - b. In the browser, sent with each message. Price: any script on the page can read it, and it is easy to leak into the chat.
 
-**4. Chat history storage.**
+**4. Chat history storage.** Decided by Majid on 2026-11-03: option b. ADR to write. Retention and who may read old chats: section 7.3, question 6.
 
 - a. In memory in the agent host. Simple. Price: lost on restart. Bank sessions are already in memory, so a restart logs everyone out anyway. **Recommended for the first steps.**
 - b. PostgreSQL, own schema `agent`. History survives restarts and can be reviewed later. Price: a schema, retention rules and personal data at rest.
 
-**5. Which changes need confirmation.**
+**5. Which changes need confirmation.** Decided by Majid on 2026-11-03: option a. ADR to write.
 
 - a. Every tool that changes data. **Recommended**: one simple rule.
 - b. Only tools that move money.
 - c. A per-tool setting.
 
-**6. After a session ends.**
+**6. After a session ends.** Decided by Majid on 2026-11-03: option a. ADR to write.
 
 - a. A new login opens a new chat; the old chat is closed. **Recommended**: the same rule as the first login, and nothing from one session reaches the next.
 - b. A new login by the same user continues the same chat.
 
-**7. Hosting of the agent and the UI.**
+**7. Hosting of the agent and the UI.** Decided by Majid on 2026-11-03: option a. ADR to write.
 
 - a. On the host machine, in the same Docker Compose project as the bank, behind the same Tailscale address. **Recommended**: the bank is already there, and the gateway stays on the local network.
 - b. In the cloud, calling the bank through Tailscale Funnel. Price: the gateway must stay public.
@@ -279,11 +288,12 @@ The model to use per role (and cost limits) is decided later, when the first age
 
 ### 7.3 Business questions (Majid answers; no business rule is invented)
 
-1. Does the admin agent only recommend loan decisions, or may it approve and reject after the admin confirms?
-2. May a customer's agent submit a loan application, or only prepare one for a person?
-3. Which customer actions are allowed at all in the first release: transfers, standing orders, card payments, early payoff?
-4. Should the agent refuse topics outside banking, or answer them briefly?
-5. Does the agent answer in the language the person writes in, or in the customer's stored language?
+1. Answered by Majid on 2026-11-03: the agent never decides a loan. The customer's agent assesses whether the customer can get the loan; if so, it submits the application and the documents for review. The admin logs in, sees the list of work waiting for review, and approves or rejects each one with their own action. The bank's existing status-change notification (`LoanApplicationStatusChanged`, email from Customers) tells the customer, and the customer's next chat shows the new status. "Can get the loan" means only that the request is within the product's limits (amount, term, currency; checked by the bank's simulation). The agent applies no affordability rule of its own; the real judgement is the admin's (Majid, 2026-11-03).
+2. Answered by question 1: the customer's agent submits the application, after the customer confirms (decision 5).
+3. Answered by Majid on 2026-11-03: all of them. The first release has every customer change in section 2.2: transfers, standing orders, card installment payments, early payoff, appointments and loan applications, each with confirmation.
+4. Answered by Majid on 2026-11-03: the agent politely refuses topics outside banking and brings the conversation back to the bank.
+5. Answered by Majid on 2026-11-03: the agent answers in the language of the person's message (English, Swedish or Persian; any other language gets English). The bank's email notifications keep using the customer's stored language.
+6. Answered by Majid on 2026-11-03: a customer can read their own old chats, the admin can read every chat. In this version chats are kept forever (no deletion). Old chats are read-only.
 
 ## 8. Prerequisites in the bank
 
@@ -300,12 +310,17 @@ Gaps found while matching section 2.2 against the phase 1 API (2026-11-03). They
 
 Each step is a stage with its own spec in `docs/stages/phase-2/`, slices and checkpoints, as in phase 1.
 
-1. **Chat shell and login.** The chat UI, the agent host as BFF, the login form, the new chat, logout and session end. No model yet: the chat echoes.
+1. **Chat shell and login.** The chat UI, the agent host as BFF, the login form, the new chat, logout and session end, chats stored in the `agent` schema. No model yet: the chat echoes.
 2. **First agent, customer reads.** The MCP server with the customer read tools, the agent with Claude, text, tables and cards. The simple customer capabilities.
-3. **Forms, diagrams and changes.** Form, diagram, chart and confirmation components. The medium customer capabilities. The section 8 gaps they need.
-4. **Admin role.** The admin tool set and the simple and medium admin capabilities.
+3. **Forms, diagrams and changes.** Form, diagram, chart and confirmation components. Every customer change (section 7.3, question 3), including submitting a loan application with documents. The customer's list of old chats. The section 8 gaps they need.
+4. **Admin role.** The admin tool set, the simple and medium admin capabilities, the review list with approve and reject, and the list of every chat.
 5. **Complex workflows.** Loan advisor, loan application review, arrears follow-up, management report, with untrusted-content handling for documents.
 6. **Languages, evaluation and hosting.** Swedish and Persian (right to left), a repeatable evaluation set of conversations, running on the host machine next to the bank.
+
+### What to watch
+
+- Chats are kept forever and contain personal data (names, amounts, account numbers). Before real customers, a retention period and a deletion path are needed.
+- An admin can read every chat. Each read of another person's chat should be logged with `PerformedBy`.
 
 ## 10. Out of scope for phase 2
 
