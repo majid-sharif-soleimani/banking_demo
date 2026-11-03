@@ -4,6 +4,7 @@ import { Chart } from "./chart";
 import { Card, Table } from "./components";
 import { Diagram } from "./diagram";
 import { ConfirmationView, DocumentRequestView, FormView } from "./interactive";
+import { useText } from "./i18n";
 
 // The old chats (phase 2 design plan, requirement 2.1.6): a customer sees their own, the admin every chat. Old chats
 // are read-only: the same components as in a live chat, without buttons, plus a short line for each thing the person
@@ -14,6 +15,7 @@ type Props = { isAdmin: boolean; onBack: () => void };
 export function History({ isAdmin, onBack }: Props) {
   const [chats, setChats] = useState<ChatSummary[]>();
   const [open, setOpen] = useState<StoredChat>();
+  const t = useText();
 
   useEffect(() => {
     void listChats().then(setChats);
@@ -21,13 +23,13 @@ export function History({ isAdmin, onBack }: Props) {
 
   if (open) {
     return (
-      <section className="history" aria-label="Old chat">
+      <section className="history" aria-label={t("oldChats")}>
         <button type="button" className="secondary" onClick={() => setOpen(undefined)}>
-          Back to the list
+          {t("backToList")}
         </button>
         <p className="notice">
           {isAdmin ? `${open.username} · ` : ""}
-          {new Date(open.openedAt).toLocaleString()} · read-only
+          {new Date(open.openedAt).toLocaleString()} · {t("readOnly")}
         </p>
         <div className="messages">
           {open.messages.map((m, i) => (
@@ -41,20 +43,20 @@ export function History({ isAdmin, onBack }: Props) {
   }
 
   return (
-    <section className="history" aria-label="Old chats">
+    <section className="history" aria-label={t("oldChats")}>
       <button type="button" className="secondary" onClick={onBack}>
-        Back to the chat
+        {t("backToChat")}
       </button>
-      {chats === undefined && <p className="loading">Loading…</p>}
-      {chats?.length === 0 && <p className="notice">No chats yet.</p>}
+      {chats === undefined && <p className="loading">{t("loading")}</p>}
+      {chats?.length === 0 && <p className="notice">{t("noChats")}</p>}
       <ul className="chat-list">
         {chats?.map((c) => (
           <li key={c.id}>
             <button type="button" className="link" onClick={() => void getChat(c.id).then(setOpen)}>
-              <span dir="auto">{c.firstQuestion ?? "(no question)"}</span>
+              <span dir="auto">{c.firstQuestion ?? t("noQuestion")}</span>
               <span className="notice">
                 {isAdmin ? `${c.username} · ` : ""}
-                {new Date(c.openedAt).toLocaleString()} · {c.status === "Open" ? "open" : "closed"}
+                {new Date(c.openedAt).toLocaleString()} · {c.status === "Open" ? t("open") : t("closed")}
               </span>
             </button>
           </li>
@@ -75,6 +77,7 @@ function parse(content: string): Record<string, unknown> {
 /** One stored message, drawn by its kind (agent host MessageKind). */
 export function Stored({ message }: { message: StoredMessage }) {
   const data = parse(message.content);
+  const t = useText();
   switch (message.kind) {
     case "text":
       return <p>{message.content}</p>;
@@ -93,11 +96,11 @@ export function Stored({ message }: { message: StoredMessage }) {
     case "document_request":
       return <DocumentRequestView args={data} readOnly />;
     case "form_values":
-      return <p>Sent the form “{String(data.title ?? "")}”.</p>;
+      return <p>{t("sentTheForm", { title: String(data.title ?? "") })}</p>;
     case "change_result":
-      return <p>{data.status === "cancelled" ? "Cancelled" : data.status === "done" ? "Confirmed" : "Confirmed, but the bank refused"}: {String(data.title ?? "")}.</p>;
+      return <p>{data.status === "cancelled" ? t("cancelled") : data.status === "done" ? t("confirmed") : t("confirmedButRefused")}: {String(data.title ?? "")}.</p>;
     case "document":
-      return <p>Uploaded {String(data.fileName ?? "a document")} ({String(data.status ?? "")}).</p>;
+      return <p>{t("uploadedFile", { file: String(data.fileName ?? t("aDocument")), status: String(data.status ?? "") })}</p>;
     default:
       return <p>{message.content}</p>;
   }

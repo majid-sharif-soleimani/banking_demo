@@ -32,6 +32,8 @@ Never stored or logged: passwords, bank tokens (tests check both).
 - A bank outage during a run (`bank_unavailable`) keeps the chat open in the UI with a note; only session codes send the person to the login.
 - A newer login of the same user marks the old host session ended; its browser hears `session_replaced` once (ADR 0001, point 6).
 - A new MCP tool goes in the class of its role (`CustomerTools`, `AdminTools`, their `*ChangeTools`, or `SharedTools`); the per-path tool list tests catch a wrong place.
+- UI texts live in `chat-ui/src/i18n.ts` (en, sv, fa); a new text needs all three. Persian sets `dir="rtl"` on `<html>`, so CSS uses logical properties (start/end), never left/right. The messages the UI sends after an action ("I confirmed the change.") are in the UI language, so the agent keeps answering in it.
+- `AgentTools.For` builds a run's tools for both the chat and the evaluation; change tools there, not in the endpoint.
 - Integration tests replace the gateway with `StubGateway` (an `HttpMessageHandler`), the clock with `TestClock`, the bank tools with `FakeBankTools` and, where needed, the model with `ScriptedModel`. `Bank.Agent.Mcp.Tests` runs the MCP server against `FakeGateway` (no Docker).
 - Migrations: `dotnet tool restore && dotnet tool run dotnet-ef migrations add <Name> --project src/Bank.Agent.Host --output-dir Data/Migrations`.
 
@@ -41,4 +43,5 @@ Never stored or logged: passwords, bank tokens (tests check both).
 dotnet build && dotnet test                          # needs Docker (Testcontainers PostgreSQL)
 (cd chat-ui && npm ci && npm test && npm run build)  # component tests, then the build into wwwroot
 (cd tests/chat-ui-e2e && npm ci && npx playwright test)   # needs the AppHost running (see its README)
+dotnet run --project eval/Bank.Agent.Eval            # evaluation set against the real model: costs money, needs the key (README)
 ```

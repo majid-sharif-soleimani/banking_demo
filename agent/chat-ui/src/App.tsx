@@ -3,6 +3,7 @@ import { ChatView } from "./ChatView";
 import { History } from "./History";
 import { LoginForm } from "./LoginForm";
 import { login, logout, me, noticeFor, type SessionInfo } from "./api";
+import { applyLanguage, initialLanguage, LanguageContext, languages, text, type Language } from "./i18n";
 
 type View =
   | { kind: "loading" }
@@ -15,15 +16,20 @@ export function App() {
   const [view, setView] = useState<View>({ kind: "loading" });
   // The old chats open over the chat; the chat stays mounted underneath, so nothing typed is lost.
   const [showHistory, setShowHistory] = useState(false);
+  const [language, setLanguage] = useState<Language>(initialLanguage);
+  const t = (key: Parameters<typeof text>[1]) => text(language, key);
+
+  useEffect(() => applyLanguage(language), [language]);
 
   useEffect(() => {
     void me().then((answer) =>
       setView(
         answer.ok
           ? { kind: "chat", session: answer.session }
-          : { kind: "login", notice: noticeFor(answer.code) },
+          : { kind: "login", notice: noticeFor(answer.code, language) },
       ),
     );
+    // Only on the first render: the session check runs once, in the language picked at that moment.
   }, []);
 
   async function submitLogin(
@@ -37,40 +43,50 @@ export function App() {
     }
 
     return answer.code === "invalid_credentials"
-      ? "Wrong username or password."
-      : (noticeFor(answer.code) ?? "Login failed. Try again.");
+      ? t("wrongCredentials")
+      : (noticeFor(answer.code, language) ?? t("loginFailed"));
   }
 
   async function leave() {
     setShowHistory(false);
     await logout();
-    setView({ kind: "login", notice: noticeFor("logout") });
+    setView({ kind: "login", notice: noticeFor("logout", language) });
   }
 
   return (
+    <LanguageContext.Provider value={language}>
     <div className="app">
       <header className="top">
-        <h1>Bank Chat</h1>
+        <h1>{t("appTitle")}</h1>
+        <div className="who">
+          <select aria-label={t("language")} value={language} onChange={(e) => setLanguage(e.target.value as Language)}>
+            {languages.map((l) => (
+              <option key={l.code} value={l.code} lang={l.code}>
+                {l.name}
+              </option>
+            ))}
+          </select>
         {view.kind === "chat" && (
-          <div className="who">
+          <>
             <span>
-              {view.session.name} · {view.session.role}
+              {view.session.name} · {t(view.session.role === "admin" ? "roleAdmin" : "roleCustomer")}
             </span>
             <button
               type="button"
               className="secondary"
               onClick={() => setShowHistory(!showHistory)}
             >
-              {showHistory ? "Chat" : "Old chats"}
+              {showHistory ? t("chat") : t("oldChats")}
             </button>
             <button type="button" onClick={() => void leave()}>
-              Log out
+              {t("logOut")}
             </button>
-          </div>
+          </>
         )}
+        </div>
       </header>
       <main>
-        {view.kind === "loading" && <p className="loading">Loading…</p>}
+        {view.kind === "loading" && <p className="loading">{t("loading")}</p>}
         {view.kind === "login" && (
           <LoginForm onSubmit={submitLogin} notice={view.notice} />
         )}
@@ -89,7 +105,7 @@ export function App() {
                 setShowHistory(false);
                 setView({
                   kind: "login",
-                  notice: noticeFor(code) ?? noticeFor("session_expired"),
+                  notice: noticeFor(code, language) ?? noticeFor("session_expired", language),
                 });
               }}
             />
@@ -97,5 +113,6 @@ export function App() {
         )}
       </main>
     </div>
+    </LanguageContext.Provider>
   );
 }

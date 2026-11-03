@@ -1,3 +1,4 @@
+import { text, type Language, type TextKey } from "./i18n";
 // The agent host's /auth endpoints (backend for frontend, phase 2 design plan decision A9). The browser never sees the
 // bank token: it holds only the HttpOnly session cookie, which fetch sends on same-origin calls by itself.
 
@@ -57,21 +58,15 @@ export async function me(): Promise<Answer> {
 }
 
 // Why the person sees the login form again. Codes come from the host (SessionEnd.Code, Problems).
-export function noticeFor(code: string): string | undefined {
-  switch (code) {
-    case "session_expired":
-      return "Your session ended because nothing happened for a while. Please log in again.";
-    case "session_replaced":
-      return "You logged in somewhere else, so this chat was closed. Please log in again.";
-    case "new_login":
-      return "A newer login closed this chat.";
-    case "logout":
-      return "You logged out.";
-    case "bank_unavailable":
-      return "The bank could not be reached. Try again in a moment.";
-    default:
-      return undefined;
-  }
+export function noticeFor(code: string, language: Language = "en"): string | undefined {
+  const key: TextKey | undefined = {
+    session_expired: "noticeSessionExpired",
+    session_replaced: "noticeSessionReplaced",
+    new_login: "noticeNewLogin",
+    logout: "noticeLogout",
+    bank_unavailable: "noticeBankUnavailable",
+  }[code] as TextKey | undefined;
+  return key ? text(language, key) : undefined;
 }
 
 export const sessionEndCodes = new Set(["session_expired", "session_replaced", "new_login", "chat_closed", "missing_session"]);

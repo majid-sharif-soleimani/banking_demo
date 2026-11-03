@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- Only an id: the Anthropic key (Agent:Model:ApiKey) lives in the user profile, never in the repo. -->
+    <UserSecretsId>bank-agent-eval</UserSecretsId>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Bank.Agent.Host\Bank.Agent.Host.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="cases.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

@@ -256,6 +256,28 @@ tailscale serve status        # https://<machine>.<tailnet>.ts.net:8443 (tailnet
 
 Open that address on a device logged in to the tailnet and log in as `admin` / `admin` or as a customer with their national id. Design decision A13 later moves the chat to 443 and takes the gateway off Tailscale.
 
+### Phase 2, stages 3 to 6 on the home bank
+
+Stages 3 to 6 changed four bank services (staff-only checks in Operations and Ledger, new lists in Accounts, Customers and Lending) and the agent. The bank part needs no secret; the agent part needs the two secrets above.
+
+1. Back up first, then rebuild and recreate only the changed services. Customers keeps uploads inside its container, so check that it has none first, or copy them out:
+
+```bash
+mkdir -p ~/bank-backups && bank exec -T postgres pg_dump -U postgres -d bank -Fc > ~/bank-backups/bank-$(date +%Y%m%d-%H%M%S).dump
+docker exec bank-customers-1 sh -c 'find /home/app/files -type f 2>/dev/null | wc -l'    # 0: nothing to lose
+for s in operations ledger customers accounts lending; do
+  (cd "../../bank-$s" && dotnet publish "src/Bank.${s^}.Api" -c Release --os linux --arch "$(uname -m | sed 's/x86_64/x64/;s/aarch64/arm64/')" /t:PublishContainer \
+     -p:ContainerRepository="bank-$s" -p:ContainerImageTags=home) || break
+done
+bank up -d --wait --no-deps operations ledger customers accounts lending
+```
+
+2. Write `env/bank-mcp.env` and the Anthropic key (the block above), then build and start `bank-mcp` and `agent` (the block above). The MCP server now has two paths, `/mcp/customer` and `/mcp/admin`; nothing else to configure.
+
+3. Try it: log in as a customer and ask for the balances; log in as `admin` and ask for the SEK trial balance. Pick فارسی or Svenska in the header to see the UI in that language.
+
+The evaluation set (`agent/eval`, agent README) runs on the host machine, not in a container, against the model only.
+
 ## Bring the bank back up (quick guide)
 
 The bank is already installed: images built, passwords and the API key in `env/`, data in the volumes, the Tailscale entry saved. Nothing below deletes data.

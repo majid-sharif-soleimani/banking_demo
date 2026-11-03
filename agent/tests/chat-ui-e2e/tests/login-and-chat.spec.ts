@@ -135,3 +135,23 @@ test("the old chats list the earlier chat of the same customer, read-only", asyn
   await expect(page.getByText(/read-only/)).toBeVisible();
   await expect(page.getByLabel("Message")).toBeHidden();
 });
+
+test("in Persian the page runs right to left on a phone, and the own message sits on the left", async ({ browser }) => {
+  const page = await (await browser.newContext({ viewport: { width: 390, height: 664 }, isMobile: true, hasTouch: true })).newPage();
+  await page.goto("/");
+  await page.getByLabel("Language").selectOption("fa");
+  await page.getByLabel("نام کاربری").fill("admin");
+  await page.getByLabel("رمز عبور").fill("admin");
+  await page.getByRole("button", { name: "ورود" }).click();
+
+  await page.getByLabel("پیام").fill("موجودی حساب‌های من چقدر است؟");
+  await page.getByRole("button", { name: "ارسال" }).click();
+  await expect(page.getByText("You said: موجودی حساب‌های من چقدر است؟")).toBeVisible();
+
+  expect(await page.evaluate(() => document.documentElement.dir)).toBe("rtl");
+  // Right to left mirrors the thread: the person's own bubble is at the start, which is now the left.
+  const bubble = await page.locator(".bubble.user").first().boundingBox();
+  expect(bubble!.x).toBeLessThan(390 / 2);
+  await expect(page.getByLabel("پیام")).toBeInViewport();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
+});

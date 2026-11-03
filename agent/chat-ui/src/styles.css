@@ -33,8 +33,11 @@ body { margin: 0; background: var(--bg); }
 .app { max-width: 760px; margin: 0 auto; height: 100vh; height: 100dvh; display: flex; flex-direction: column;
   padding: 0 16px; padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); }
 .top { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
-.top h1 { font-size: 1.1rem; margin: 0; }
-.who { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 0.9rem; }
+.top h1 { font-size: 1.1rem; margin: 0; white-space: nowrap; }
+/* Codes such as IMP-C001 are one unit: kept on one line and left to right, also inside a Persian sentence. */
+code { white-space: nowrap; unicode-bidi: isolate; direction: ltr; }
+.who { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px 12px; color: var(--muted); font-size: 0.9rem; }
+.top select { font: inherit; padding: 4px 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel); color: var(--text); }
 main { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 16px 0 0; overflow-y: auto; }
 .thread { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 12px; }
 .messages { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; overscroll-behavior: contain; }

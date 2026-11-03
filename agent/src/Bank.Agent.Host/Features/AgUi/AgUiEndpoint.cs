@@ -123,18 +123,9 @@ public static class AgUiEndpoint
         await using (bank)
         {
             var ui = new UiTools(session);
-            // Reads go to the model as they are, those with customer-written text between untrusted markers; every change
-            // goes behind ConfirmFirst, so calling it only asks the person. Documents are read by DocumentReader.
-            IList<AITool> tools =
-            [
-                .. bank.Reads.Select(MarkUntrusted.Around),
-                .. bank.Changes.Select(c => new ConfirmFirst(c, session, ui)),
-                .. ui.Tools,
-            ];
-            if (bank.Find("customer_document") is { } documentFile)
-            {
-                tools.Add(new DocumentReader(parts.Model, documentFile).Tool);
-            }
+            // Reads as they are (customer-written text between untrusted markers), changes behind ConfirmFirst, the UI
+            // tools and the document reader: see AgentTools.
+            var tools = AgentTools.For(bank, session, ui, parts.Model);
             var agent = new ChatClientAgent(parts.Model, new ChatClientAgentOptions
             {
                 ChatOptions = new ChatOptions

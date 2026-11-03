@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { useText } from "./i18n";
 
 type Props = {
   onSubmit: (username: string, password: string) => Promise<string | undefined>;
@@ -12,6 +13,7 @@ export function LoginForm({ onSubmit, notice }: Props) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
+  const t = useText();
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -25,9 +27,9 @@ export function LoginForm({ onSubmit, notice }: Props) {
   }
 
   return (
-    <section className="login" aria-label="Log in">
+    <section className="login" aria-label={t("logIn")}>
       <div className="bubble assistant">
-        <p>Welcome to the bank. Please log in to start a chat.</p>
+        <p>{t("welcome")}</p>
         {notice && (
           <p className="notice" role="status">
             {notice}
@@ -36,11 +38,11 @@ export function LoginForm({ onSubmit, notice }: Props) {
       </div>
       <form className="bubble form" onSubmit={submit}>
         <label>
-          Username
+          {t("username")}
           <input name="username" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} required />
         </label>
         <label>
-          Password
+          {t("password")}
           <input
             name="password"
             type="password"
@@ -56,21 +58,21 @@ export function LoginForm({ onSubmit, notice }: Props) {
           </p>
         )}
         <button type="submit" disabled={busy}>
-          {busy ? "Logging in…" : "Log in"}
+          {busy ? t("loggingIn") : t("logIn")}
         </button>
       </form>
       <div className="bubble assistant demo">
         <p className="demo-note" role="note">
-          This is a demo. All data here is test data, nothing is real, and changes have no operational effect.
+          {t("demoNote")}
         </p>
-        <dl className="test-logins" aria-label="Test logins">
-          <dt>Admin</dt>
+        <dl className="test-logins" aria-label={t("testLogins")}>
+          <dt>{t("admin")}</dt>
           <dd>
-            username <code>admin</code>, password <code>admin</code>
+            {t("usernameWord")} <code>admin</code>, {t("passwordWord")} <code>admin</code>
           </dd>
-          <dt>Customer</dt>
+          <dt>{t("customer")}</dt>
           <dd>
-            username <code>IMP-C001</code>, password <code>IMP-C001</code> (any customer: the national id as both)
+            {t("usernameWord")} <code>IMP-C001</code>, {t("passwordWord")} <code>IMP-C001</code> {t("anyCustomer")}
           </dd>
         </dl>
       </div>

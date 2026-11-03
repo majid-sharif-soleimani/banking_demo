@@ -39,3 +39,6 @@ node_modules/
 agent/src/Bank.Agent.Host/wwwroot/
 agent/tests/chat-ui-e2e/test-results/
 agent/tests/chat-ui-e2e/playwright-report/
+
+# Evaluation results (agent/eval): model answers, kept local
+agent/eval/results/

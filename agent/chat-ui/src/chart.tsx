@@ -2,6 +2,9 @@
 // labels and up to four series; the host checked that every series has one value per label. Colours are the four first
 // categorical slots of a colour-blind-checked palette (styles.css, --series-1..4). Identity is never colour alone: two
 // or more series get a legend, every mark has a hover title, and "Show the numbers" opens the same data as a table.
+// The plot stays left to right in a Persian page too: its axis is drawn in SVG coordinates.
+
+import { useText } from "./i18n";
 
 export type ChartArgs = {
   title: string;
@@ -16,6 +19,7 @@ const height = 260;
 const pad = { top: 12, right: 12, bottom: 28, left: 56 };
 
 export function Chart({ args }: { args?: Partial<ChartArgs> }) {
+  const t = useText();
   const labels = args?.labels ?? [];
   const series = (args?.series ?? []).filter((s) => Array.isArray(s.values)).slice(0, 4);
   const values = series.flatMap((s) => s.values);
@@ -49,7 +53,7 @@ export function Chart({ args }: { args?: Partial<ChartArgs> }) {
           ))}
         </ul>
       )}
-      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={args?.title ?? "Chart"}>
+      <svg style={{ direction: "ltr" }} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={args?.title ?? t("chartLabel")}>
         {ticks.map((t, i) => (
           <g key={i} className="grid">
             <line x1={pad.left} x2={width - pad.right} y1={y(t)} y2={y(t)} />
@@ -92,7 +96,7 @@ export function Chart({ args }: { args?: Partial<ChartArgs> }) {
         )}
       </svg>
       <details>
-        <summary>Show the numbers</summary>
+        <summary>{t("showNumbers")}</summary>
         <div className="table-scroll">
           <table>
             <thead>

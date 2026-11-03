@@ -4,6 +4,8 @@ import { AssistantRuntimeProvider, ComposerPrimitive, MessagePrimitive, ThreadPr
 import { useAgUiRuntime } from "@assistant-ui/react-ag-ui";
 import { CardTool, ChartTool, ConfirmationTool, DiagramTool, DocumentRequestTool, FormTool, TableTool } from "./components";
 import { clientHeaders, me, noticeFor, sessionEndCodes, type SessionInfo } from "./api";
+import { LanguageContext, useText } from "./i18n";
+import { useContext } from "react";
 
 type Props = {
   session: SessionInfo;
@@ -51,6 +53,8 @@ export function ChatView({ session, onEnded }: Props) {
 
   // A bank that does not answer is not the end of the session: the chat stays, with a note to try again.
   const [problem, setProblem] = useState<string>();
+  const language = useContext(LanguageContext);
+  const t = useText();
 
   const runtime = useAgUiRuntime({
     agent,
@@ -65,9 +69,9 @@ export function ChatView({ session, onEnded }: Props) {
       // Anything else (no code, or the bank down): ask the host what is left of the session.
       void me().then((answer) => {
         if (answer.ok) {
-          setProblem(noticeFor("bank_unavailable"));
+          setProblem(noticeFor("bank_unavailable", language));
         } else if (answer.code === "bank_unavailable") {
-          setProblem(noticeFor(answer.code));
+          setProblem(noticeFor(answer.code, language));
         } else {
           onEnded(answer.code);
         }
@@ -80,10 +84,8 @@ export function ChatView({ session, onEnded }: Props) {
       <ThreadPrimitive.Root className="thread">
         <ThreadPrimitive.Viewport className="messages">
           <ThreadPrimitive.Empty>
-            <div className="bubble assistant">
-              <p>
-                Hello {session.name}. You are logged in as {session.role === "admin" ? "the admin" : "a customer"}. How can I help?
-              </p>
+            <div className="bubble assistant" dir="auto">
+              <p>{t("greeting", { name: session.name, role: t(session.role === "admin" ? "theAdmin" : "aCustomer") })}</p>
             </div>
           </ThreadPrimitive.Empty>
           <ThreadPrimitive.Messages components={{ UserMessage, AssistantMessage }} />
@@ -94,8 +96,8 @@ export function ChatView({ session, onEnded }: Props) {
           </p>
         )}
         <ComposerPrimitive.Root className="composer" onSubmit={() => setProblem(undefined)}>
-          <ComposerPrimitive.Input className="composer-input" placeholder="Write a message" aria-label="Message" dir="auto" />
-          <ComposerPrimitive.Send className="composer-send">Send</ComposerPrimitive.Send>
+          <ComposerPrimitive.Input className="composer-input" placeholder={t("writeMessage")} aria-label={t("message")} dir="auto" />
+          <ComposerPrimitive.Send className="composer-send">{t("send")}</ComposerPrimitive.Send>
         </ComposerPrimitive.Root>
       </ThreadPrimitive.Root>
     </AssistantRuntimeProvider>

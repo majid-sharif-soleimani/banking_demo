@@ -10,6 +10,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Bank.Agent.Host\Bank.Agent.Host.csproj" />
+    <ProjectReference Include="..\..\eval\Bank.Agent.Eval\Bank.Agent.Eval.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Shouldly" />

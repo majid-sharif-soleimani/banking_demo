@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { postAction, uploadDocument } from "./api";
+import { useText } from "./i18n";
 
 // The components the person answers (phase 2 stage 3). Each one sends its answer to the agent host, not to the model:
 // the host checks it, acts, and stores the outcome. Then `onDone` sends a short chat message so the agent continues.
@@ -19,6 +20,7 @@ export function FormView({ args, onDone, readOnly }: { args?: Partial<FormArgs>;
   const [values, setValues] = useState<Record<string, string>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [state, setState] = useState<"open" | "busy" | "sent" | "error">("open");
+  const t = useText();
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -30,7 +32,7 @@ export function FormView({ args, onDone, readOnly }: { args?: Partial<FormArgs>;
     const answer = await postAction(`/agent/forms/${encodeURIComponent(args.formId)}`, { values });
     if (answer.ok) {
       setState("sent");
-      onDone?.("I sent the form.");
+      onDone?.(t("iSentTheForm"));
     } else {
       setErrors(answer.errors ?? {});
       setState(answer.code === "invalid_values" ? "open" : "error");
@@ -85,10 +87,10 @@ export function FormView({ args, onDone, readOnly }: { args?: Partial<FormArgs>;
       ))}
       {!readOnly && (
         <button type="submit" disabled={locked}>
-          {state === "sent" ? "Sent" : (args?.submitLabel ?? "Send")}
+          {state === "sent" ? t("sent") : (args?.submitLabel ?? t("send"))}
         </button>
       )}
-      {state === "error" && <p className="error">This form can no longer be sent. Ask again in the chat.</p>}
+      {state === "error" && <p className="error">{t("formGone")}</p>}
     </form>
   );
 }
@@ -98,6 +100,7 @@ export type ConfirmationArgs = { changeId: string; title: string; fields: { labe
 export function ConfirmationView({ args, onDone, readOnly }: { args?: Partial<ConfirmationArgs>; onDone?: Done; readOnly?: boolean }) {
   const [state, setState] = useState<"open" | "busy" | "done" | "failed" | "cancelled" | "gone">("open");
   const [message, setMessage] = useState<string>();
+  const t = useText();
 
   async function answer(action: "confirm" | "cancel") {
     if (!args?.changeId) {
@@ -113,12 +116,12 @@ export function ConfirmationView({ args, onDone, readOnly }: { args?: Partial<Co
 
     setState(result.status);
     setMessage(result.message);
-    onDone?.(result.status === "cancelled" ? "I cancelled the change." : "I confirmed the change.");
+    onDone?.(result.status === "cancelled" ? t("iCancelled") : t("iConfirmed"));
   }
 
   return (
     <section className="component card confirmation" aria-label={args?.title}>
-      <h2>{args?.title ?? "Confirm"}</h2>
+      <h2>{args?.title ?? t("confirm")}</h2>
       <dl>
         {(args?.fields ?? []).map((field, i) => (
           <div key={i} className="field">
@@ -130,22 +133,23 @@ export function ConfirmationView({ args, onDone, readOnly }: { args?: Partial<Co
       {!readOnly && state === "open" && (
         <div className="actions">
           <button type="button" onClick={() => void answer("confirm")}>
-            Confirm
+            {t("confirm")}
           </button>
           <button type="button" className="secondary" onClick={() => void answer("cancel")}>
-            Cancel
+            {t("cancel")}
           </button>
         </div>
       )}
-      {state === "busy" && <p className="notice">Sending…</p>}
-      {state === "done" && <p className="notice" role="status">Done.</p>}
-      {state === "cancelled" && <p className="notice" role="status">Cancelled. Nothing was changed.</p>}
+      {state === "busy" && <p className="notice">{t("sending")}</p>}
+      {state === "done" && <p className="notice" role="status">{t("done")}</p>}
+      {state === "cancelled" && <p className="notice" role="status">{t("cancelledNothingChanged")}</p>}
       {state === "failed" && (
         <p className="error" role="alert">
-          The bank did not make the change{message ? `: ${message}` : "."}
+          {t("bankRefused")}
+          {message ? `: ${message}` : "."}
         </p>
       )}
-      {state === "gone" && <p className="error">This change can no longer be confirmed. Ask again in the chat.</p>}
+      {state === "gone" && <p className="error">{t("changeGone")}</p>}
     </section>
   );
 }
@@ -155,6 +159,7 @@ export type DocumentRequestArgs = { requestId: string; applicationId: string; de
 export function DocumentRequestView({ args, onDone, readOnly }: { args?: Partial<DocumentRequestArgs>; onDone?: Done; readOnly?: boolean }) {
   const [file, setFile] = useState<File>();
   const [state, setState] = useState<"open" | "busy" | "done" | "failed">("open");
+  const t = useText();
 
   async function send(event: FormEvent) {
     event.preventDefault();
@@ -166,24 +171,24 @@ export function DocumentRequestView({ args, onDone, readOnly }: { args?: Partial
     const answer = await uploadDocument(args.requestId, file);
     setState(answer.ok && answer.status === "done" ? "done" : "failed");
     if (answer.ok) {
-      onDone?.(`I uploaded ${file.name}.`);
+      onDone?.(t("iUploaded", { file: file.name }));
     }
   }
 
   return (
-    <form className="component form-card" onSubmit={send} aria-label="Upload a document">
-      <h2>Upload a document</h2>
+    <form className="component form-card" onSubmit={send} aria-label={t("uploadDocument")}>
+      <h2>{t("uploadDocument")}</h2>
       <p dir="auto">{args?.description}</p>
       {!readOnly && (
         <>
           <input type="file" accept="application/pdf,image/png,image/jpeg" disabled={state !== "open"} onChange={(e) => setFile(e.target.files?.[0])} />
           <button type="submit" disabled={!file || state !== "open"}>
-            Upload
+            {t("upload")}
           </button>
         </>
       )}
-      {state === "done" && <p className="notice" role="status">Uploaded.</p>}
-      {state === "failed" && <p className="error">The upload failed. Use one PDF, PNG or JPEG of at most 5 MB, and ask again in the chat.</p>}
+      {state === "done" && <p className="notice" role="status">{t("uploaded")}</p>}
+      {state === "failed" && <p className="error">{t("uploadFailed")}</p>}
     </form>
   );
 }

@@ -3,6 +3,9 @@
     <Project Path="src/Bank.Agent.Host/Bank.Agent.Host.csproj" />
     <Project Path="src/Bank.Agent.Mcp/Bank.Agent.Mcp.csproj" />
   </Folder>
+  <Folder Name="/eval/">
+    <Project Path="eval/Bank.Agent.Eval/Bank.Agent.Eval.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Bank.Agent.UnitTests/Bank.Agent.UnitTests.csproj" />
     <Project Path="tests/Bank.Agent.IntegrationTests/Bank.Agent.IntegrationTests.csproj" />
