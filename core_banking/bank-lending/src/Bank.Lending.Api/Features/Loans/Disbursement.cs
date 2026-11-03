@@ -94,14 +94,24 @@ public static class Disbursement
     }
 }
 
-/// <summary>GET /loans?customerId= and GET /loans/{id}: the loan with its schedule and its current state.</summary>
+/// <summary>
+/// GET /loans?customerId=, GET /loans?classification= and GET /loans/{id}: the loan with its schedule and its current state.
+/// </summary>
 public static class LoanQueries
 {
+    /// <summary>The classification list is a follow-up work list: the oldest 100 running loans are enough for one look.</summary>
+    public const int ClassificationLimit = 100;
+
     public static void Map(IEndpointRouteBuilder app)
     {
-        app.MapGet("/loans", async (Guid customerId, HttpRequest http, LendingDbContext db, IBusinessClock clock, CancellationToken ct) =>
+        app.MapGet("/loans", async (Guid? customerId, string? classification, HttpRequest http, LendingDbContext db, IBusinessClock clock, CancellationToken ct) =>
         {
-            if (CustomerAccess.IsOtherCustomer(http, customerId))
+            if (customerId is null)
+            {
+                return await ByClassificationAsync(classification, http, db, clock, ct);
+            }
+
+            if (CustomerAccess.IsOtherCustomer(http, customerId.Value))
             {
                 return Results.Ok(Array.Empty<LoanResponse>());
             }
@@ -120,4 +130,28 @@ public static class LoanQueries
     }
 
     public static IResult NotFound() => Problems.NotFound("loan_not_found", "Loan not found");
+
+    /// <summary>
+    /// Staff only (phase 2 stage 5, arrears follow-up): the running loans of one classification, such as Overdue, so the
+    /// admin can follow up each customer. The arrears report only gives totals.
+    /// </summary>
+    private static async Task<IResult> ByClassificationAsync(string? classification, HttpRequest http, LendingDbContext db, IBusinessClock clock, CancellationToken ct)
+    {
+        if (StaffAccess.Problem(http) is { } problem)
+        {
+            return problem;
+        }
+
+        if (!Enum.TryParse<LoanClassification>(classification, ignoreCase: true, out var wanted) || !Enum.IsDefined(wanted)
+            || int.TryParse(classification, out _))
+        {
+            return Problems.Of(StatusCodes.Status400BadRequest, "invalid_classification", "Send customerId, or a classification.",
+                $"Use one of: {string.Join(", ", Enum.GetNames<LoanClassification>())}.");
+        }
+
+        var loans = await db.Loans.AsNoTracking().Include(l => l.Schedule)
+            .Where(l => l.Status == LoanStatus.Active && l.Classification == wanted)
+            .OrderBy(l => l.CreatedAt).ThenBy(l => l.Id).Take(ClassificationLimit).ToListAsync(ct);
+        return Results.Ok(loans.Select(l => LoanResponse.From(l, clock.Today)));
+    }
 }

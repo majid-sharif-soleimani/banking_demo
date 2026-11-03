@@ -13,6 +13,7 @@ Loans: products, applications, disbursement, schedules, payments, penalties, cla
 
 - `POST /loan-products/{code}/simulation` (`Features/Applications/LoanSimulation.cs`): installment, total interest, total cost and schedule from `Amortization` + `Logic/LoanCost`, disbursement assumed today. Stores and publishes nothing; customers and staff. Uses the same `LimitProblem`/`Terms` as submission, so limits and figures cannot drift.
 - `GET /loan-applications?status=&customerId=&limit=&cursor=` (`ApplicationQueue.cs`): review queue, oldest first by (created_at, id), index `ix_loan_application_queue` (status, created_at, id). Keyset paging via `Features/Paging.cs` (workspace ADR 0004; same contract copied in customers and accounts). Staff see every application via `StaffAccess` (ADR 0006: 401 without X-Performed-By). Since phase 2 stage 3 a customer (X-Customer-Id) sees only their own applications, whatever `customerId` they send (design plan phase 2, section 8).
+- `GET /loans?classification=Current|Overdue|Default` (`Features/Loans/Disbursement.cs`, `LoanQueries`): without `customerId`, the staff list of running loans of that classification, oldest first, at most 100 (phase 2 stage 5, arrears follow-up). Staff only via `StaffAccess`.
 
 ## Gotchas
 

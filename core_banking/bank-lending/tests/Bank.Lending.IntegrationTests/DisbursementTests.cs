@@ -97,4 +97,21 @@ public class DisbursementTests(PostgresFixture postgres)
         (await app.GetJsonAsync<LoanResponse[]>($"/loans?customerId={app.CustomerId}")).ShouldHaveSingleItem().Id.ShouldBe(loan.Id);
         (await app.Client(customerId: Guid.NewGuid()).GetAsync($"/loans/{loan.Id}", Ct)).StatusCode.ShouldBe(HttpStatusCode.NotFound);
     }
+
+    [Fact]
+    public async Task Staff_list_running_loans_by_classification_and_customers_cannot()
+    {
+        await using var app = await LendingApp.StartAsync(postgres);
+        var overdue = await DisburseAsync(app, (await app.ApprovedAsync()).Id);
+        await DisburseAsync(app, (await app.ApprovedAsync()).Id);
+        await app.ScalarAsync<int>($"UPDATE loan SET classification = 'Overdue' WHERE id = '{overdue.Id}' RETURNING 1");
+
+        var list = await app.Client(performedBy: "admin").GetFromJsonAsync<LoanResponse[]>("/loans?classification=Overdue", Ct);
+        var asCustomer = await app.Client(customerId: app.CustomerId).GetAsync("/loans?classification=Overdue", Ct);
+        var unknown = await app.Client(performedBy: "admin").GetAsync("/loans?classification=Late", Ct);
+
+        list!.ShouldHaveSingleItem().Id.ShouldBe(overdue.Id);
+        asCustomer.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        unknown.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
 }
