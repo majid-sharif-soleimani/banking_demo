@@ -19,6 +19,10 @@ Updated by `/close-stage`. One row per stage from section 10 of `phase1-design-p
 - 2026-11-03: the bank runs on a private host machine by `core_banking/bank-platform/deploy/home-hosting.md` (Docker Compose, images tagged `home`). Platform 47 and end-to-end 5 green before the build. Loaded with generated synthetic data (option C: 100 customers, 363 business days, verification passed; current business date 2026-12-30). Step 7 checks pass locally and through Tailscale. Published with Tailscale Funnel (open to the internet); public relays served it about 3 minutes after `funnel` was turned on. Reboot check still to do.
 - 2026-11-03: the gateway asks every `/api` caller for a shared key in `X-Api-Key` (`Gateway__ApiKey`; at home in the gitignored `deploy/env/gateway.env`, on AWS `GATEWAY_API_KEY` in the stack secret). Outside Development it refuses to start without one. Gateway tests 16 green; live on the home bank. Tailscale to move from Funnel to serve (tailnet only). The identity headers are still taken as given: real per-customer authentication waits for phase 2.
 
+## Phase 1 extensions
+
+- 2026-11-03: branch `feat-agent-read-apis` (not merged, not deployed): four read APIs for the phase 2 agent. Lending `POST /loan-products/{code}/simulation` and `GET /loan-applications` (review queue); Customers `POST /customers/search`; Accounts `POST /transactions/search`. Keyset paging, POST for personal-data searches, staff-only reads (workspace ADRs 0004–0006; customers 0001, accounts 0004), decided by Claude on Majid's delegation except keyset (Majid). New indexes: `ix_loan_application_queue`, `ix_account_entry_business_date_sequence`. Tests green: lending 1,577 + 65, customers 45 + 36, accounts 63 + 74, platform 47, gateway 16. No gateway change. Learning docs in `docs/learning/agent-read-apis/`. End-to-end tests not run.
+
 ## Open questions
 
 - 2026-10-31: Majid delegated D1 decisions for stages 2–8 to Claude (no questions). Resolved 2026-11-02: every stage was reviewed (stage 5 accepted without review) and merged into `master`; each stage plan has a sign-off section.
