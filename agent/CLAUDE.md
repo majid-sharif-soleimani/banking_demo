@@ -21,7 +21,8 @@ Never stored or logged: passwords, bank tokens (tests check both).
 
 ## Gotchas
 
-- `wwwroot` is build output (gitignored). Run `npm run build` in `chat-ui` before running the host to see the UI; publishing the host builds it.
+- `wwwroot` is build output (gitignored). Run `npm run build` in `chat-ui` before running the host to see the UI. `dotnet publish` builds it first (target `BuildChatUi`, before `ResolveProjectStaticWebAssets`; running it later leaves a stale asset list). Clear `bin/Release` and `obj/Release` if old hashed files show up in the image.
+- The login screen says the data is test data and shows the test logins (ADR 0007 makes them public on purpose).
 - A newer login of the same user marks the old host session ended; its browser hears `session_replaced` once (ADR 0001, point 6).
 - Integration tests replace the gateway with `StubGateway` (an `HttpMessageHandler`) and the clock with `TestClock`.
 

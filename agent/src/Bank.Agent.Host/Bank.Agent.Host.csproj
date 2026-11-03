@@ -19,12 +19,10 @@
     <InternalsVisibleTo Include="Bank.Agent.UnitTests" />
     <InternalsVisibleTo Include="Bank.Agent.IntegrationTests" />
   </ItemGroup>
-  <!-- A published image always carries a fresh UI build; dotnet build and dotnet test do not need Node. -->
-  <Target Name="BuildChatUi" BeforeTargets="PrepareForPublish">
+  <!-- A published image always carries a fresh UI build; dotnet build and dotnet test do not need Node. It runs before
+       the static web assets are collected, so the asset list matches the files the UI build just wrote. -->
+  <Target Name="BuildChatUi" BeforeTargets="ResolveProjectStaticWebAssets" Condition="'$(_IsPublishing)' == 'true'">
     <Exec Command="npm ci" WorkingDirectory="$(ChatUiDir)" />
     <Exec Command="npm run build" WorkingDirectory="$(ChatUiDir)" />
-    <ItemGroup>
-      <Content Include="wwwroot/**" CopyToPublishDirectory="PreserveNewest" Exclude="@(Content)" />
-    </ItemGroup>
   </Target>
 </Project>

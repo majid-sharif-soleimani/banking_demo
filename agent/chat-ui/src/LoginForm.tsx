@@ -28,6 +28,19 @@ export function LoginForm({ onSubmit, notice }: Props) {
     <section className="login" aria-label="Log in">
       <div className="bubble assistant">
         <p>Welcome to the bank. Please log in to start a chat.</p>
+        <p className="demo-note" role="note">
+          This is a demo. All data here is test data, nothing is real, and changes have no operational effect.
+        </p>
+        <dl className="test-logins" aria-label="Test logins">
+          <dt>Admin</dt>
+          <dd>
+            username <code>admin</code>, password <code>admin</code>
+          </dd>
+          <dt>Customer</dt>
+          <dd>
+            username <code>IMP-C001</code>, password <code>IMP-C001</code> (any customer: the national id as both)
+          </dd>
+        </dl>
         {notice && (
           <p className="notice" role="status">
             {notice}

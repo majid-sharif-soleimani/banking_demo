@@ -34,6 +34,15 @@ describe("LoginForm", () => {
     expect(screen.getByRole("status").textContent).toBe("You logged in somewhere else.");
   });
 
+  it("says the data is test data and shows the test logins", () => {
+    render(<LoginForm onSubmit={vi.fn()} />);
+
+    expect(screen.getByRole("note").textContent).toContain("All data here is test data");
+    const logins = screen.getByLabelText("Test logins").textContent ?? "";
+    expect(logins).toContain("admin");
+    expect(logins).toContain("IMP-C001");
+  });
+
   it("keeps the password hidden", () => {
     render(<LoginForm onSubmit={vi.fn()} />);
 

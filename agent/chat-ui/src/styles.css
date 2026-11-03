@@ -50,3 +50,8 @@ button:disabled { opacity: 0.6; cursor: default; }
 .composer { display: flex; gap: 8px; align-items: flex-end; }
 .composer-input { flex: 1; resize: none; min-height: 40px; }
 .loading { color: var(--muted); }
+.demo-note { color: var(--muted); font-size: 0.9rem; }
+.test-logins { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 6px 0 0; font-size: 0.9rem; }
+.test-logins dt { font-weight: 600; }
+.test-logins dd { margin: 0; }
+code { font-family: ui-monospace, monospace; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; }
