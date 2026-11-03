@@ -9,8 +9,8 @@ namespace Bank.Platform.IntegrationTests;
 /// </summary>
 public sealed class ServiceRoleIsolationTests(PlatformFixture platform)
 {
-    // Must match BankDatabase.Services in the AppHost and db/init/001-roles-and-schemas.sql.
-    public static readonly TheoryData<string> Services = new("operations", "customers", "accounts", "cards", "lending", "ledger");
+    // Must match BankDatabase.Services in the AppHost and the files in db/init (the agent host's role is in 002).
+    public static readonly TheoryData<string> Services = new("operations", "customers", "accounts", "cards", "lending", "ledger", "agent");
 
     private const string InsufficientPrivilege = "42501";
 

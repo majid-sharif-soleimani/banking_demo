@@ -22,5 +22,7 @@
     <ProjectReference Include="..\..\..\bank-ledger\src\Bank.Ledger.Api\Bank.Ledger.Api.csproj" />
     <ProjectReference Include="..\..\..\bank-identity\src\Bank.Identity.Api\Bank.Identity.Api.csproj" />
     <ProjectReference Include="..\..\..\bank-gateway\src\Bank.Gateway\Bank.Gateway.csproj" />
+    <!-- Phase 2: the agent host, outside core_banking. -->
+    <ProjectReference Include="..\..\..\..\agent\src\Bank.Agent.Host\Bank.Agent.Host.csproj" />
   </ItemGroup>
 </Project>

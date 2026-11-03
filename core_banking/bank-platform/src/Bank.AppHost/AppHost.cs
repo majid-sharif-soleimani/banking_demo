@@ -91,10 +91,20 @@ var identity = builder.AddProject<Projects.Bank_Identity_Api>("identity")
 
 // The single entry point (design plan ADR 12): all external traffic goes through the gateway, which finds each service
 // through the references below (Aspire service discovery).
-builder.AddProject<Projects.Bank_Gateway>("gateway")
+var gateway = builder.AddProject<Projects.Bank_Gateway>("gateway")
     .WithReference(operations).WithReference(customers).WithReference(accounts)
     .WithReference(cards).WithReference(ledger).WithReference(lending).WithReference(identity)
     .WaitFor(operations).WaitFor(customers).WaitFor(accounts).WaitFor(cards).WaitFor(ledger).WaitFor(lending).WaitFor(identity)
+    .WithExternalHttpEndpoints()
+    .WithHttpHealthCheck("/health");
+
+// Phase 2: the agent host, a client of the bank (phase 2 design plan, section 3). It serves the chat UI, keeps chats in
+// its own schema "agent" and reaches the bank only through the gateway. No Kafka: it publishes no events.
+builder.AddProject<Projects.Bank_Agent_Host>("agent")
+    .WithReference(serviceDatabases["agent"])
+    .WithReference(gateway)
+    .WaitFor(postgres)
+    .WaitFor(gateway)
     .WithExternalHttpEndpoints()
     .WithHttpHealthCheck("/health");
 
@@ -104,6 +114,7 @@ internal static class BankDatabase
 {
     public const string Name = "bank";
 
-    // One login role and schema each, created by db/init/001-roles-and-schemas.sql. Keep both lists in sync.
-    public static readonly string[] Services = ["operations", "customers", "accounts", "cards", "lending", "ledger"];
+    // One login role and schema each: the six bank services from db/init/001-roles-and-schemas.sql, and the agent host
+    // from 002-agent-role-and-schema.sql. Keep the list and the files in sync.
+    public static readonly string[] Services = ["operations", "customers", "accounts", "cards", "lending", "ledger", "agent"];
 }

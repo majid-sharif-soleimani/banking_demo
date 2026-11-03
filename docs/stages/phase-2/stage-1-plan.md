@@ -1,6 +1,6 @@
 # Phase 2, stage 1 plan: Chat shell and login
 
-Spec: `docs/stages/phase-2/stage-1.md`. Status: waiting for Majid's D1 decisions (below).
+Spec: `docs/stages/phase-2/stage-1.md`. Status: in progress; all D1 decisions made on 2026-11-03.
 
 ## Context
 
@@ -22,7 +22,7 @@ Phase 2 puts an agent and a chat UI in front of the bank. Before any language mo
 - Files: `Features/Auth/AuthEndpoints.cs`, `Features/Auth/HostSessions.cs` (store), `Features/Auth/SessionCookie.cs`, `Features/Auth/BankIdentityClient.cs`, `Logic/SessionEnd.cs`.
 - Tests first: `SessionEnd` unit tests; integration tests for login, cookie flags, wrong login, bank down, second login, logout, custom header, no secret in database or logs.
 - Who writes: Claude.
-- D1: where host sessions live (memory or PostgreSQL).
+- D1: host sessions live in memory; the bank token is never written to disk; a restart logs everyone out (Majid, 2026-11-03).
 
 ### 3. Chat storage and the AG-UI echo endpoint
 
@@ -36,7 +36,7 @@ Phase 2 puts an agent and a chat UI in front of the bank. Before any language mo
 - Folder `agent/chat-ui/`: Vite, React, TypeScript; login form, chat view, banner, logout.
 - Tests first: component tests for the login form (values cleared after submit) and the session-ended banner.
 - Who writes: Claude.
-- D1: the chat library (and whether a Node runtime is needed); how the UI is served.
+- D1: the chat library: assistant-ui with `@assistant-ui/react-ag-ui` and `@ag-ui/client`, connected straight to the agent host, no Node runtime (Majid, 2026-11-03). The UI is built into the agent host's `wwwroot` and served from the same origin (Majid, 2026-11-03).
 
 ### 5. End-to-end check in a browser
 
