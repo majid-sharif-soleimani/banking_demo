@@ -66,3 +66,16 @@ button:disabled { opacity: 0.6; cursor: default; }
 .test-logins dt { font-weight: 600; }
 .test-logins dd { margin: 0; }
 code { font-family: ui-monospace, monospace; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; }
+/* Tables and cards the agent shows (src/components.tsx). A wide table scrolls inside the bubble, not the page. */
+.bubble.assistant { white-space: pre-wrap; }
+.component { margin: 8px 0; white-space: normal; }
+.component figcaption, .component h2 { font-size: 0.95rem; font-weight: 600; margin: 0 0 6px; }
+.table-scroll { overflow-x: auto; max-width: 100%; }
+.component table { border-collapse: collapse; font-size: 0.9rem; min-width: 100%; }
+.component th, .component td { padding: 4px 10px; border-bottom: 1px solid var(--border); text-align: start; vertical-align: top; }
+.component th { color: var(--muted); font-weight: 600; }
+.component .num { text-align: end; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.card dl { display: grid; gap: 4px; margin: 0; }
+.card .field { display: grid; grid-template-columns: minmax(8em, max-content) 1fr; gap: 12px; }
+.card dt { color: var(--muted); }
+.card dd { margin: 0; font-variant-numeric: tabular-nums; }

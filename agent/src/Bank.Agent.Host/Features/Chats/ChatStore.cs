@@ -69,7 +69,7 @@ public sealed class ChatStore(AgentDbContext db, TimeProvider time)
         db.Chats.Include(c => c.Messages.OrderBy(m => m.Sequence)).SingleOrDefaultAsync(c => c.Id == chatId, ct);
 
     /// <summary>Adds a message at the end. Only one run per chat at a time comes from one browser; the unique (chat, sequence) index catches a second.</summary>
-    public async Task<ChatMessage> AppendAsync(Chat chat, string author, string content, string performedBy, CancellationToken ct)
+    public async Task<ChatMessage> AppendAsync(Chat chat, string author, string kind, string content, string performedBy, CancellationToken ct)
     {
         var now = time.GetUtcNow();
         var next = await db.Messages.Where(m => m.ChatId == chat.Id).MaxAsync(m => (int?)m.Sequence, ct) ?? 0;
@@ -79,6 +79,7 @@ public sealed class ChatStore(AgentDbContext db, TimeProvider time)
             ChatId = chat.Id,
             Sequence = next + 1,
             Author = author,
+            Kind = kind,
             Content = content,
             CreatedAt = now,
             PerformedBy = performedBy,

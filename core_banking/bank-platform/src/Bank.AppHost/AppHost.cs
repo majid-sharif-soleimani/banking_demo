@@ -100,11 +100,25 @@ var gateway = builder.AddProject<Projects.Bank_Gateway>("gateway")
 
 // Phase 2: the agent host, a client of the bank (phase 2 design plan, section 3). It serves the chat UI, keeps chats in
 // its own schema "agent" and reaches the bank only through the gateway. No Kafka: it publishes no events.
+// The bank MCP server (phase 2 design plan, section 3.3): the bank's capabilities as tools for the agent. No database,
+// no state; it calls the gateway with the token the agent host passes on. Not published outside.
+var bankMcp = builder.AddProject<Projects.Bank_Agent_Mcp>("bank-mcp")
+    .WithReference(gateway)
+    .WaitFor(gateway)
+    .WithHttpHealthCheck("/health");
+
+// The model key is optional here: without it the agent answers with the stage 1 echo. Set it once with
+//   dotnet user-secrets set "Parameters:anthropic-api-key" "<key>" --project core_banking/bank-platform/src/Bank.AppHost
+var anthropicKey = builder.AddParameter("anthropic-api-key", "", secret: true);
+
 builder.AddProject<Projects.Bank_Agent_Host>("agent")
     .WithReference(serviceDatabases["agent"])
     .WithReference(gateway)
+    .WithReference(bankMcp)
+    .WithEnvironment("Agent__Model__ApiKey", anthropicKey)
     .WaitFor(postgres)
     .WaitFor(gateway)
+    .WaitFor(bankMcp)
     .WithExternalHttpEndpoints()
     .WithHttpHealthCheck("/health");
 

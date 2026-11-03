@@ -5,6 +5,14 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Bank.Agent.Host.Data;
 
+/// <summary>The values of <see cref="ChatMessage.Kind"/>.</summary>
+public static class MessageKind
+{
+    public const string Text = "text";
+    public const string Table = "table";
+    public const string Card = "card";
+}
+
 public enum ChatStatus
 {
     Open,
@@ -60,6 +68,12 @@ public sealed class ChatMessage
     /// <summary>"user" or "assistant".</summary>
     public required string Author { get; init; }
 
+    /// <summary>
+    /// What <see cref="Content"/> holds: a <see cref="MessageKind"/>. "text" is plain text; "table" and "card" are the
+    /// JSON of a UI component the agent showed (phase 2 design plan, section 5), kept so the chat can be shown again.
+    /// </summary>
+    public string Kind { get; init; } = MessageKind.Text;
+
     public required string Content { get; init; }
 
     public DateTimeOffset CreatedAt { get; init; }
@@ -97,6 +111,7 @@ public sealed class AgentDbContext(DbContextOptions<AgentDbContext> options) : D
         {
             message.ToTable("chat_message");
             message.Property(m => m.Author).HasMaxLength(16);
+            message.Property(m => m.Kind).HasMaxLength(16).HasDefaultValue(MessageKind.Text);
             message.HasIndex(m => new { m.ChatId, m.Sequence }).IsUnique();
             Audit(message);
         });

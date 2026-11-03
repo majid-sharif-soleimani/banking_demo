@@ -35,7 +35,8 @@ services:
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
       OTEL_SERVICE_NAME: agent
       services__gateway__http__0: http://gateway:8080
-    # ConnectionStrings__agent-db and Agent__Gateway__ApiKey (home-hosting.md, "The chat").
+      services__bank-mcp__http__0: http://bank-mcp:8080
+    # ConnectionStrings__agent-db, Agent__Gateway__ApiKey and Agent__Model__ApiKey (home-hosting.md, "The chat").
     env_file: [{ path: env/agent.env, required: false }]
     ports:
       # This machine only for now; Tailscale publishes it once the chat replaces the gateway there.
@@ -47,6 +48,28 @@ services:
       retries: 30
     depends_on:
       postgres: { condition: service_healthy }
+      gateway: { condition: service_started }
+      bank-mcp: { condition: service_started }
+  # Phase 2 stage 2: the bank MCP server, the bank's tools for the agent. Only on the bank network (no ports): the agent
+  # host is its only client. It calls the gateway with the gateway's key and the token the agent host passes on.
+  bank-mcp:
+    image: bank-mcp:home
+    restart: unless-stopped
+    networks: [bank]
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://dashboard:18889
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_SERVICE_NAME: bank-mcp
+      services__gateway__http__0: http://gateway:8080
+    # BankMcp__Gateway__ApiKey (home-hosting.md, "The chat").
+    env_file: [{ path: env/bank-mcp.env, required: false }]
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    depends_on:
       gateway: { condition: service_started }
   gateway:
     image: bank-gateway:home

@@ -115,6 +115,14 @@ namespace Bank.Agent.Host.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasDefaultValue("text")
+                        .HasColumnName("kind");
+
                     b.Property<string>("PerformedBy")
                         .IsRequired()
                         .HasMaxLength(64)

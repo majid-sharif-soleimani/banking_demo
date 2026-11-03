@@ -24,5 +24,6 @@
     <ProjectReference Include="..\..\..\bank-gateway\src\Bank.Gateway\Bank.Gateway.csproj" />
     <!-- Phase 2: the agent host, outside core_banking. -->
     <ProjectReference Include="..\..\..\..\agent\src\Bank.Agent.Host\Bank.Agent.Host.csproj" />
+    <ProjectReference Include="..\..\..\..\agent\src\Bank.Agent.Mcp\Bank.Agent.Mcp.csproj" />
   </ItemGroup>
 </Project>

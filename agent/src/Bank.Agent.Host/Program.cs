@@ -1,9 +1,9 @@
 using Bank.Agent.Host.Data;
+using Bank.Agent.Host.Features.Agent;
 using Bank.Agent.Host.Features.AgUi;
 using Bank.Agent.Host.Features.Auth;
 using Bank.Agent.Host.Features.Chats;
 using Bank.Toolkit.Data;
-using Microsoft.Extensions.AI;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -39,8 +39,16 @@ builder.Services.AddHttpClient<BankGateway>((sp, client) =>
         client.DefaultRequestHeaders.Add("X-Api-Key", key);
     }
 });
-// Stage 1 has no language model: the echo stands in for it (phase 2 roadmap, step 1).
-builder.Services.AddSingleton<IChatClient, EchoChatClient>();
+// The language model behind IChatClient: Claude with a key, the echo of stage 1 without one (Features/Agent/LanguageModel.cs).
+builder.AddLanguageModel();
+// The bank tools come from the bank MCP server ("bank-mcp" is its Aspire resource name).
+builder.Services.AddHttpClient(McpBankTools.HttpClientName, client =>
+{
+    client.BaseAddress = new Uri("http://bank-mcp");
+    // A long statement can take a while; the gateway's own timeout is 10 seconds per bank call.
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+builder.Services.AddSingleton<IBankTools, McpBankTools>();
 
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();

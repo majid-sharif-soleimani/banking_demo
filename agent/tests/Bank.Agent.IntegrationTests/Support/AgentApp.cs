@@ -1,10 +1,12 @@
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using Bank.Agent.Host.Features.Agent;
 using Bank.Agent.Host.Features.Auth;
 using Bank.Testing;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -19,9 +21,12 @@ namespace Bank.Agent.IntegrationTests.Support;
 /// The real agent host (its Program.cs, endpoints and migrations) on a fresh "agent" schema, with
 /// <see cref="StubGateway"/> in place of the gateway and a clock the test moves by hand.
 /// </summary>
-public sealed class AgentApp(string connectionString) : WebApplicationFactory<Program>
+public sealed class AgentApp(string connectionString, IChatClient? model = null) : WebApplicationFactory<Program>
 {
     public StubGateway Gateway { get; } = new();
+
+    /// <summary>The bank tools every run gets; the real ones need the MCP server.</summary>
+    public FakeBankTools BankTools { get; } = new();
 
     public TestClock Clock { get; } = new(new DateTimeOffset(2026, 11, 3, 12, 0, 0, TimeSpan.Zero));
 
@@ -30,9 +35,10 @@ public sealed class AgentApp(string connectionString) : WebApplicationFactory<Pr
     public IReadOnlyCollection<string> LogLines =>
         Services.GetServices<ILoggerProvider>().OfType<CapturingLoggerProvider>().Single().Lines;
 
-    public static async Task<AgentApp> StartAsync(PostgresFixture postgres)
+    /// <summary>Starts the host; without a model, the echo answers (no model key in tests).</summary>
+    public static async Task<AgentApp> StartAsync(PostgresFixture postgres, IChatClient? model = null)
     {
-        var app = new AgentApp(await postgres.CreateServiceSchemaAsync("agent"));
+        var app = new AgentApp(await postgres.CreateServiceSchemaAsync("agent"), model);
         _ = app.Server;
         return app;
     }
@@ -88,6 +94,13 @@ public sealed class AgentApp(string connectionString) : WebApplicationFactory<Pr
             services.RemoveAll<TimeProvider>();
             services.AddSingleton<TimeProvider>(Clock);
             services.AddHttpClient<BankGateway>().ConfigurePrimaryHttpMessageHandler(() => Gateway);
+            services.RemoveAll<IBankTools>();
+            services.AddSingleton<IBankTools>(BankTools);
+            if (model is not null)
+            {
+                services.RemoveAll<IChatClient>();
+                services.AddSingleton(model);
+            }
             // Every level reaches this provider, whatever the Logging section says.
             services.AddSingleton<ILoggerProvider, CapturingLoggerProvider>();
             services.AddLogging(logging => logging.AddFilter<CapturingLoggerProvider>(null, LogLevel.Trace));

@@ -220,6 +220,33 @@ cd core_banking/bank-platform/deploy && bank up -d --wait --no-deps agent
 curl -fsS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8090/     # 200
 ```
 
+### The agent's model and tools (phase 2 stage 2)
+
+From stage 2 the chat answers with Claude, and the agent reaches the bank through the bank MCP server (container `bank-mcp`, bank network only). Two secrets, both only in gitignored files:
+
+```bash
+cd core_banking/bank-platform/deploy
+umask 077
+# The MCP server calls the gateway with the gateway's key.
+key=$(grep '^Gateway__ApiKey=' env/gateway.env | cut -d= -f2-)
+printf 'BankMcp__Gateway__ApiKey=%s\n' "$key" > env/bank-mcp.env
+# The Anthropic API key, typed (not echoed, not in the shell history). The agent refuses to start in Production without it.
+read -rsp 'Anthropic API key: ' k; echo
+{ grep -v '^Agent__Model__ApiKey=' env/agent.env; printf 'Agent__Model__ApiKey=%s\n' "$k"; } > env/agent.env.new && mv env/agent.env.new env/agent.env; unset k
+```
+
+Build both images and start them:
+
+```bash
+(cd agent && dotnet publish src/Bank.Agent.Mcp -c Release --os linux --arch "$(uname -m | sed 's/x86_64/x64/;s/aarch64/arm64/')" /t:PublishContainer \
+   -p:ContainerRepository=bank-mcp -p:ContainerImageTags=home)
+(cd agent && dotnet publish src/Bank.Agent.Host -c Release --os linux --arch "$(uname -m | sed 's/x86_64/x64/;s/aarch64/arm64/')" /t:PublishContainer \
+   -p:ContainerRepository=bank-agent -p:ContainerImageTags=home)
+cd core_banking/bank-platform/deploy && bank up -d --wait --no-deps bank-mcp agent
+```
+
+The model name is `Agent__Model__Name` (default `claude-opus-5-5`); put it in `env/agent.env` to change it.
+
 Publish it in the tailnet on its own HTTPS port, next to the gateway on 443:
 
 ```bash

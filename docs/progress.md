@@ -8,6 +8,7 @@ Phase 1 is complete (closed 2026-11-03). It is reopened only to fix bugs. Phase 
 | --- | --- | --- | --- | --- |
 | 0 | Design and requirements | Done | 2026-11-03 | `phase2-design-plan.md`: decisions A1–A13 and the business answers in section 7 made by Majid; workspace ADR 0008 |
 | 1 | Chat shell and login | Done | 2026-11-03 | Agent host (BFF, in-memory sessions, sweeper, schema `agent`, AG-UI echo run) and chat UI (assistant-ui, fits phone and desktop); agent ADR 0001, workspace ADR 0008. Unit 23, integration 27, chat-ui 15, Playwright 5 (AppHost), platform 54 green. Review: 1 REQUIRED (chats left open after a closed tab or a restart) fixed; OPTIONAL fixed: concurrent runs, bank outage in the UI, secrets in record ToString; open: half turns on disconnect, timeouts in code, PerformedBy on close, run vs login race (stage 2). Retro skipped (Majid: no questions in phase 2). Live on the home bank (127.0.0.1:8090, Funnel on tailnet port 8443). Merged into `master` |
+| 2 | First agent, customer reads | Done | 2026-11-03 | Bank MCP server (`Bank.Agent.Mcp`, five customer read tools, token and customer id as connection headers), Claude via Anthropic SDK behind `IChatClient` (echo without a key), `ChatClientAgent` per run, `show_table`/`show_card` as server-side UI tools, `chat_message.kind`; agent ADR 0002 (Claude, delegated). Unit 34, MCP 10, integration 35, chat-ui 20, Playwright 5, platform 55, end-to-end 5 green. Not yet on the home bank (needs Majid's Anthropic key). Not merged |
 
 ## Phase 1
 
