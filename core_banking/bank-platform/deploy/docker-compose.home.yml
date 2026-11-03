@@ -1,0 +1,28 @@
+# The AWS stack (docker-compose.aws.yml) on a private host machine instead of EC2: images built locally, uploaded files
+# inside the Customers container instead of S3, and the gateway only on 127.0.0.1 (Tailscale forwards to it).
+# How to use it: deploy/home-hosting.md.
+#
+#   docker compose -f docker-compose.aws.yml -f docker-compose.home.yml up -d --wait
+
+services:
+  operations:
+    image: bank-operations:home
+  customers:
+    image: bank-customers:home
+    environment:
+      Files__Provider: Local
+      # The app user's home in the .NET base image, writable without a volume. Lost when the container is recreated.
+      Files__Root: /home/app/files
+  accounts:
+    image: bank-accounts:home
+  cards:
+    image: bank-cards:home
+  lending:
+    image: bank-lending:home
+  ledger:
+    image: bank-ledger:home
+  gateway:
+    image: bank-gateway:home
+    # Replaces the AWS mapping (all interfaces): only this machine, and Tailscale, can reach it.
+    ports: !override
+      - "127.0.0.1:8080:8080"
