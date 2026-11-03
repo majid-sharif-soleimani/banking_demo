@@ -7,7 +7,7 @@ Phase 1 is complete (closed 2026-11-03). It is reopened only to fix bugs. Phase 
 | Step | Name | Status | Closed on | Notes |
 | --- | --- | --- | --- | --- |
 | 0 | Design and requirements | Done | 2026-11-03 | `phase2-design-plan.md`: decisions A1–A13 and the business answers in section 7 made by Majid; workspace ADR 0008 |
-| 1 | Chat shell and login | Ready for review | | Branch `p2-stage-1-chat-shell`. Agent host (BFF, in-memory sessions, schema `agent`, AG-UI echo run) and chat UI (assistant-ui); agent ADR 0001. Unit 23, integration 24, chat-ui 14, Playwright 4 (AppHost), platform 54 green. Not merged; not on the home bank |
+| 1 | Chat shell and login | Ready for review | | Branch `p2-stage-1-chat-shell`. Agent host (BFF, in-memory sessions, schema `agent`, AG-UI echo run) and chat UI (assistant-ui); agent ADR 0001. Unit 23, integration 24, chat-ui 14, Playwright 4 (AppHost), platform 54 green. Not merged. On the home bank since 2026-11-03 (container `agent` on 127.0.0.1:8090; `agent` role created by hand with `002`, database backed up first; smoke test: page 200, missing header 403, admin login, echo run, logout 204). Tailscale port 8443 needs `sudo tailscale serve` by Majid |
 
 ## Phase 1
 

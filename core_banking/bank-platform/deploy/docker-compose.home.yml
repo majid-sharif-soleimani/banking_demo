@@ -23,6 +23,31 @@ services:
     image: bank-ledger:home
   identity:
     image: bank-identity:home
+  # Phase 2: the agent host with the chat UI (phase 2 design plan, decision A13: on the host machine, not on AWS). It reaches
+  # the bank only through the gateway, with the gateway's key, and keeps chats in schema "agent".
+  agent:
+    image: bank-agent:home
+    restart: unless-stopped
+    networks: [bank]
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://dashboard:18889
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_SERVICE_NAME: agent
+      services__gateway__http__0: http://gateway:8080
+    # ConnectionStrings__agent-db and Agent__Gateway__ApiKey (home-hosting.md, "The chat").
+    env_file: [{ path: env/agent.env, required: false }]
+    ports:
+      # This machine only for now; Tailscale publishes it once the chat replaces the gateway there.
+      - "127.0.0.1:8090:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    depends_on:
+      postgres: { condition: service_healthy }
+      gateway: { condition: service_started }
   gateway:
     image: bank-gateway:home
     # Replaces the AWS mapping (all interfaces): only this machine, and Tailscale, can reach it.
