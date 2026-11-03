@@ -1,0 +1,28 @@
+using System.Collections.Concurrent;
+using Microsoft.Extensions.Logging;
+
+namespace Bank.Customers.IntegrationTests.Support;
+
+/// <summary>Keeps every log line the service writes, at every level, so a test can check that no personal data is logged.</summary>
+public sealed class CapturingLoggerProvider : ILoggerProvider
+{
+    private readonly ConcurrentQueue<string> lines = new();
+
+    public IReadOnlyCollection<string> Lines => lines;
+
+    public ILogger CreateLogger(string categoryName) => new Logger(categoryName, lines);
+
+    public void Dispose()
+    {
+    }
+
+    private sealed class Logger(string category, ConcurrentQueue<string> lines) : ILogger
+    {
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
+            lines.Enqueue($"{logLevel} {category}: {formatter(state, exception)} {exception}");
+    }
+}

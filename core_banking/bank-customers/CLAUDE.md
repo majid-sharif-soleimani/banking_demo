@@ -17,12 +17,16 @@ Customers and what the bank tells them. Stage 4: registration and notifications.
 
 `POST /customers` (400 validation problem, 409 `national_id_taken`), `GET /customers/{id}`, `PATCH /customers/{id}` (email, phone, address, language only). `X-Customer-Id` for another customer → 404.
 
+`POST /customers/search` (`Features/Customers/SearchCustomers.cs`, branch feat-agent-read-apis): name contains (ILIKE, wildcards escaped), email equal ignoring case, phone equal on digits (`CustomersDbContext.RegexpReplace` with 'g'), customer number = customer id; AND; returns `CustomerSummary`. Keyset paging on (name, id) via `Features/Paging.cs` (workspace ADR 0004), POST so personal data stays out of URLs (0005), staff only via `StaffAccess` (0006). No index (ADR 0001): sequential scan, revisit with pg_trgm when the table grows.
+
 ## Gotchas
 
 - The email is sent before the handler's transaction commits: at least once, never zero. A crash in between can send it twice.
 - `ConnectionStrings:mailpit` must be `Endpoint=smtp://host:port` (Aspire's format); `Email:From` is a placeholder address.
 - Registration needs a business date: until `BusinessDayOpened` arrives, `IBusinessClock.Today` throws.
 - Uploaded files go through `IFileStorage`, chosen by `Files:Provider`: `Local` (default, `Files:Root`) or `S3` (`Files:Bucket`, `Files:Prefix` = `files/`; credentials from the default chain, the instance role on AWS). An unknown provider, or S3 without a bucket, fails at startup. `S3FileStorageTests` run against LocalStack 4.9 (the last image without an account token; MinIO images are no longer pullable).
+- `Regex.Replace` in LINQ is translated without the 'g' flag (first match only); use `CustomersDbContext.RegexpReplace`.
+- Never log search filter values. `CustomerSearchTests.No_search_value_reaches_the_logs` captures every log level through `Support/CapturingLoggerProvider`.
 - Tests: `Support/CustomersApp` extends `BankServiceApp<Program>` from `Bank.Testing` and replaces `IEmailSender` with `InMemoryEmailSender`.
 
 ## Commands
