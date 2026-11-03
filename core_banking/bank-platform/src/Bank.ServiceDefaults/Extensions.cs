@@ -14,7 +14,8 @@ namespace Microsoft.Extensions.Hosting;
 /// What every bank service registers first, in Program.cs: <c>builder.AddServiceDefaults()</c> and, after
 /// <c>Build()</c>, <c>app.MapDefaultEndpoints()</c>. It gives logs, traces and metrics over OTLP (the Aspire dashboard
 /// locally, its standalone version on AWS), the health endpoints the AppHost and Docker wait on, service discovery and
-/// resilience for outgoing HTTP calls (only to external APIs such as the Riksbank; services never call each other).
+/// resilience for outgoing HTTP calls (to external APIs such as the Riksbank, and the one call between services:
+/// identity looking a national id up in Customers, workspace ADR 0007).
 /// </summary>
 public static class Extensions
 {

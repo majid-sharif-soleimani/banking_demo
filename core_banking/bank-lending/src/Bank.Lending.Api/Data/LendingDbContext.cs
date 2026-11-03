@@ -65,6 +65,8 @@ public sealed class LendingDbContext(DbContextOptions<LendingDbContext> options)
             application.Property(a => a.Purpose).HasMaxLength(500);
             application.Property(a => a.Status).HasConversion<string>().HasMaxLength(32);
             application.HasIndex(a => a.CustomerId);
+            // The review queue (workspace ADR 0004): filter by status, oldest first, keyset on (created_at, id).
+            application.HasIndex(a => new { a.Status, a.CreatedAt, a.Id }).HasDatabaseName("ix_loan_application_queue");
             application.HasMany(a => a.History).WithOne().HasForeignKey(h => h.ApplicationId);
             Audit(application);
         });

@@ -27,6 +27,7 @@ All commands run from the repository root unless a step says otherwise.
 docker compose version     # 2.24 or later (needed for !override and optional env files)
 dotnet --version           # 10.x
 tailscale status           # this machine is logged in
+jq --version               # the checks in step 7 read JSON with jq (install jq first)
 # Enable the Docker service at boot, so the bank starts too.
 ```
 
@@ -45,14 +46,14 @@ dotnet pack bank-platform/src/Bank.ServiceDefaults -c Release -o .local-feed
 (cd bank-platform && dotnet test)
 
 # One image per service in the local Docker daemon, built with the SDK (no Dockerfile, same as CI).
-for s in operations customers accounts cards lending ledger; do
+for s in operations customers accounts cards lending ledger identity; do
   (cd "bank-$s" && dotnet publish "src/Bank.${s^}.Api" -c Release --os linux --arch "$(uname -m | sed 's/x86_64/x64/;s/aarch64/arm64/')" /t:PublishContainer \
      -p:ContainerRepository="bank-$s" -p:ContainerImageTags=home) || break
 done
 (cd bank-gateway && dotnet publish src/Bank.Gateway -c Release --os linux --arch "$(uname -m | sed 's/x86_64/x64/;s/aarch64/arm64/')" /t:PublishContainer \
    -p:ContainerRepository=bank-gateway -p:ContainerImageTags=home)
 
-docker images 'bank-*'     # seven images tagged "home"
+docker images 'bank-*'     # eight images tagged "home"
 ```
 
 ## 3. Write the passwords (once)
@@ -152,7 +153,7 @@ sudo tailscale serve reset            # stops A; "sudo tailscale funnel reset" s
 
 `serve` and `funnel` write the same entry for port 443; `funnel` only adds the internet flag, so running both leaves one entry. After `funnel` is turned on, the public relays take a few minutes (about 3 on 2026-11-03) before every one of them serves the URL; until then, devices outside the tailnet may get a TLS error.
 
-With Funnel, anyone who knows the URL can reach the gateway, and the API key is then the only lock. The key proves the caller is trusted, not which customer it acts for: `X-Performed-By` and `X-Customer-Id` are still taken as given. Keep only synthetic data in this bank.
+With Funnel, anyone who knows the URL can reach the gateway. Two locks then guard it: the API key (the caller is the trusted agent) and a login (on whose behalf it acts; workspace ADR 0007). The logins are test logins: `admin/admin` is written in the code, and a customer logs in with the national id as username and password. So anyone who has the API key and reads this repository can act as staff or as any customer. Keep only synthetic data in this bank.
 
 ## 7. Test the running bank
 
@@ -163,11 +164,12 @@ TS_URL="https://$(tailscale status --json | python3 -c 'import sys,json;print(js
 for GW in http://127.0.0.1:8080 "$TS_URL"; do
   echo "== $GW"
   K="X-Api-Key: $(cut -d= -f2- core_banking/bank-platform/deploy/env/gateway.env)"
-  H='X-Performed-By: smoke-test'
   curl -fsS "$GW/health"; echo                                                        # Healthy
-  curl -s -o /dev/null -w 'no key: %{http_code}\n' -H "$H" "$GW/api/lending/loan-products"         # 401
-  curl -s -o /dev/null -w 'no identity: %{http_code}\n' -H "$K" "$GW/api/lending/loan-products"    # 401
-  A=(-H "$H" -H "$K")   # from here on, both headers
+  curl -s -o /dev/null -w 'no key: %{http_code}\n' "$GW/api/lending/loan-products"                 # 401
+  curl -s -o /dev/null -w 'no login: %{http_code}\n' -H "$K" "$GW/api/lending/loan-products"       # 401
+  # Log in as admin; every login gets a new token, and the previous admin session ends (session_replaced).
+  T=$(curl -fsS -H "$K" -H 'Content-Type: application/json' -d '{"username":"admin","password":"admin"}' "$GW/api/identity/login" | jq -r .token)
+  A=(-H "$K" -H "Authorization: Bearer $T")   # from here on, the key and the token
   curl -fsS "${A[@]}" "$GW/api/operations/currencies"; echo                             # SEK, EUR, USD (active after the import)
   curl -fsS "${A[@]}" "$GW/api/operations/business-days/current"; echo                  # one Open day
   curl -fsS "${A[@]}" "$GW/api/lending/loan-products"; echo                             # includes PURCHASE
@@ -183,8 +185,9 @@ Then check that the data survives a restart:
 cd core_banking/bank-platform/deploy
 docker compose -f docker-compose.aws.yml -f docker-compose.home.yml restart
 docker compose -f docker-compose.aws.yml -f docker-compose.home.yml up -d --wait
-curl -fsS -H 'X-Performed-By: smoke-test' -H "X-Api-Key: $(cut -d= -f2- env/gateway.env)" \
-  http://127.0.0.1:8080/api/operations/business-days/current; echo   # same date as before
+K="X-Api-Key: $(cut -d= -f2- env/gateway.env)"
+T=$(curl -fsS -H "$K" -H 'Content-Type: application/json' -d '{"username":"admin","password":"admin"}' http://127.0.0.1:8080/api/identity/login | jq -r .token)
+curl -fsS -H "$K" -H "Authorization: Bearer $T" http://127.0.0.1:8080/api/operations/business-days/current; echo   # same date as before
 ```
 
 Rebooting the host machine is the full check: after login, step 7 passes again without running any command.

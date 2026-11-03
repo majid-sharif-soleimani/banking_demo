@@ -18,7 +18,7 @@ dotnet run --project src/Bank.DataImport -- --gateway http://localhost:<port> [-
 
 - `Logic/ImportLogic.cs` (pure, unit tested): selection (≥30 loans, ≥10 late, ≥15 standing orders, fixed seed), date shift (last 2 years → from StartDate), amounts × factor (default 10.0) to SEK, loan type → product by whole word, account type and frequency mapped only when known (otherwise skipped and reported), idempotency keys from source rows, equal PURCHASE stages.
 - `Importer.cs`: activates SEK/EUR/USD, registers customers, opens accounts (retrying `customer_not_found`), reads each product's `MaxStages`, then per day: loans (submit, review, approve, disburse), transactions, standing orders, loan payments as deposits; closes the day and polls the business date (ADR 0001). Then verifies balances against statements and the trial balance.
-- Paths go through the gateway as `/api/<service>/<service path>`, for example `/api/accounts/accounts/{id}/deposits`. Every request sends `X-Performed-By: import`, plus `X-Api-Key` when `Import__ApiKey` is set (the gateway asks for it outside Development).
+- Paths go through the gateway as `/api/<service>/<service path>`, for example `/api/accounts/accounts/{id}/deposits`. It first logs in as admin (`POST /api/identity/login`, workspace ADR 0007) and sends the token on every request, so changes are recorded as `admin`; plus `X-Api-Key` when `Import__ApiKey` is set (the gateway asks for it outside Development). An admin login elsewhere during the import ends its session and stops it (exit 4).
 
 ## Tests
 

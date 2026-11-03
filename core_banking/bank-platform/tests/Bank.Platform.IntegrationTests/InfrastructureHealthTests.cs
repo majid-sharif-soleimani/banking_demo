@@ -16,6 +16,7 @@ public sealed class InfrastructureHealthTests(PlatformFixture platform)
     [InlineData("lending")]
     [InlineData("cards")]
     [InlineData("ledger")]
+    [InlineData("identity")]
     [InlineData("gateway")]
     public async Task Resource_becomes_healthy(string resourceName)
     {

@@ -9,6 +9,11 @@ Loans: products, applications, disbursement, schedules, payments, penalties, cla
 - Invalid input returns `Result<T>` with a `LoanErrors` code (ADR 0002). Rule interpretations: ADR 0003.
 - `Amortization.BuildAnnuity`: A rounded first; last item takes the principal difference. Due dates count from the disbursement date (or the explicit first due date), never from the previous due date.
 
+## Read APIs for the agent (branch feat-agent-read-apis)
+
+- `POST /loan-products/{code}/simulation` (`Features/Applications/LoanSimulation.cs`): installment, total interest, total cost and schedule from `Amortization` + `Logic/LoanCost`, disbursement assumed today. Stores and publishes nothing; customers and staff. Uses the same `LimitProblem`/`Terms` as submission, so limits and figures cannot drift.
+- `GET /loan-applications?status=&customerId=&limit=&cursor=` (`ApplicationQueue.cs`): review queue, oldest first by (created_at, id), index `ix_loan_application_queue` (status, created_at, id). Keyset paging via `Features/Paging.cs` (workspace ADR 0004; same contract copied in customers and accounts). Staff only via `StaffAccess` (ADR 0006: 403 with X-Customer-Id, 401 without X-Performed-By).
+
 ## Gotchas
 
 - Reports read only `portfolio_movement` and `arrears_movement` (ADR 0006). Any feature that changes a loan's principal, status or classification must call `ReportProjections` in the same `SaveChangesAsync`; call `Closed` before resetting the classification.

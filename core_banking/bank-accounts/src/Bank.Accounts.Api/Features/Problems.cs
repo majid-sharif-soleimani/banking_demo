@@ -22,3 +22,17 @@ public static class CustomerAccess
     public static bool IsOtherCustomer(HttpRequest request, Guid ownerId) =>
         request.Headers.TryGetValue(HeaderName, out var value) && (!Guid.TryParse(value, out var caller) || caller != ownerId);
 }
+
+/// <summary>
+/// Staff-only reads (workspace ADR 0006): a customer's call (X-Customer-Id) is 403 and a call without X-Performed-By is 401,
+/// so every read across customers has a named actor.
+/// </summary>
+public static class StaffAccess
+{
+    public static IResult? Problem(HttpRequest request) =>
+        request.Headers.ContainsKey(CustomerAccess.HeaderName)
+            ? Problems.Of(StatusCodes.Status403Forbidden, "staff_only", "This search is not available to customers.")
+            : string.IsNullOrWhiteSpace(request.Headers[Bank.Common.PerformedBy.HeaderName])
+                ? Problems.Of(StatusCodes.Status401Unauthorized, "missing_actor", $"Send {Bank.Common.PerformedBy.HeaderName} with the staff member's id.")
+                : null;
+}

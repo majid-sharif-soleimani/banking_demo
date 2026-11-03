@@ -46,6 +46,8 @@ app.MapOpenApi();
 app.MapDefaultEndpoints();
 
 ApplicationEndpoints.Map(app);
+LoanSimulation.Map(app);
+ApplicationQueue.Map(app);
 Disbursement.Map(app);
 LoanQueries.Map(app);
 Payoff.Map(app);

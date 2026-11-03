@@ -1,4 +1,8 @@
-# Phase 1 Progress
+# Progress
+
+Phase 1 is complete (closed 2026-11-03). It is reopened only to fix bugs. Phase 2 (the agent) started on 2026-11-03.
+
+## Phase 1
 
 Updated by `/close-stage`. One row per stage from section 10 of `phase1-design-plan.md`. Statuses: Not started, In progress, Ready for review, Done. The project runs in learning mode (`docs/implementation-decisions.md`); what was learned per stage is in `docs/learning-log.md`.
 
@@ -19,6 +23,15 @@ Updated by `/close-stage`. One row per stage from section 10 of `phase1-design-p
 - 2026-11-03: the bank runs on a private host machine by `core_banking/bank-platform/deploy/home-hosting.md` (Docker Compose, images tagged `home`). Platform 47 and end-to-end 5 green before the build. Loaded with generated synthetic data (option C: 100 customers, 363 business days, verification passed; current business date 2026-12-30). Step 7 checks pass locally and through Tailscale. Published with Tailscale Funnel (open to the internet); public relays served it about 3 minutes after `funnel` was turned on. Reboot check still to do.
 - 2026-11-03: the gateway asks every `/api` caller for a shared key in `X-Api-Key` (`Gateway__ApiKey`; at home in the gitignored `deploy/env/gateway.env`, on AWS `GATEWAY_API_KEY` in the stack secret). Outside Development it refuses to start without one. Gateway tests 16 green; live on the home bank. Tailscale to move from Funnel to serve (tailnet only). The identity headers are still taken as given: real per-customer authentication waits for phase 2.
 
+## Phase 1 extensions
+
+- 2026-11-03: branch `feat-agent-read-apis` (not merged into `master`): four read APIs for the phase 2 agent. Lending `POST /loan-products/{code}/simulation` and `GET /loan-applications` (review queue); Customers `POST /customers/search`; Accounts `POST /transactions/search`. Keyset paging, POST for personal-data searches, staff-only reads (workspace ADRs 0004–0006; customers 0001, accounts 0004), decided by Claude on Majid's delegation except keyset (Majid). New indexes: `ix_loan_application_queue`, `ix_account_entry_business_date_sequence`. Tests green: lending 1,577 + 65, customers 45 + 36, accounts 63 + 74, platform 47, gateway 16. No gateway change. Learning docs in `docs/learning/agent-read-apis/`. End-to-end tests not run.
+- 2026-11-03: the read APIs run on the home bank. Database backed up first (pg_dump, outside the repository); images `bank-customers`, `bank-accounts` and `bank-lending` rebuilt from the branch and recreated with `up -d --wait` (no other container changed, no `down -v`). Both new indexes exist; data intact (10,385 entries, 100 customers). Smoke tests through the gateway: simulation (6,170.85 / 22,150.54), queue, customer search and transaction search with a second page all 200; customer caller 403; no key 401. `EXPLAIN ANALYZE` of a one-week SEK search ≥ 10,000: index scan on `ix_account_entry_business_date_sequence`, 0.22 ms.
+
+- 2026-11-03: branch `feat-identity` (built on `feat-agent-read-apis`, neither merged into `master`): new service `bank-identity` with test logins and sessions (workspace ADR 0007, all choices by Majid; the steps after them delegated to Claude). `admin/admin` hard-coded; customers log in with the national id as username and password (lookup through the new `nationalId` filter of `POST /customers/search`); a new token per login; one session per user (the old one gets 401 `session_replaced` once); 5-minute sliding idle timeout; sessions in memory. The gateway drops caller identity headers, checks `Authorization: Bearer` with identity on every `/api` call and sets `X-Performed-By`/`X-Customer-Id` itself. Data import, platform tests and end-to-end tests log in. Design plan ADR row 13 and section 11 changed. Tests green: identity 22 + 15, gateway 22, customers 46 + 37, platform 49, end-to-end 5, data-import 33 + 1. Learning doc `docs/learning/identity/identity-service.md`.
+- 2026-11-03: identity runs on the home bank. Database backed up first (pg_dump to `~/bank-backups/`, outside the repository); platform 49 and end-to-end 5 green; all eight images rebuilt from `feat-identity` and started with `up -d --wait` (no `down -v`). Business date still 2026-12-30, trial balance equal in SEK, EUR and USD. Locally and through Tailscale: no key 401, no token 401, wrong password 401, admin login 200, a second admin login ends the first (`session_replaced`). A customer logged in with the national id sees their own accounts, an empty list for another customer's id and 404 for another customer's profile, also with a forged `X-Customer-Id`; staff search as a customer is 403, also with a forged `X-Performed-By`.
+- 2026-11-03: both branches merged into `master`. Phase 1 closed.
+
 ## Open questions
 
 - 2026-10-31: Majid delegated D1 decisions for stages 2–8 to Claude (no questions). Resolved 2026-11-02: every stage was reviewed (stage 5 accepted without review) and merged into `master`; each stage plan has a sign-off section.
@@ -29,4 +42,4 @@ Updated by `/close-stage`. One row per stage from section 10 of `phase1-design-p
 
 - 2026-11-02, before the first AWS deployment: Majid reviews the CDK stack with `/explain`, then runs `cdk deploy`, `aws` commands and image pushes himself.
 - 2026-11-02: data import column mapping (`Import:Columns`) to check against the real databasesample.com export before the first real run.
-- Phase 2 (the agent) starts only when Majid says so.
+- 2026-11-03, home bank: Customers has the fixed address `172.30.0.10` (bank-platform ADR 0004) inside the network's dynamic range. When other containers are recreated first, one of them can take that address and Customers fails with "Address already in use". Worked around by removing the accounts container and starting customers first. Lasting fix to decide: an `ip_range` for dynamic addresses that excludes `.10` (needs the network recreated, so every container restarts once).

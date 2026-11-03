@@ -50,8 +50,7 @@ public static class Disbursement
         var terms = ApplicationEndpoints.Terms(product, principal, application.TermMonths, today, minorUnits);
         var schedule = product.RepaymentType == RepaymentType.Annuity
             ? Amortization.BuildAnnuity(terms)
-            : Amortization.BuildStaged(terms, new StagePlan([.. JsonSerializer.Deserialize<List<StageRequest>>(application.ProposedStages!, ContractJson.Options)!
-                .Select(st => new Stage(st.DueDate, st.PrincipalShare))]));
+            : Amortization.BuildStaged(terms, ApplicationEndpoints.ToPlan(JsonSerializer.Deserialize<List<StageRequest>>(application.ProposedStages!, ContractJson.Options)!));
         if (!schedule.IsSuccess)
         {
             // A stage plan checked at submission can fail now, for example a stage date that has meanwhile passed.

@@ -509,6 +509,9 @@ namespace Bank.Lending.Api.Data.Migrations
                     b.HasIndex("CustomerId")
                         .HasDatabaseName("ix_loan_application_customer_id");
 
+                    b.HasIndex("Status", "CreatedAt", "Id")
+                        .HasDatabaseName("ix_loan_application_queue");
+
                     b.ToTable("loan_application", (string)null);
                 });
 

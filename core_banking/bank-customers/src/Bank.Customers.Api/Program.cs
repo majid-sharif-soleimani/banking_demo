@@ -68,6 +68,7 @@ app.MapDefaultEndpoints();
 
 RegisterCustomer.Map(app);
 GetCustomer.Map(app);
+SearchCustomers.Map(app);
 UpdateContactDetails.Map(app);
 InteractionEndpoints.Map(app);
 AppointmentEndpoints.Map(app);

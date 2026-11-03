@@ -1,4 +1,6 @@
+using System.Collections.Concurrent;
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Aspire.Hosting;
@@ -83,11 +85,40 @@ public sealed class BankFixture : IAsyncLifetime
         }
     }
 
-    /// <summary>Calls made by bank staff (X-Performed-By), such as reviews, approvals and closing the day.</summary>
-    public Caller Staff => new(gateway, performedBy: "e2e-staff", customerId: null);
+    /// <summary>Calls made by bank staff, logged in as admin (the gateway sends X-Performed-By: admin), such as reviews,
+    /// approvals and closing the day.</summary>
+    public Caller Staff => new(gateway, renew => TokenAsync("admin", "admin", renew));
 
-    /// <summary>Calls made by the customer themselves (X-Customer-Id): the services limit them to the customer's own data.</summary>
-    public Caller Customer(Guid customerId) => new(gateway, performedBy: null, customerId);
+    /// <summary>Calls made by the customer themselves, logged in with the national id (the gateway sends X-Customer-Id):
+    /// the services limit them to the customer's own data.</summary>
+    public Caller Customer(Guid customerId) =>
+        new(gateway, renew => TokenAsync(nationalIds[customerId], nationalIds[customerId], renew));
+
+    private readonly ConcurrentDictionary<Guid, string> nationalIds = new();
+    private readonly ConcurrentDictionary<string, string> tokens = new();
+
+    /// <summary>Called on registration, so <see cref="Customer"/> can log in as that customer.</summary>
+    public void RememberNationalId(Guid customerId, string nationalId) => nationalIds[customerId] = nationalId;
+
+    /// <summary>
+    /// One session per user (workspace ADR 0007), reused for every call; a new login only when there is none yet or the
+    /// gateway refused the last one (for example after five idle minutes while days were being closed).
+    /// </summary>
+    private async Task<string> TokenAsync(string username, string password, bool renew)
+    {
+        if (!renew && tokens.TryGetValue(username, out var token))
+        {
+            return token;
+        }
+
+        var response = await gateway.PostAsJsonAsync("/api/identity/login", new { username, password });
+        response.StatusCode.ShouldBe(HttpStatusCode.OK, $"login as {username}: {await response.Content.ReadAsStringAsync()}");
+        token = (await response.Content.ReadFromJsonAsync<LoginView>(Caller.Json))!.Token;
+        tokens[username] = token;
+        return token;
+    }
+
+    private sealed record LoginView(string Token);
 
     public async Task<DateOnly> TodayAsync() => (await Staff.GetAsync<BusinessDayView>("/api/operations/business-days/current")).Date;
 
@@ -128,24 +159,29 @@ public sealed class BankFixture : IAsyncLifetime
     private sealed record MailpitMessage(string Subject);
 }
 
-/// <summary>One caller's view of the gateway: the identity headers it sends, and small JSON helpers.</summary>
-public sealed class Caller(HttpClient gateway, string? performedBy, Guid? customerId)
+/// <summary>One caller's view of the gateway: its session token, and small JSON helpers.</summary>
+/// <param name="token">The caller's token; true asks for a new login.</param>
+public sealed class Caller(HttpClient gateway, Func<bool, Task<string>> token)
 {
     public static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
     public async Task<HttpResponseMessage> SendAsync(HttpMethod method, string path, object? body = null, string? idempotencyKey = null)
     {
+        var response = await SendOnceAsync(method, path, body, idempotencyKey, await token(false));
+        // An HttpContent body is disposed with its first request, so only JSON bodies can be repeated.
+        if (response.StatusCode == HttpStatusCode.Unauthorized && body is not HttpContent && (await response.Content.ReadAsStringAsync()).Contains("session_"))
+        {
+            // Expired or replaced: log in again and repeat the same request (same Idempotency-Key).
+            response = await SendOnceAsync(method, path, body, idempotencyKey, await token(true));
+        }
+
+        return response;
+    }
+
+    private async Task<HttpResponseMessage> SendOnceAsync(HttpMethod method, string path, object? body, string? idempotencyKey, string bearer)
+    {
         using var request = new HttpRequestMessage(method, path);
-        if (performedBy is not null)
-        {
-            request.Headers.Add("X-Performed-By", performedBy);
-        }
-
-        if (customerId is not null)
-        {
-            request.Headers.Add("X-Customer-Id", customerId.ToString());
-        }
-
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearer);
         if (idempotencyKey is not null)
         {
             request.Headers.Add("Idempotency-Key", idempotencyKey);

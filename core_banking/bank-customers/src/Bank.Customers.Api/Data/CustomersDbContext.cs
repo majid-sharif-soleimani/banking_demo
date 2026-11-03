@@ -14,6 +14,10 @@ public sealed class CustomersDbContext(DbContextOptions<CustomersDbContext> opti
 
     public DbSet<Customer> Customers => Set<Customer>();
 
+    /// <summary>PostgreSQL regexp_replace with flags ('g' replaces every match); only usable inside a LINQ query.</summary>
+    public static string RegexpReplace(string input, string pattern, string replacement, string flags) =>
+        throw new NotSupportedException("Only for LINQ queries.");
+
     public DbSet<Notification> Notifications => Set<Notification>();
 
     public const string AppointmentSlotIndex = "ux_appointment_employee_slot";
@@ -31,6 +35,7 @@ public sealed class CustomersDbContext(DbContextOptions<CustomersDbContext> opti
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.AddBankMessaging();
+        modelBuilder.HasDbFunction(typeof(CustomersDbContext).GetMethod(nameof(RegexpReplace))!).HasName("regexp_replace").IsBuiltIn();
         modelBuilder.AddLocalBusinessDays();
 
         modelBuilder.Entity<Customer>(customer =>

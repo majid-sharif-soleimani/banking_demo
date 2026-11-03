@@ -83,15 +83,9 @@ public static class ApplicationEndpoints
             return Problems.Rule("repayment_account_invalid", $"The repayment account must be the customer's own {product.Currency} account.");
         }
 
-        if (request.Amount is null || request.Amount.Currency != product.Currency
-            || request.Amount.Amount < product.MinAmount || request.Amount.Amount > product.MaxAmount)
+        if (LimitProblem(product, request.Amount, request.TermMonths) is { } limitProblem)
         {
-            return Problems.Rule("amount_out_of_range", $"{product.Code} lends {product.MinAmount}–{product.MaxAmount} {product.Currency}.");
-        }
-
-        if (request.TermMonths < product.MinTermMonths || request.TermMonths > product.MaxTermMonths)
-        {
-            return Problems.Rule("term_out_of_range", $"{product.Code} runs {product.MinTermMonths}–{product.MaxTermMonths} months.");
+            return limitProblem;
         }
 
         if (string.IsNullOrWhiteSpace(request.Purpose) || request.Purpose.Length > 500)
@@ -100,7 +94,7 @@ public static class ApplicationEndpoints
         }
 
         var minorUnits = await s.Db.Currencies.Where(c => c.Code == product.Currency).Select(c => c.MinorUnits).SingleOrDefaultAsync(ct);
-        if (StageProblem(product, request, s.Clock.Today, minorUnits) is { } stageProblem)
+        if (StageProblem(product, request.Amount, request.TermMonths, request.Stages, s.Clock.Today, minorUnits) is { } stageProblem)
         {
             return stageProblem;
         }
@@ -128,23 +122,37 @@ public static class ApplicationEndpoints
         return Results.Created($"/loan-applications/{application.Id}", ApplicationResponse.From(application));
     }
 
+    /// <summary>The product's amount (in its currency) and term limits; shared by submission and simulation.</summary>
+    internal static IResult? LimitProblem(LoanProduct product, Money? amount, int termMonths)
+    {
+        if (amount is null || amount.Currency != product.Currency || amount.Amount < product.MinAmount || amount.Amount > product.MaxAmount)
+        {
+            return Problems.Rule("amount_out_of_range", $"{product.Code} lends {product.MinAmount}–{product.MaxAmount} {product.Currency}.");
+        }
+
+        return termMonths < product.MinTermMonths || termMonths > product.MaxTermMonths
+            ? Problems.Rule("term_out_of_range", $"{product.Code} runs {product.MinTermMonths}–{product.MaxTermMonths} months.")
+            : null;
+    }
+
     /// <summary>Staged products need a valid plan (checked with the stage 3 logic, against today as a provisional disbursement date).</summary>
-    internal static IResult? StageProblem(LoanProduct product, SubmitRequest request, DateOnly today, int minorUnits)
+    internal static IResult? StageProblem(LoanProduct product, Money amount, int termMonths, IReadOnlyList<StageRequest>? stages, DateOnly today, int minorUnits)
     {
         if (product.RepaymentType == RepaymentType.Annuity)
         {
-            return request.Stages is { Count: > 0 } ? Problems.Rule("stages_not_allowed", "Annuity products have no stage plan.") : null;
+            return stages is { Count: > 0 } ? Problems.Rule("stages_not_allowed", "Annuity products have no stage plan.") : null;
         }
 
-        if (request.Stages is not { Count: > 0 })
+        if (stages is not { Count: > 0 })
         {
             return Problems.Rule("stage_plan_required", "Staged products need a stage plan.");
         }
 
-        var result = Amortization.BuildStaged(Terms(product, request.Amount, request.TermMonths, today, minorUnits),
-            new StagePlan([.. request.Stages.Select(st => new Stage(st.DueDate, st.PrincipalShare))]));
+        var result = Amortization.BuildStaged(Terms(product, amount, termMonths, today, minorUnits), ToPlan(stages));
         return result.IsSuccess ? null : Problems.Rule(result.Error.Code, result.Error.Message);
     }
+
+    internal static StagePlan ToPlan(IEnumerable<StageRequest> stages) => new([.. stages.Select(st => new Stage(st.DueDate, st.PrincipalShare))]);
 
     internal static LoanTerms Terms(LoanProduct p, Money principal, int termMonths, DateOnly disbursedOn, int minorUnits) => new(
         principal, p.AnnualRate, termMonths, p.RepaymentType, p.PenaltyDailyRate, p.GraceDays, p.OverdueAfterDays, p.DefaultAfterDays,

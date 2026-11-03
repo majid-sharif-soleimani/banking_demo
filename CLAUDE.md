@@ -62,7 +62,8 @@ banking_demo/                  ← launch Claude Code here (this folder holds th
   core_banking/
     bank-contracts/            ← Bank.Contracts (C# records + generated JSON Schemas) and Bank.Messaging (NuGet)
     bank-platform/             ← Aspire AppHost, Docker Compose, AWS CDK
-    bank-gateway/              ← YARP gateway
+    bank-gateway/              ← YARP gateway; checks the session token on every call
+    bank-identity/             ← test logins and in-memory sessions (workspace ADR 0007)
     bank-operations/  bank-customers/  bank-accounts/
     bank-cards/       bank-lending/    bank-ledger/
     bank-data-import/          ← imports ~100 customers from databasesample.com through the gateway
@@ -97,7 +98,7 @@ Integration tests need Docker running.
 
 ## Non-negotiable rules
 
-- Services talk only through events. No HTTP calls between services, no reading another service's schema.
+- Services talk only through events. No HTTP calls between services, no reading another service's schema. One accepted exception: bank-identity looks a national id up in Customers over HTTP at login (workspace ADR 0007).
 - Only `Bank.Messaging.Kafka` references Confluent.Kafka. All other code uses `IEventPublisher` / `IEventHandler<T>`.
 - Every event handler is idempotent: inbox check on message id, plus a unique business key for financial effects.
 - Publish only through the outbox, inside the same transaction as the state change.

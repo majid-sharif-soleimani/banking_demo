@@ -11,6 +11,7 @@ on:
       - "core_banking/bank-cards/src/**"
       - "core_banking/bank-ledger/src/**"
       - "core_banking/bank-gateway/src/**"
+      - "core_banking/bank-identity/src/**"
       - ".github/workflows/bank-platform.yml"
   pull_request:
     paths:
@@ -22,6 +23,7 @@ on:
       - "core_banking/bank-cards/src/**"
       - "core_banking/bank-ledger/src/**"
       - "core_banking/bank-gateway/src/**"
+      - "core_banking/bank-identity/src/**"
       - ".github/workflows/bank-platform.yml"
 
 permissions:

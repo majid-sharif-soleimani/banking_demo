@@ -13,6 +13,12 @@ if (options.Services.Length == 0)
     throw new InvalidOperationException("Gateway:Services must list the services behind the gateway, such as [\"accounts\", \"lending\"].");
 }
 
+// Every /api call needs a session from the identity service (workspace ADR 0007), so it must be behind the gateway too.
+if (!options.Services.Contains(GatewayMiddleware.Identity))
+{
+    throw new InvalidOperationException($"Gateway:Services must include \"{GatewayMiddleware.Identity}\": it logs callers in and checks their tokens.");
+}
+
 if (string.IsNullOrWhiteSpace(options.ApiKey) && !builder.Environment.IsDevelopment())
 {
     throw new InvalidOperationException(
@@ -25,6 +31,12 @@ builder.Services.AddReverseProxy()
     .AddServiceDiscoveryDestinationResolver();
 
 builder.Services.AddHttpClient("downstream", client => client.Timeout = TimeSpan.FromSeconds(5));
+// The token check on every /api request: http://identity is resolved by service discovery like the YARP routes.
+builder.Services.AddHttpClient(GatewayMiddleware.Identity, client =>
+{
+    client.BaseAddress = new Uri($"http://{GatewayMiddleware.Identity}");
+    client.Timeout = TimeSpan.FromSeconds(5);
+});
 var health = builder.Services.AddHealthChecks();
 foreach (var service in options.Services)
 {

@@ -2,6 +2,7 @@ using Bank.Common;
 using Bank.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 
 [assembly: AssemblyFixture(typeof(PostgresFixture))]
 
@@ -15,9 +16,15 @@ public sealed class CustomersApp(string connectionString)
         services.AddSingleton<IEmailSender, InMemoryEmailSender>();
         services.RemoveAll<IFileStorage>();
         services.AddSingleton<IFileStorage, InMemoryFileStorage>();
+        // Every level reaches this provider, whatever the Logging section says (a provider rule beats the generic ones).
+        services.AddSingleton<ILoggerProvider, CapturingLoggerProvider>();
+        services.AddLogging(logging => logging.AddFilter<CapturingLoggerProvider>(null, LogLevel.Trace));
     })
 {
     public static readonly DateOnly Today = new(2026, 3, 1);
+
+    public IReadOnlyCollection<string> LogLines =>
+        Services.GetServices<ILoggerProvider>().OfType<CapturingLoggerProvider>().Single().Lines;
 
     public InMemoryEmailSender Emails => (InMemoryEmailSender)Services.GetRequiredService<IEmailSender>();
 
