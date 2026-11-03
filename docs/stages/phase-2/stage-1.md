@@ -8,7 +8,7 @@ Read first: `phase2-design-plan.md` sections 2.1, 3, 4.1, 4.4, 6 and 7.1; worksp
 
 | Concepts | Decisions for Majid (D1) | Majid writes |
 | --- | --- | --- |
-| Backend for frontend (BFF), cookie security (`HttpOnly`, `Secure`, `SameSite`), CSRF, server-side sessions, the AG-UI protocol (runs, events, streaming), keeping secrets out of logs and storage | The React chat library and whether a Node runtime sits in the middle; where the agent host keeps its sessions (memory or PostgreSQL); how the chat UI is served (by the agent host or by its own container) | `ChatAccess` in `Logic/` (who may read and write which chat), with its unit tests |
+| Backend for frontend (BFF), cookie security (`HttpOnly`, `Secure`, `SameSite`), CSRF, server-side sessions, the AG-UI protocol (runs, events, streaming), keeping secrets out of logs and storage | The React chat library and whether a Node runtime sits in the middle; where the agent host keeps its sessions (memory or PostgreSQL); how the chat UI is served (by the agent host or by its own container) | Nothing: in phase 2 Claude writes all code, tests and ADRs (Majid, 2026-11-03) |
 
 Slices: (1) agent host and the `agent` schema, (2) login, logout and the server session, (3) chat storage and the AG-UI echo endpoint, (4) chat UI, (5) end-to-end check in a browser.
 

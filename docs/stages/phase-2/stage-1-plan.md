@@ -27,8 +27,8 @@ Phase 2 puts an agent and a chat UI in front of the bank. Before any language mo
 ### 3. Chat storage and the AG-UI echo endpoint
 
 - Files: `Features/Chats/ChatStore.cs`, `Features/AgUi/EchoAgent.cs`, `Features/AgUi/AgUiEndpoint.cs`, `Logic/ChatAccess.cs`.
-- Tests first: `ChatAccess` unit tests (Majid), integration tests for an echo run, stored messages, and a run after the bank session ended.
-- Who writes: Claude, except `ChatAccess` and its tests (Majid).
+- Tests first: `ChatAccess` unit tests, integration tests for an echo run, stored messages, and a run after the bank session ended.
+- Who writes: Claude.
 - D1: none new.
 
 ### 4. Chat UI
@@ -46,7 +46,7 @@ Phase 2 puts an agent and a chat UI in front of the bank. Before any language mo
 
 ## ADRs
 
-- Workspace ADRs for phase 2 design decisions A7–A13 (`phase2-design-plan.md` section 7.1): Majid writes, Claude critiques, unless Majid hands them to Claude.
+- Workspace ADRs for phase 2 design decisions A7–A13 (`phase2-design-plan.md` section 7.1): Claude writes them (Majid handed all phase 2 writing to Claude on 2026-11-03).
 - One ADR per D1 decision of this stage, in `agent/docs/adr/`.
 
 ## Done-when commands
