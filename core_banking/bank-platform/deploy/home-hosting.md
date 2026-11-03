@@ -27,6 +27,7 @@ All commands run from the repository root unless a step says otherwise.
 docker compose version     # 2.24 or later (needed for !override and optional env files)
 dotnet --version           # 10.x
 tailscale status           # this machine is logged in
+jq --version               # the checks in step 7 read JSON with jq (install jq first)
 # Enable the Docker service at boot, so the bank starts too.
 ```
 
