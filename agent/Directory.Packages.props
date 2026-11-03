@@ -9,7 +9,12 @@
     <PackageVersion Include="Bank.Testing" Version="0.6.1" />
     <!-- Agent host -->
     <PackageVersion Include="AGUI.Abstractions" Version="1.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.AI.Abstractions" Version="10.6.0" />
+    <PackageVersion Include="Microsoft.Extensions.AI.Abstractions" Version="10.11.0" />
+    <!-- Phase 2 stage 2: the agent (Microsoft Agent Framework), the model (Anthropic's SDK) and MCP (client and server). -->
+    <PackageVersion Include="Microsoft.Agents.AI" Version="1.27.0" />
+    <PackageVersion Include="Anthropic" Version="13.4.0" />
+    <PackageVersion Include="ModelContextProtocol" Version="2.3.1" />
+    <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="2.3.1" />
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.14" />
     <!-- The same EF Core as the design-time package; Bank.Toolkit.Data alone would bring an older one. -->
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.14" />

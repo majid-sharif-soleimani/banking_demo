@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <!-- Only an id: the gateway key (BankMcp:Gateway:ApiKey) lives in the user profile, never in the repo. -->
+    <UserSecretsId>bank-agent-mcp</UserSecretsId>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Bank.ServiceDefaults" />
+    <PackageReference Include="ModelContextProtocol.AspNetCore" />
+  </ItemGroup>
+</Project>

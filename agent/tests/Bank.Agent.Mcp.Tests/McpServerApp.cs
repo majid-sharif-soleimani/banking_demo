@@ -1,0 +1,67 @@
+using System.Collections.Concurrent;
+using System.Net;
+using System.Text;
+using Bank.Agent.Mcp;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
+using ModelContextProtocol.Client;
+
+namespace Bank.Agent.Mcp.Tests;
+
+/// <summary>
+/// The real MCP server (its Program.cs and tools) with <see cref="FakeGateway"/> in place of the gateway. A test talks
+/// to it the way the agent host does: an MCP client over HTTP, with the bank token and the customer id as headers.
+/// </summary>
+public sealed class McpServerApp : WebApplicationFactory<Program>
+{
+    public const string ApiKey = "test-gateway-key";
+
+    public FakeGateway Gateway { get; } = new();
+
+    public async Task<McpClient> ConnectAsync(string? token, Guid? customerId)
+    {
+        var headers = new Dictionary<string, string>();
+        if (token is not null)
+        {
+            headers["Authorization"] = $"Bearer {token}";
+        }
+
+        if (customerId is not null)
+        {
+            headers[BankApi.CustomerIdHeader] = customerId.Value.ToString();
+        }
+
+        var transport = new HttpClientTransport(
+            new HttpClientTransportOptions { Endpoint = new Uri(Server.BaseAddress, "/mcp/customer"), AdditionalHeaders = headers },
+            CreateClient(), ownsHttpClient: true);
+        return await McpClient.CreateAsync(transport, cancellationToken: TestContext.Current.CancellationToken);
+    }
+
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        builder.UseSetting("BankMcp:Gateway:ApiKey", ApiKey);
+        builder.UseEnvironment("Testing");
+        builder.ConfigureServices(services =>
+            services.AddHttpClient<BankApi>().ConfigurePrimaryHttpMessageHandler(() => Gateway));
+    }
+}
+
+/// <summary>Answers every gateway call with a fixed status and body, and records what it was asked.</summary>
+public sealed class FakeGateway : HttpMessageHandler
+{
+    public ConcurrentQueue<(string PathAndQuery, string? Authorization, string? ApiKey)> Requests { get; } = new();
+
+    public HttpStatusCode Status { get; set; } = HttpStatusCode.OK;
+
+    public string Body { get; set; } = """{"ok":true}""";
+
+    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+    {
+        Requests.Enqueue((
+            request.RequestUri!.PathAndQuery,
+            request.Headers.Authorization?.ToString(),
+            request.Headers.TryGetValues("X-Api-Key", out var keys) ? keys.Single() : null));
+        return Task.FromResult(new HttpResponseMessage(Status) { Content = new StringContent(Body, Encoding.UTF8, "application/json") });
+    }
+}
