@@ -3,7 +3,11 @@ using Bank.Agent.Host.Logic;
 
 namespace Bank.Agent.Host.Features.Auth;
 
-public sealed record LoginRequest(string? Username, string? Password);
+public sealed record LoginRequest(string? Username, string? Password)
+{
+    // The generated ToString would print the password (and the national id, which is a customer's username).
+    public override string ToString() => "LoginRequest { }";
+}
 
 /// <summary>What the chat UI may know about the session: never the token.</summary>
 public sealed record SessionInfo(string Role, string Name, Guid ChatId);

@@ -23,6 +23,8 @@ Never stored or logged: passwords, bank tokens (tests check both).
 
 - `wwwroot` is build output (gitignored). Run `npm run build` in `chat-ui` before running the host to see the UI. `dotnet publish` builds it first (target `BuildChatUi`, before `ResolveProjectStaticWebAssets`; running it later leaves a stale asset list). Clear `bin/Release` and `obj/Release` if old hashed files show up in the image.
 - The login screen says the data is test data and shows the test logins (ADR 0007 makes them public on purpose).
+- `SessionSweeper` (hosted service) closes chats left open by a previous start, and every `Agent:SweepInterval` closes the chats of idle sessions. Tests call `AgentApp.SweepAsync()` after moving `TestClock`.
+- A bank outage during a run (`bank_unavailable`) keeps the chat open in the UI with a note; only session codes send the person to the login.
 - A newer login of the same user marks the old host session ended; its browser hears `session_replaced` once (ADR 0001, point 6).
 - Integration tests replace the gateway with `StubGateway` (an `HttpMessageHandler`) and the clock with `TestClock`.
 

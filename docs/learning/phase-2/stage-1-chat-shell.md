@@ -96,6 +96,10 @@ A typed `HttpClient` with base address `http://gateway` (Aspire service discover
 
 A dictionary behind one lock, keyed by a random 32-byte cookie value. Each `HostSession` holds the bank token, the principal, the open chat id, `LastSeen`, and `EndedBy` when a newer login ended it. `Use` returns `Active`, `Idle` (unused for `Agent:IdleTimeout`, removed), `Ended` (told once, removed) or `Unknown`. `EndForNewLogin` marks the user's other sessions ended and removes idle ones of anyone, which keeps the store bounded.
 
+### 2.6a The sweeper: `Features/Auth/SessionSweeper.cs`
+
+A hosted service. When the host starts, it closes every chat still `Open` in the database: no host session survives a restart, so those chats can never be written again. Then every `Agent:SweepInterval` (1 minute) it removes host sessions idle for `Agent:IdleTimeout` and closes their chats with `session_expired`. A person who simply closes the tab therefore gets a closed chat a few minutes later, without anyone else having to log in.
+
 ### 2.7 The guard: `SessionGuard` in `Features/Auth/AuthEndpoints.cs`
 
 Every request that acts for the person goes through it: find the host session, then ask identity if the bank session still works. Every outcome that ends a session also closes its chat with the reason and clears the cookie. `GET /auth/me` returns its answer directly; `POST /agent` turns a "no session at all" into HTTP 401 and any other end into a `RUN_ERROR` with the code, so the UI can say exactly why.
@@ -160,6 +164,8 @@ Stage 1 (agent ADR 0001):
 
 - The first version checked the session twice per run (once before the stream, once inside). It now checks once and passes the session into the stream.
 - The first version deleted the user's other host sessions at a new login. The browser end-to-end test showed the old tab then said "nothing happened for a while" instead of "you logged in somewhere else". Now a replaced session is kept, marked, explains itself once and is removed, the same way identity handles `session_replaced`.
+- The stage review found that a closed tab, or a restart of the host, left chats `Open` until the user's next login. The sweeper and the close at startup were added for that.
+- Two tabs of one browser sending at the same moment raced for the next message number; the second now gets `RUN_ERROR run_in_progress` instead of a broken stream. A bank outage no longer sends the person to the login: the chat stays with a note to try again.
 - A same-browser login as another user closed the old chat as `session_expired`; it now closes as `new_login` and also logs the old user out at identity.
 
 ### 3.4 Patterns used
@@ -178,9 +184,9 @@ Stage 1 (agent ADR 0001):
 | Project | Scenarios | Result |
 | --- | --- | --- |
 | `Bank.Agent.UnitTests` | chat access for customer, admin, closed chats; identity codes to reasons; idle edge | 23 passed |
-| `Bank.Agent.IntegrationTests` (Testcontainers PostgreSQL, stub gateway) | migration and schema; login cookie flags; wrong and blank logins; bank down; me; login elsewhere (`session_replaced` once); same-browser second login; logout; host idle timeout; missing client header; echo run events and stored messages; run keeps the bank session alive; client history ignored; run after expiry or replacement; run without session; run without text; password and token never stored or logged | 24 passed |
-| `chat-ui` (Vitest, jsdom) | login form sends and clears values; error and notice; hidden password; API header and codes; app shows the reason, opens a new chat without login traces, logs out | 14 passed |
-| `chat-ui-e2e` (Playwright, Chromium, AppHost) | customer login → empty chat, no login trace, cookie not readable by scripts, echo, logout; second login tells the first tab why; admin chat; wrong password | 4 passed |
+| `Bank.Agent.IntegrationTests` (Testcontainers PostgreSQL, stub gateway) | migration and schema; login cookie flags; wrong and blank logins; bank down; me; login elsewhere (`session_replaced` once); same-browser second login; logout; host idle timeout; missing client header; echo run events and stored messages; run keeps the bank session alive; client history ignored; run after expiry or replacement; run without session; run without text; password and token never stored or logged; sweeper closes an abandoned chat; restart closes leftovers; records never print secrets | 27 passed |
+| `chat-ui` (Vitest, jsdom) | login form sends and clears values; error and notice; hidden password; API header and codes; app shows the reason, opens a new chat without login traces, logs out | 15 passed |
+| `chat-ui-e2e` (Playwright, Chromium, AppHost) | customer login → empty chat, no login trace, cookie not readable by scripts, echo, logout; second login tells the first tab why; admin chat; wrong password; on a phone the message box stays on screen | 5 passed |
 | `Bank.Platform.IntegrationTests` | agent healthy and migrated; `agent` role isolated from every bank schema | 54 passed |
 
 Commands: `dotnet test` in `agent/` and in `core_banking/bank-platform`, `npm test` in `agent/chat-ui`, `npx playwright test` in `agent/tests/chat-ui-e2e` with the AppHost running.
@@ -188,7 +194,7 @@ Commands: `dotnet test` in `agent/` and in `core_banking/bank-platform`, `npm te
 ## What to watch later
 
 - The home bank does not run the agent yet. Its database predates `002`: create the `agent` role by hand when it moves there (hosting stage).
-- One agent host instance; a restart logs everyone out.
+- One agent host instance; a restart logs everyone out and closes their chats.
 - The UI bundle is about 1 MB minified; split it when it grows.
 - Chats are kept forever with personal data.
 - Stage 2 decides how Microsoft Agent Framework plugs into `/agent` (our endpoint, or `MapAGUIServer`).

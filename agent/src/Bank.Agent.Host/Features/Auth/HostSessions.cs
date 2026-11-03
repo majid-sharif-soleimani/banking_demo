@@ -12,6 +12,9 @@ public sealed class AgentOptions
     /// <summary>How long an unused host session lives; the same as identity's Identity:IdleTimeout.</summary>
     public TimeSpan IdleTimeout { get; set; } = TimeSpan.FromMinutes(5);
 
+    /// <summary>How often <see cref="SessionSweeper"/> looks for idle sessions whose browser never came back.</summary>
+    public TimeSpan SweepInterval { get; set; } = TimeSpan.FromMinutes(1);
+
     public GatewayOptions Gateway { get; set; } = new();
 
     public sealed class GatewayOptions
@@ -122,6 +125,25 @@ public sealed class HostSessions(TimeProvider time, IOptions<AgentOptions> optio
         lock (gate)
         {
             return byId.Remove(id, out var session) ? session : null;
+        }
+    }
+
+    /// <summary>
+    /// Removes every idle session, including ended ones nobody asked about. Returns the idle ones that still own an open
+    /// chat (an ended session's chat was closed by the login that ended it).
+    /// </summary>
+    public IReadOnlyList<HostSession> RemoveIdle()
+    {
+        var now = time.GetUtcNow();
+        lock (gate)
+        {
+            var idle = byId.Values.Where(s => SessionEnd.IsIdle(s.LastSeen, now, options.Value.IdleTimeout)).ToList();
+            foreach (var session in idle)
+            {
+                byId.Remove(session.Id);
+            }
+
+            return [.. idle.Where(s => s.EndedBy is null)];
         }
     }
 

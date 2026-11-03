@@ -7,7 +7,11 @@ namespace Bank.Agent.Host.Features.Auth;
 
 public abstract record LoginOutcome
 {
-    public sealed record Success(string Token, Principal Principal) : LoginOutcome;
+    public sealed record Success(string Token, Principal Principal) : LoginOutcome
+    {
+        // The generated ToString would print the token into any log line or message that formats this record.
+        public override string ToString() => $"Success {{ Principal = {Principal} }}";
+    }
 
     /// <summary>Wrong username or password, or an inactive customer: identity gives one answer for all of them.</summary>
     public sealed record Refused : LoginOutcome;

@@ -19,6 +19,7 @@ Stage 1 of phase 2 builds the frame around the future agent: a login the model n
 5. **Two guards against cross-site requests** (Claude). The cookie is `HttpOnly`, `Secure` and `SameSite=Strict`, and every state-changing call must carry `X-Bank-Chat: 1`, which a form on another site cannot add.
 6. **A replaced session explains itself once** (Claude). A new login marks the user's other host sessions as ended instead of deleting them, so the old tab's next request gets `session_replaced` and then the session is gone, mirroring identity (workspace ADR 0007). The first end-to-end run showed the need: without it, the old tab said "nothing happened for a while".
 7. **The `agent` database role is optional in init** (Claude). `db/init/002-agent-role-and-schema.sql` creates it only when `AGENT_DB_PASSWORD` is set. The AppHost always sets it; Docker Compose will from the hosting stage on. The six bank roles stay mandatory in `001`.
+8. **Chats close even when the browser never comes back** (Claude, from the stage review). `SessionSweeper` closes every chat still open when the host starts (no session survives a restart), and every `Agent:SweepInterval` removes host sessions idle for `Agent:IdleTimeout` and closes their chats with `session_expired`. Without it, a closed tab or a restart left chats `Open` until the user's next login.
 
 ## Rationale
 

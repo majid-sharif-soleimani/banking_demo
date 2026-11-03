@@ -51,6 +51,20 @@ public sealed class ChatStore(AgentDbContext db, TimeProvider time)
             .SetProperty(c => c.ClosedReason, code), ct);
     }
 
+    /// <summary>
+    /// At startup: no host session survived the restart, so no chat can still be open. Closes the leftovers with
+    /// session_expired (phase 2 design plan, decision A12).
+    /// </summary>
+    public Task<int> CloseAllOpenAsync(CancellationToken ct)
+    {
+        var now = time.GetUtcNow();
+        var code = SessionEnd.Code(ChatCloseReason.SessionExpired);
+        return db.Chats.Where(c => c.Status == ChatStatus.Open).ExecuteUpdateAsync(set => set
+            .SetProperty(c => c.Status, ChatStatus.Closed)
+            .SetProperty(c => c.ClosedAt, now)
+            .SetProperty(c => c.ClosedReason, code), ct);
+    }
+
     public Task<Chat?> FindAsync(Guid chatId, CancellationToken ct) =>
         db.Chats.Include(c => c.Messages.OrderBy(m => m.Sequence)).SingleOrDefaultAsync(c => c.Id == chatId, ct);
 

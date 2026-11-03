@@ -12,6 +12,7 @@ builder.AddServiceDefaults();
 builder.Services.AddOptions<AgentOptions>()
     .Bind(builder.Configuration.GetSection(AgentOptions.Section))
     .Validate(o => o.IdleTimeout > TimeSpan.Zero, "Agent:IdleTimeout must be positive, such as \"00:05:00\".")
+    .Validate(o => o.SweepInterval > TimeSpan.Zero, "Agent:SweepInterval must be positive, such as \"00:01:00\".")
     // The gateway refuses callers without its key outside Development (bank-gateway CLAUDE.md), so the host needs it too.
     .Validate(o => builder.Environment.IsDevelopment() || !string.IsNullOrWhiteSpace(o.Gateway.ApiKey),
         "Agent:Gateway:ApiKey is required outside Development. Set Agent__Gateway__ApiKey (env/agent.env at home, user secrets locally).")
@@ -26,6 +27,7 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<HostSessions>();
 builder.Services.AddScoped<ChatStore>();
 builder.Services.AddScoped<SessionGuard>();
+builder.Services.AddHostedService<SessionSweeper>();
 // "gateway" is the Aspire resource name; service discovery (services:gateway:http:0) gives the real address.
 builder.Services.AddHttpClient<BankGateway>((sp, client) =>
 {

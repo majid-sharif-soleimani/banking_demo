@@ -37,6 +37,17 @@ public sealed class AgentApp(string connectionString) : WebApplicationFactory<Pr
         return app;
     }
 
+    /// <summary>A new process on the same schema, as after a restart of the host.</summary>
+    public static AgentApp StartOn(string connectionString)
+    {
+        var app = new AgentApp(connectionString);
+        _ = app.Server;
+        return app;
+    }
+
+    public Task SweepAsync() =>
+        Services.GetServices<Microsoft.Extensions.Hosting.IHostedService>().OfType<SessionSweeper>().Single().SweepOnceAsync(TestContext.Current.CancellationToken);
+
     /// <summary>A browser of its own: its own cookie, nothing shared with another browser.</summary>
     public Browser NewBrowser() => new(CreateClient(new WebApplicationFactoryClientOptions { HandleCookies = false, AllowAutoRedirect = false }));
 

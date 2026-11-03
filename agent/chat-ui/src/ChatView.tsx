@@ -1,8 +1,8 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { HttpAgent } from "@ag-ui/client";
 import { AssistantRuntimeProvider, ComposerPrimitive, MessagePrimitive, ThreadPrimitive } from "@assistant-ui/react";
 import { useAgUiRuntime } from "@assistant-ui/react-ag-ui";
-import { clientHeaders, me, sessionEndCodes, type SessionInfo } from "./api";
+import { clientHeaders, me, noticeFor, sessionEndCodes, type SessionInfo } from "./api";
 
 type Props = {
   session: SessionInfo;
@@ -32,6 +32,9 @@ export function ChatView({ session, onEnded }: Props) {
   // a label: the host writes to the session's own chat whatever the client says.
   const agent = useMemo(() => new HttpAgent({ url: "/agent", headers: { ...clientHeaders }, threadId: session.chatId }), [session.chatId]);
 
+  // A bank that does not answer is not the end of the session: the chat stays, with a note to try again.
+  const [problem, setProblem] = useState<string>();
+
   const runtime = useAgUiRuntime({
     agent,
     showThinking: false,
@@ -42,9 +45,15 @@ export function ChatView({ session, onEnded }: Props) {
         return;
       }
 
-      // An HTTP error before the stream (no session) has no code: ask the host what is left of the session.
+      // Anything else (no code, or the bank down): ask the host what is left of the session.
       void me().then((answer) => {
-        if (!answer.ok) onEnded(answer.code);
+        if (answer.ok) {
+          setProblem(noticeFor("bank_unavailable"));
+        } else if (answer.code === "bank_unavailable") {
+          setProblem(noticeFor(answer.code));
+        } else {
+          onEnded(answer.code);
+        }
       });
     },
   });
@@ -62,7 +71,12 @@ export function ChatView({ session, onEnded }: Props) {
           </ThreadPrimitive.Empty>
           <ThreadPrimitive.Messages components={{ UserMessage, AssistantMessage }} />
         </ThreadPrimitive.Viewport>
-        <ComposerPrimitive.Root className="composer">
+        {problem && (
+          <p className="error" role="alert">
+            {problem}
+          </p>
+        )}
+        <ComposerPrimitive.Root className="composer" onSubmit={() => setProblem(undefined)}>
           <ComposerPrimitive.Input className="composer-input" placeholder="Write a message" aria-label="Message" dir="auto" />
           <ComposerPrimitive.Send className="composer-send">Send</ComposerPrimitive.Send>
         </ComposerPrimitive.Root>

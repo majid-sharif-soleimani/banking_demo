@@ -179,6 +179,48 @@ public class AuthTests(PostgresFixture postgres)
         (await ChatRow(app, chatId)).ShouldBe(("Closed", "session_expired"));
     }
 
+    [Fact]
+    public async Task The_sweeper_closes_the_chat_of_a_browser_that_never_came_back()
+    {
+        await using var app = await AgentApp.StartAsync(postgres);
+        var chatId = (await app.NewBrowser().LoginOkAsync("admin", "admin")).GetProperty("chatId").GetGuid();
+
+        await app.SweepAsync();
+        (await ChatRow(app, chatId)).ShouldBe(("Open", null));
+        app.Clock.Advance(TimeSpan.FromMinutes(5));
+        await app.SweepAsync();
+
+        (await ChatRow(app, chatId)).ShouldBe(("Closed", "session_expired"));
+    }
+
+    [Fact]
+    public async Task A_restart_closes_every_chat_the_previous_process_left_open()
+    {
+        Guid chatId;
+        string connectionString;
+        await using (var first = await AgentApp.StartAsync(postgres))
+        {
+            chatId = (await first.NewBrowser().LoginOkAsync("admin", "admin")).GetProperty("chatId").GetGuid();
+            connectionString = first.ConnectionString;
+        }
+
+        await using var second = AgentApp.StartOn(connectionString);
+
+        (await ChatRow(second, chatId)).ShouldBe(("Closed", "session_expired"));
+    }
+
+    [Fact]
+    public void Records_that_hold_secrets_never_print_them()
+    {
+        var success = new Bank.Agent.Host.Features.Auth.LoginOutcome.Success("the-bank-token",
+            new Bank.Agent.Host.Logic.Principal("admin", Bank.Agent.Host.Logic.Role.Admin, null, "Admin"));
+        var request = new Bank.Agent.Host.Features.Auth.LoginRequest("IMP-C001", "the-password");
+
+        success.ToString().ShouldNotContain("the-bank-token");
+        request.ToString().ShouldNotContain("the-password");
+        request.ToString().ShouldNotContain("IMP-C001");
+    }
+
     [Theory]
     [InlineData("/auth/login")]
     [InlineData("/auth/logout")]

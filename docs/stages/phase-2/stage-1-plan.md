@@ -1,6 +1,6 @@
 # Phase 2, stage 1 plan: Chat shell and login
 
-Spec: `docs/stages/phase-2/stage-1.md`. Status: ready for review (2026-11-03); all slices built, done-when commands green. Decisions and D2 choices: agent ADR 0001; learning document: `docs/learning/phase-2/stage-1-chat-shell.md`.
+Spec: `docs/stages/phase-2/stage-1.md`. Status: done and merged (2026-11-03); all slices built, done-when commands green. Decisions and D2 choices: agent ADR 0001; learning document: `docs/learning/phase-2/stage-1-chat-shell.md`.
 
 ## Context
 

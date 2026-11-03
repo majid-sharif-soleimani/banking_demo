@@ -6,6 +6,7 @@ using Bank.Agent.Host.Data;
 using Bank.Agent.Host.Features.Auth;
 using Bank.Agent.Host.Features.Chats;
 using Bank.Agent.Host.Logic;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using AiChatMessage = Microsoft.Extensions.AI.ChatMessage;
 
@@ -87,7 +88,24 @@ public static class AgUiEndpoint
             yield break;
         }
 
-        await chats.AppendAsync(chat, "user", text, session.Principal.Username, ct);
+        // One browser has one session and one chat; two tabs of it running at once would race for the next sequence
+        // number. The unique (chat, sequence) index lets one through; the other gets a clear error instead of a broken stream.
+        var appended = true;
+        try
+        {
+            await chats.AppendAsync(chat, "user", text, session.Principal.Username, ct);
+        }
+        catch (DbUpdateException)
+        {
+            appended = false;
+        }
+
+        if (!appended)
+        {
+            yield return Item(new RunErrorEvent { Code = "run_in_progress", Message = "Another message is still being answered. Try again." });
+            yield break;
+        }
+
         var history = chat.Messages.OrderBy(m => m.Sequence)
             .Select(m => new AiChatMessage(m.Author == "user" ? ChatRole.User : ChatRole.Assistant, m.Content))
             .ToList();
