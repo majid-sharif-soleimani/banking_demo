@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <ItemGroup>
+    <PackageReference Include="Bank.ServiceDefaults" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Bank.Identity.UnitTests" />
+    <InternalsVisibleTo Include="Bank.Identity.IntegrationTests" />
+  </ItemGroup>
+</Project>

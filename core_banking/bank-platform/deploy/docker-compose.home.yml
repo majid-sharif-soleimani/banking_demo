@@ -21,6 +21,8 @@ services:
     image: bank-lending:home
   ledger:
     image: bank-ledger:home
+  identity:
+    image: bank-identity:home
   gateway:
     image: bank-gateway:home
     # Replaces the AWS mapping (all interfaces): only this machine, and Tailscale, can reach it.

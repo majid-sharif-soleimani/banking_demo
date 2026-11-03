@@ -110,8 +110,8 @@ Six independent services sit behind one gateway and communicate only through Kaf
                  └──────────────┬──────────────┘
                                 ▼
                  ┌─────────────────────────────┐
-                 │  API Gateway (YARP) · REST   │
-                 └──────────────┬──────────────┘
+                 │  API Gateway (YARP) · REST   │──▶ Identity: logins, sessions
+                 └──────────────┬──────────────┘    (ADR 0007; looks up Customers)
                                 ▼
 ┌───────────────────────────────────────────────────────────────┐
 │  Six services · .NET 10 · one folder each                      │
@@ -140,7 +140,7 @@ Six independent services sit behind one gateway and communicate only through Kaf
 └───────────────────────────────────────────────────────────────┘
 ```
 
-Requests reach one service through the gateway; that service stores the change in its own schema and publishes the event through its outbox, and the other services react. In phase 2 the agent accesses the system only through the gateway.
+The gateway first asks the identity service who the caller's session token stands for (workspace ADR 0007), then forwards the request with that identity. Requests reach one service through the gateway; that service stores the change in its own schema and publishes the event through its outbox, and the other services react. In phase 2 the agent accesses the system only through the gateway.
 
 ## 4. Technical decisions (ADR)
 
@@ -160,7 +160,7 @@ Each row is an ADR and is also recorded as a separate file (`docs/adr/NNNN-title
 | 10 | Contracts: C# records (source of truth) in the `Bank.Contracts` NuGet package on GitHub Packages; JSON Schemas with Iglu-style URIs generated from them and committed as snapshots; only optional fields may be added, any other change is a new MODEL; CI checks snapshots and version compatibility (changed 2026-10-30, bank-contracts ADR 0003) | Type safety, one copy of each contract, a language-neutral schema, no server and no cost, can move to a registry later | Hand-written schemas as source of truth (every event written twice), Iglu Server (limited license, extra server), Confluent Schema Registry (tied to Kafka) |
 | 11 | One PostgreSQL instance; one schema and one database user per service, with access only to its own schema | Cost of a single server; the data boundary is enforced by permissions, not convention | Separate database per service |
 | 12 | API Gateway with YARP; REST + OpenAPI | Free, .NET, identical locally and on AWS | AWS API Gateway (cost, environment differences) |
-| 13 | Simulated authentication: the gateway sets the `X-Customer-Id` header; Keycloak or JWT later | Phase 1 focuses on banking logic | — |
+| 13 | Test logins through a separate identity service (changed 2026-11-03, workspace ADR 0007): hard-coded admin, customers by national id, one random token per login, one session per user, 5-minute sliding idle timeout, sessions in memory. The gateway checks the token on every request and sets `X-Customer-Id` or `X-Performed-By` itself. Keycloak or real credentials later | Phase 1 focuses on banking logic; testers need logins before phase 2 | Simulated headers taken as given (the original choice); login inside the gateway; Keycloak |
 | 14 | The bank business date lives in Operations; business logic never reads the system clock (`IBusinessClock`) | Time simulation and deterministic tests | `DateTime.Now` |
 | 15 | End of day: Operations publishes `DayClosed`; each service runs its end-of-day work and replies with `DayCompleted`; once all have replied, the next day opens | Coordination without a saga | A separate scheduled job in each service |
 | 16 | Money: `decimal` with currency; rounding to the currency's minor unit with AwayFromZero; rounding difference goes into the last installment | Deterministic and testable | `double` |
@@ -314,4 +314,4 @@ All assumptions below were confirmed on 2026-10-29.
 - [x] Penalty is calculated from day six (after the 5-day grace period), not from day one
 - [x] A failed installment is retried from the account every business day; a failed standing order is not retried
 
-Out of scope for phase 1: the agent, branches, corporate customers, joint accounts and loans, guarantors and collateral, KYC, deposit interest, interbank transfers, real bank cards, variable rates, daily interest accrual, real authentication, PDF output, a full loan review workflow.
+Out of scope for phase 1: the agent, branches, corporate customers, joint accounts and loans, guarantors and collateral, KYC, deposit interest, interbank transfers, real bank cards, variable rates, daily interest accrual, real authentication (test logins only, workspace ADR 0007), PDF output, a full loan review workflow.

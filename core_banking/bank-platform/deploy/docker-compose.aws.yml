@@ -98,6 +98,20 @@ services:
     # ConnectionStrings__ledger-db (with its password), written by start-bank.sh.
     env_file: [{ path: env/ledger.env, required: false }]
 
+  identity:
+    <<: *service
+    image: ghcr.io/${GHCR_OWNER:-ghcr-owner-not-set}/bank-identity:${BANK_IMAGE_TAG:-latest}
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://dashboard:18889
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_SERVICE_NAME: identity
+      # Logins and sessions (workspace ADR 0007). No database, no Kafka, no secret: sessions live in memory, and a
+      # customer login looks the national id up in Customers.
+      services__customers__http__0: http://customers:8080
+    depends_on:
+      customers: { condition: service_healthy }
+
   gateway:
     networks: [bank]
     image: ghcr.io/${GHCR_OWNER:-ghcr-owner-not-set}/bank-gateway:${BANK_IMAGE_TAG:-latest}
@@ -114,6 +128,7 @@ services:
       services__cards__http__0: http://cards:8080
       services__lending__http__0: http://lending:8080
       services__ledger__http__0: http://ledger:8080
+      services__identity__http__0: http://identity:8080
     # Gateway__ApiKey, the key every /api caller sends in X-Api-Key, written by start-bank.sh (home: home-hosting.md,
     # step 3). Without it the gateway refuses to start.
     env_file: [{ path: env/gateway.env, required: false }]
@@ -127,6 +142,7 @@ services:
       cards: { condition: service_healthy }
       lending: { condition: service_healthy }
       ledger: { condition: service_healthy }
+      identity: { condition: service_healthy }
 
   postgres:
     networks: [bank]

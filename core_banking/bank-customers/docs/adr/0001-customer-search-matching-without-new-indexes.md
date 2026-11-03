@@ -18,6 +18,7 @@ Staff and the phase 2 agent must find a customer from what a caller says: part o
 - **Email**: equal, case-insensitive and trimmed: `lower(email) = lower(@email)`.
 - **Phone**: equal on digits only: `regexp_replace(phone, '[^0-9]', '', 'g') = @digits`, so formatting does not matter. At least 5 digits. `+46 70…` and `070…` are different numbers; no country-code rule is invented.
 - **Customer number**: the customer id, equal.
+- **National id** (added 2026-11-03 for the bank-identity login, workspace ADR 0007): equal after trimming, served by the existing unique index `ux_customer_national_id`.
 - **No new index.** The query reads the `customer` table sequentially.
 
 `regexp_replace` is mapped as a database function on `CustomersDbContext` with an explicit `'g'` flag. Npgsql's translation of `Regex.Replace` only replaced the first match, which the integration tests caught.

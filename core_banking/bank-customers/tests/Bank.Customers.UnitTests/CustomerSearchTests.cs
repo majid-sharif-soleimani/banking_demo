@@ -35,4 +35,8 @@ public class CustomerSearchTests
     [Fact]
     public void Validate_EveryFilterGiven_IsValid() =>
         CustomerSearch.Validate(new CustomerSearchFilter("Ad", "ada@example.com", "070 000", Guid.NewGuid())).ShouldBeEmpty();
+
+    [Fact]
+    public void Validate_OnlyNationalId_IsValid() =>
+        CustomerSearch.Validate(new CustomerSearchFilter(null, null, null, null, "IMP-C001")).ShouldBeEmpty();
 }

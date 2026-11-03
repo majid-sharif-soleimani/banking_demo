@@ -8,21 +8,21 @@ namespace Bank.Customers.Api.Features.Customers;
 public sealed record CustomerSummary(Guid Id, string Name, string Email, string Phone, string Status);
 
 /// <summary>
-/// POST /customers/search: find customers by name, email, phone or customer number (the customer id), sorted by
+/// POST /customers/search: find customers by name, email, phone, customer number (the customer id) or national id, sorted by
 /// (name, id), keyset paging (workspace ADR 0004). A POST so the personal data in the filters and in the cursor never sits
 /// in a URL (ADR 0005); nothing is stored and nothing about the filters is logged. Staff only (ADR 0006). Matching rules:
 /// bank-customers ADR 0001.
 /// </summary>
 public static class SearchCustomers
 {
-    public sealed record Request(string? Name, string? Email, string? Phone, Guid? CustomerNumber, int? Limit, string? Cursor);
+    public sealed record Request(string? Name, string? Email, string? Phone, Guid? CustomerNumber, int? Limit, string? Cursor, string? NationalId = null);
 
     private sealed record Key(string Name, Guid Id);
 
     public static void Map(IEndpointRouteBuilder app) =>
         app.MapPost("/customers/search", HandleAsync)
             .WithName(nameof(SearchCustomers)).WithTags("Customers")
-            .WithSummary("Search customers by name (contains), email, phone (digits) or customer number. Staff only; stores nothing.")
+            .WithSummary("Search customers by name (contains), email, phone (digits), customer number or national id. Staff only; stores nothing.")
             .Produces<Page<CustomerSummary>>()
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -35,7 +35,7 @@ public static class SearchCustomers
             return problem;
         }
 
-        var filter = new CustomerSearchFilter(request.Name, request.Email, request.Phone, request.CustomerNumber);
+        var filter = new CustomerSearchFilter(request.Name, request.Email, request.Phone, request.CustomerNumber, request.NationalId);
         var errors = CustomerSearch.Validate(filter);
         if (errors.Count > 0)
         {
@@ -71,6 +71,13 @@ public static class SearchCustomers
         if (filter.CustomerNumber is { } id)
         {
             query = query.Where(c => c.Id == id);
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.NationalId))
+        {
+            // Unique index ux_customer_national_id: at most one hit.
+            var nationalId = filter.NationalId.Trim();
+            query = query.Where(c => c.NationalId == nationalId);
         }
 
         if (after is not null)

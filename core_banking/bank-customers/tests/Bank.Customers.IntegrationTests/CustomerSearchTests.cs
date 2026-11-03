@@ -65,6 +65,20 @@ public class CustomerSearchTests(PostgresFixture postgres)
     }
 
     [Fact]
+    public async Task National_id_matches_exactly_after_trimming()
+    {
+        await using var app = await CustomersApp.StartAsync(postgres);
+        var nationalId = $"NID-{Guid.NewGuid():N}"[..20];
+        var response = await app.PostJsonAsync("/customers", new RegisterCustomer.Request(
+            "Ada Lovelace", nationalId, new DateOnly(1990, 1, 1), "ada@example.com", "+46 70 111 11 11", "Example Street 1", null), performedBy: "E001");
+        var ada = (await response.Content.ReadFromJsonAsync<CustomerResponse>(Ct))!.Id;
+        await RegisterAsync(app, "Ada Byron", "byron@example.com", "+46 70 111 11 12");
+
+        (await PageAsync(app, new(null, null, null, null, null, null, $" {nationalId} "))).Items.Select(c => c.Id).ShouldBe([ada]);
+        (await PageAsync(app, new(null, null, null, null, null, null, nationalId[..^1]))).Items.ShouldBeEmpty();
+    }
+
+    [Fact]
     public async Task Like_wildcards_in_the_term_match_literally()
     {
         await using var app = await CustomersApp.StartAsync(postgres);

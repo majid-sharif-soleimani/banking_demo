@@ -3,11 +3,12 @@ using System.Text;
 namespace Bank.Customers.Api.Logic;
 
 /// <summary>The search filters; every given one must match (AND). <paramref name="CustomerNumber"/> is the customer id.</summary>
-public sealed record CustomerSearchFilter(string? Name, string? Email, string? Phone, Guid? CustomerNumber);
+public sealed record CustomerSearchFilter(string? Name, string? Email, string? Phone, Guid? CustomerNumber, string? NationalId = null);
 
 /// <summary>
 /// How the customer search matches (bank-customers ADR 0001): name contains the term, case-insensitive; email equal,
-/// case-insensitive; phone equal on digits only; customer number equal. Pure input handling; the query is in the feature.
+/// case-insensitive; phone equal on digits only; customer number equal; national id equal after trimming (the login of
+/// bank-identity, workspace ADR 0007). Pure input handling; the query is in the feature.
 /// </summary>
 public static class CustomerSearch
 {
@@ -42,9 +43,9 @@ public static class CustomerSearch
     {
         var errors = new Dictionary<string, string[]>();
         if (string.IsNullOrWhiteSpace(filter.Name) && string.IsNullOrWhiteSpace(filter.Email)
-            && string.IsNullOrWhiteSpace(filter.Phone) && filter.CustomerNumber is null)
+            && string.IsNullOrWhiteSpace(filter.Phone) && filter.CustomerNumber is null && string.IsNullOrWhiteSpace(filter.NationalId))
         {
-            errors["filter"] = ["Give at least one of name, email, phone or customerNumber."];
+            errors["filter"] = ["Give at least one of name, email, phone, customerNumber or nationalId."];
             return errors;
         }
 

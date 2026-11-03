@@ -20,6 +20,7 @@
     <ProjectReference Include="..\..\..\bank-lending\src\Bank.Lending.Api\Bank.Lending.Api.csproj" />
     <ProjectReference Include="..\..\..\bank-cards\src\Bank.Cards.Api\Bank.Cards.Api.csproj" />
     <ProjectReference Include="..\..\..\bank-ledger\src\Bank.Ledger.Api\Bank.Ledger.Api.csproj" />
+    <ProjectReference Include="..\..\..\bank-identity\src\Bank.Identity.Api\Bank.Identity.Api.csproj" />
     <ProjectReference Include="..\..\..\bank-gateway\src\Bank.Gateway\Bank.Gateway.csproj" />
   </ItemGroup>
 </Project>

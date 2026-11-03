@@ -3,12 +3,18 @@ namespace Bank.EndToEndTests.Support;
 /// <summary>The steps several scenarios share, each one a call or two through the gateway.</summary>
 public static class BankSteps
 {
-    public static async Task<CustomerView> RegisterCustomerAsync(this BankFixture bank, string name, string email) =>
-        await bank.Staff.PostAsync<CustomerView>("/api/customers/customers", new
+    /// <summary>Staff register the customer; the national id is remembered so the customer can log in with it.</summary>
+    public static async Task<CustomerView> RegisterCustomerAsync(this BankFixture bank, string name, string email)
+    {
+        var nationalId = $"E2E-{Guid.NewGuid():N}"[..20];
+        var customer = await bank.Staff.PostAsync<CustomerView>("/api/customers/customers", new
         {
-            name, nationalId = $"E2E-{Guid.NewGuid():N}"[..20], dateOfBirth = new DateOnly(1985, 4, 12), email,
+            name, nationalId, dateOfBirth = new DateOnly(1985, 4, 12), email,
             phone = "+46 70 000 00 00", address = "Example Street 1", preferredLanguage = "en",
         });
+        bank.RememberNationalId(customer.Id, nationalId);
+        return customer;
+    }
 
     /// <summary>The customer opens an account; Accounts learns about the customer from CustomerRegistered, so it may need a moment.</summary>
     public static async Task<AccountView> OpenAccountAsync(this BankFixture bank, CustomerView customer, string currency, string type = "Current") =>

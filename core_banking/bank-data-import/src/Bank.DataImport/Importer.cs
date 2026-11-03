@@ -10,7 +10,7 @@ namespace Bank.DataImport;
 
 public sealed record ImportOptions(
     decimal AmountFactor = 10.0m, int Customers = 100, int Seed = 20260101, DateOnly? StartDate = null, bool Force = false,
-    TimeSpan? DayTimeout = null, string Actor = "import");
+    TimeSpan? DayTimeout = null, string Username = "admin", string Password = "admin");
 
 public sealed class ImportReport
 {
@@ -74,22 +74,29 @@ public sealed class Importer(HttpClient gateway, ImportOptions options, TextWrit
 
     public ImportReport Report { get; } = new();
 
-    /// <summary>Every call, reads included, says who makes it: the gateway refuses anonymous calls (401).</summary>
-    private HttpClient Gateway
-    {
-        get
-        {
-            if (!gateway.DefaultRequestHeaders.Contains("X-Performed-By"))
-            {
-                gateway.DefaultRequestHeaders.Add("X-Performed-By", options.Actor);
-            }
+    private sealed record LoginView(string Token);
 
-            return gateway;
+    /// <summary>
+    /// Logs in as admin (workspace ADR 0007), so the gateway records every change as made by "admin". The replay never
+    /// idles for five minutes, but a login as admin elsewhere ends this session and stops the import (exit 4).
+    /// </summary>
+    private async Task LoginAsync(CancellationToken ct)
+    {
+        using var response = await gateway.PostAsJsonAsync("/api/identity/login", new { username = options.Username, password = options.Password }, Json, ct);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new InvalidOperationException($"Login as {options.Username} failed: {(int)response.StatusCode} {await response.Content.ReadAsStringAsync(ct)}");
         }
+
+        var login = await response.Content.ReadFromJsonAsync<LoginView>(Json, ct);
+        gateway.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", login!.Token);
     }
 
     public async Task<ImportReport> RunAsync(SourceData source, CancellationToken ct)
     {
+        // Every call after this, reads included, carries the session token: the gateway refuses others (401).
+        await LoginAsync(ct);
+
         foreach (var code in new[] { "SEK", "EUR", "USD" })
         {
             await SendAsync(HttpMethod.Post, $"/api/operations/currencies/{code}/activate", null, null, ct);
@@ -104,7 +111,7 @@ public sealed class Importer(HttpClient gateway, ImportOptions options, TextWrit
                 $"The bank is at {current.Date:yyyy-MM-dd} ({current.Status}), not a fresh {options.StartDate:yyyy-MM-dd}. Import into a fresh database, or pass --force.");
         }
 
-        foreach (var product in await Gateway.GetFromJsonAsync<List<ProductView>>("/api/lending/loan-products", Json, ct) ?? [])
+        foreach (var product in await gateway.GetFromJsonAsync<List<ProductView>>("/api/lending/loan-products", Json, ct) ?? [])
         {
             maxStages[product.Code] = product.MaxStages;
         }
@@ -358,7 +365,7 @@ public sealed class Importer(HttpClient gateway, ImportOptions options, TextWrit
 
         // Paid into the repayment account; automatic collection then pays the installment when it is due (stage 7 file, step 5).
         var amount = Amounts.ToSek(p.Amount, options.AmountFactor);
-        var schedule = await Gateway.GetFromJsonAsync<LoanView>($"/api/lending/loans/{loan.LoanId}", Json, ct);
+        var schedule = await gateway.GetFromJsonAsync<LoanView>($"/api/lending/loans/{loan.LoanId}", Json, ct);
         var installment = schedule?.Schedule.FirstOrDefault(i => i.Status != "Paid");
         if (installment is not null && installment.PrincipalDue.Amount + installment.InterestDue.Amount != amount.Amount)
         {
@@ -434,8 +441,8 @@ public sealed class Importer(HttpClient gateway, ImportOptions options, TextWrit
 
         foreach (var (source, id) in accounts)
         {
-            var account = await Gateway.GetFromJsonAsync<AccountView>($"/api/accounts/accounts/{id}", Json, ct);
-            var response = await Gateway.GetAsync($"/api/accounts/accounts/{id}/statement?from={from:yyyy-MM-dd}&to={to.AddDays(1):yyyy-MM-dd}", ct);
+            var account = await gateway.GetFromJsonAsync<AccountView>($"/api/accounts/accounts/{id}", Json, ct);
+            var response = await gateway.GetAsync($"/api/accounts/accounts/{id}/statement?from={from:yyyy-MM-dd}&to={to.AddDays(1):yyyy-MM-dd}", ct);
             if (!response.IsSuccessStatusCode)
             {
                 Report.VerificationErrors.Add($"account {source}: statement {(int)response.StatusCode} {await Code(response, ct)}");
@@ -452,7 +459,7 @@ public sealed class Importer(HttpClient gateway, ImportOptions options, TextWrit
 
         foreach (var currency in new[] { "SEK", "EUR", "USD" })
         {
-            var balance = await Gateway.GetFromJsonAsync<TrialBalanceView>($"/api/ledger/trial-balance?currency={currency}", Json, ct);
+            var balance = await gateway.GetFromJsonAsync<TrialBalanceView>($"/api/ledger/trial-balance?currency={currency}", Json, ct);
             if (balance!.TotalDebit != balance.TotalCredit)
             {
                 Report.VerificationErrors.Add($"trial balance {currency}: debit {balance.TotalDebit} ≠ credit {balance.TotalCredit}");
@@ -495,7 +502,7 @@ public sealed class Importer(HttpClient gateway, ImportOptions options, TextWrit
             request.Content = JsonContent.Create(body, options: Json);
         }
 
-        var response = await Gateway.SendAsync(request, ct);
+        var response = await gateway.SendAsync(request, ct);
         await response.Content.LoadIntoBufferAsync(ct);
         return response;
     }
@@ -503,7 +510,7 @@ public sealed class Importer(HttpClient gateway, ImportOptions options, TextWrit
     private async Task<(DateOnly Date, string Status)> CurrentDayAsync(CancellationToken ct)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, "/api/operations/business-days/current");
-        var day = await (await Gateway.SendAsync(request, ct)).Content.ReadFromJsonAsync<DayView>(Json, ct);
+        var day = await (await gateway.SendAsync(request, ct)).Content.ReadFromJsonAsync<DayView>(Json, ct);
         return (day!.Date, day.Status);
     }
 

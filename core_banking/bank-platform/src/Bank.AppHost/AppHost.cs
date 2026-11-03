@@ -82,12 +82,19 @@ var lending = builder.AddProject<Projects.Bank_Lending_Api>("lending")
     .WaitFor(kafka)
     .WithHttpHealthCheck("/health");
 
+// Logins and sessions (workspace ADR 0007). No database and no Kafka: sessions live in memory. It looks customers up
+// by national id through the Customers search, the one direct call between services.
+var identity = builder.AddProject<Projects.Bank_Identity_Api>("identity")
+    .WithReference(customers)
+    .WaitFor(customers)
+    .WithHttpHealthCheck("/health");
+
 // The single entry point (design plan ADR 12): all external traffic goes through the gateway, which finds each service
 // through the references below (Aspire service discovery).
 builder.AddProject<Projects.Bank_Gateway>("gateway")
     .WithReference(operations).WithReference(customers).WithReference(accounts)
-    .WithReference(cards).WithReference(ledger).WithReference(lending)
-    .WaitFor(operations).WaitFor(customers).WaitFor(accounts).WaitFor(cards).WaitFor(ledger).WaitFor(lending)
+    .WithReference(cards).WithReference(ledger).WithReference(lending).WithReference(identity)
+    .WaitFor(operations).WaitFor(customers).WaitFor(accounts).WaitFor(cards).WaitFor(ledger).WaitFor(lending).WaitFor(identity)
     .WithExternalHttpEndpoints()
     .WithHttpHealthCheck("/health");
 
