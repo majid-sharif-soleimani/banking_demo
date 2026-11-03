@@ -13,6 +13,12 @@ if (options.Services.Length == 0)
     throw new InvalidOperationException("Gateway:Services must list the services behind the gateway, such as [\"accounts\", \"lending\"].");
 }
 
+if (string.IsNullOrWhiteSpace(options.ApiKey) && !builder.Environment.IsDevelopment())
+{
+    throw new InvalidOperationException(
+        "Gateway:ApiKey is not set. Set Gateway__ApiKey in deploy/env/gateway.env (home-hosting.md, step 3) or GATEWAY_API_KEY in the stack secret on AWS.");
+}
+
 var (routes, clusters) = Routes.For(options.Services);
 builder.Services.AddReverseProxy()
     .LoadFromMemory(routes, clusters)
@@ -28,7 +34,7 @@ foreach (var service in options.Services)
 
 var app = builder.Build();
 
-app.UseBankHeaders();
+app.UseBankHeaders(options.ApiKey);
 app.MapDefaultEndpoints();
 
 // Aggregated OpenAPI: where each service's document is, through the gateway.

@@ -28,7 +28,8 @@ public sealed class GatewayTests : IAsyncLifetime
         stub = builder.Build();
         stub.MapGet("/health", () => "Healthy");
         stub.Map("/{**path}", (HttpRequest r) => Results.Ok(new Echo(
-            r.Path, r.Method, r.Headers["X-Customer-Id"].ToString(), r.Headers["X-Performed-By"].ToString(), r.Headers["X-Correlation-Id"].ToString())));
+            r.Path, r.Method, r.Headers["X-Customer-Id"].ToString(), r.Headers["X-Performed-By"].ToString(), r.Headers["X-Correlation-Id"].ToString(),
+            r.Headers["X-Api-Key"].ToString())));
         await stub.StartAsync(Ct);
         var address = stub.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!.Addresses.First();
 
@@ -129,5 +130,60 @@ public sealed class GatewayTests : IAsyncLifetime
         (await gateway.CreateClient().GetAsync("/alive", Ct)).StatusCode.ShouldBe(HttpStatusCode.OK);
     }
 
-    private sealed record Echo(string Path, string Method, string Customer, string PerformedBy, string Correlation);
+    // A fixed test value, not a real secret (.claude/rules/secrets.md).
+    private WebApplicationFactory<Program> WithApiKey() => gateway.WithWebHostBuilder(host => host.UseSetting("Gateway:ApiKey", "test-key"));
+
+    [Fact]
+    public async Task With_an_api_key_set_a_call_without_it_is_401()
+    {
+        using var client = WithApiKey().CreateClient();
+        client.DefaultRequestHeaders.Add("X-Performed-By", "agent");
+
+        var response = await client.GetAsync("/api/lending/loan-products", Ct);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+        (await response.Content.ReadAsStringAsync(Ct)).ShouldContain("invalid_api_key");
+    }
+
+    [Theory]
+    [InlineData("wrong-key")]
+    [InlineData("test-key-but-longer")]
+    [InlineData("")]
+    public async Task A_wrong_api_key_is_401(string given)
+    {
+        using var client = WithApiKey().CreateClient();
+        client.DefaultRequestHeaders.Add("X-Performed-By", "agent");
+        client.DefaultRequestHeaders.Add("X-Api-Key", given);
+
+        (await client.GetAsync("/api/lending/loan-products", Ct)).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task The_right_api_key_passes_and_is_not_forwarded_to_the_service()
+    {
+        using var client = WithApiKey().CreateClient();
+        client.DefaultRequestHeaders.Add("X-Performed-By", "agent");
+        client.DefaultRequestHeaders.Add("X-Api-Key", "test-key");
+
+        var response = await client.GetAsync("/api/lending/loan-products", Ct);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var echo = (await response.Content.ReadFromJsonAsync<Echo>(Ct))!;
+        echo.PerformedBy.ShouldBe("agent");
+        echo.ApiKey.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task With_an_api_key_set_health_still_needs_none() =>
+        (await WithApiKey().CreateClient().GetAsync("/alive", Ct)).StatusCode.ShouldBe(HttpStatusCode.OK);
+
+    [Fact]
+    public void Outside_development_the_gateway_refuses_to_start_without_an_api_key()
+    {
+        var production = gateway.WithWebHostBuilder(host => host.UseEnvironment("Production"));
+
+        Should.Throw<InvalidOperationException>(() => production.CreateClient()).Message.ShouldContain("Gateway:ApiKey");
+    }
+
+    private sealed record Echo(string Path, string Method, string Customer, string PerformedBy, string Correlation, string ApiKey);
 }

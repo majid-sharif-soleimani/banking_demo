@@ -114,6 +114,9 @@ services:
       services__cards__http__0: http://cards:8080
       services__lending__http__0: http://lending:8080
       services__ledger__http__0: http://ledger:8080
+    # Gateway__ApiKey, the key every /api caller sends in X-Api-Key, written by start-bank.sh (home: home-hosting.md,
+    # step 3). Without it the gateway refuses to start.
+    env_file: [{ path: env/gateway.env, required: false }]
     ports:
       # The only port open to the outside (the security group allows it from the configured CIDR).
       - "${GATEWAY_PORT:-8080}:8080"

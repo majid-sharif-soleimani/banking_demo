@@ -17,7 +17,7 @@ flowchart LR
 | --- | --- |
 | `docker-compose.aws.yml` | The whole stack: six services, gateway, PostgreSQL, Kafka, Kafka UI, Mailpit, Aspire dashboard. Unchanged. |
 | `docker-compose.home.yml` | Overrides only what differs at home: local images, local file storage, gateway on `127.0.0.1:8080`. |
-| `env/*.env` (gitignored) | Database passwords and connection strings. On EC2, `start-bank.sh` writes these from Secrets Manager. At home, step 3 writes them. |
+| `env/*.env` (gitignored) | Database passwords, connection strings and the gateway's API key. On EC2, `start-bank.sh` writes these from Secrets Manager. At home, step 3 writes them. |
 
 All commands run from the repository root unless a step says otherwise.
 
@@ -73,8 +73,14 @@ if [ ! -f env/postgres.env ]; then
     echo "ConnectionStrings__${s}-db=Host=postgres;Port=5432;Database=bank;Username=${s};Password=${pw}" > "env/${s}.env"
   done
 fi
+# The key every caller sends to the gateway in X-Api-Key. The gateway refuses to start without it.
+if [ ! -f env/gateway.env ]; then
+  (umask 077 && echo "Gateway__ApiKey=$(openssl rand -hex 32)" > env/gateway.env)
+fi
 git status --short env     # prints nothing: env/ is ignored
 ```
+
+The agent (and anything else that calls the bank) needs this key. Give it from `env/gateway.env` through the agent's own secret store, never in a tracked file or a chat. To change the key, write a new value to the file and run `bank up -d --wait`: Compose recreates the gateway.
 
 `bank-platform/docker-compose.yml` (infrastructure only) uses the same project name, `bank`, and the same volume names. If it was ever started with other passwords, the roles already exist with those passwords. In that case, remove the old volumes first. This deletes their data:
 
@@ -100,7 +106,11 @@ If the dashboard image does not pull (`aspire-dashboard:13.6` is not checked yet
 
 ## 5. Load the initial data (once, on a fresh bank)
 
-The import tool replays customers, accounts, loans, transactions and standing orders day by day through the gateway, then checks balances against statements and the trial balance. It refuses to run on a bank that already has its customers.
+The import tool replays customers, accounts, loans, transactions and standing orders day by day through the gateway, then checks balances against statements and the trial balance. It refuses to run on a bank that already has its customers. It reads the gateway's key from `Import__ApiKey`:
+
+```bash
+export Import__ApiKey="$(cut -d= -f2- ../bank-platform/deploy/env/gateway.env)"   # from core_banking/bank-data-import
+```
 
 Option A, the 5-customer synthetic fixture (works now, about 2–5 minutes):
 
@@ -127,7 +137,7 @@ To start over with an empty bank: `docker compose -f docker-compose.aws.yml -f d
 
 ## 6. Publish the gateway through Tailscale
 
-Pick one. Both serve `https://<machine>.<tailnet>.ts.net` with a certificate from Tailscale. Plain `http://` is not served. The real name is not written in this repository (it would point anyone to the host machine); the command in step 7 prints it.
+Use A unless the agent cannot join the tailnet. Both serve `https://<machine>.<tailnet>.ts.net` with a certificate from Tailscale. Plain `http://` is not served. The real name is not written in this repository (it would point anyone to the host machine); the command in step 7 prints it.
 
 ```bash
 # A: only devices in the tailnet (the agent runs on a machine logged in to Tailscale)
@@ -142,24 +152,27 @@ sudo tailscale serve reset            # stops A; "sudo tailscale funnel reset" s
 
 `serve` and `funnel` write the same entry for port 443; `funnel` only adds the internet flag, so running both leaves one entry. After `funnel` is turned on, the public relays take a few minutes (about 3 on 2026-11-03) before every one of them serves the URL; until then, devices outside the tailnet may get a TLS error.
 
-With Funnel, anyone who knows the URL can call the API. The gateway only asks for an `X-Performed-By` or `X-Customer-Id` header. Keep only synthetic data in this bank.
+With Funnel, anyone who knows the URL can reach the gateway, and the API key is then the only lock. The key proves the caller is trusted, not which customer it acts for: `X-Performed-By` and `X-Customer-Id` are still taken as given. Keep only synthetic data in this bank.
 
 ## 7. Test the running bank
 
-Run the checks locally first, then through Tailscale. For Funnel, test from a device outside the tailnet, such as a phone on mobile data.
+Run the checks locally first, then through Tailscale. With serve, the tailnet URL answers only on devices in the tailnet. With Funnel, also test from a device outside it, such as a phone on mobile data.
 
 ```bash
 TS_URL="https://$(tailscale status --json | python3 -c 'import sys,json;print(json.load(sys.stdin)["Self"]["DNSName"].rstrip("."))')"   # this machine's tailnet name
 for GW in http://127.0.0.1:8080 "$TS_URL"; do
   echo "== $GW"
+  K="X-Api-Key: $(cut -d= -f2- core_banking/bank-platform/deploy/env/gateway.env)"
   H='X-Performed-By: smoke-test'
   curl -fsS "$GW/health"; echo                                                        # Healthy
-  curl -s -o /dev/null -w 'no identity: %{http_code}\n' "$GW/api/lending/loan-products"   # 401
-  curl -fsS -H "$H" "$GW/api/operations/currencies"; echo                             # SEK, EUR, USD (active after the import)
-  curl -fsS -H "$H" "$GW/api/operations/business-days/current"; echo                  # one Open day
-  curl -fsS -H "$H" "$GW/api/lending/loan-products"; echo                             # includes PURCHASE
+  curl -s -o /dev/null -w 'no key: %{http_code}\n' -H "$H" "$GW/api/lending/loan-products"         # 401
+  curl -s -o /dev/null -w 'no identity: %{http_code}\n' -H "$K" "$GW/api/lending/loan-products"    # 401
+  A=(-H "$H" -H "$K")   # from here on, both headers
+  curl -fsS "${A[@]}" "$GW/api/operations/currencies"; echo                             # SEK, EUR, USD (active after the import)
+  curl -fsS "${A[@]}" "$GW/api/operations/business-days/current"; echo                  # one Open day
+  curl -fsS "${A[@]}" "$GW/api/lending/loan-products"; echo                             # includes PURCHASE
   for c in SEK EUR USD; do
-    curl -fsS -H "$H" "$GW/api/ledger/trial-balance?currency=$c" | jq -c '{currency, balanced: (.totalDebit == .totalCredit)}'
+    curl -fsS "${A[@]}" "$GW/api/ledger/trial-balance?currency=$c" | jq -c '{currency, balanced: (.totalDebit == .totalCredit)}'
   done                                                                                # balanced: true
 done
 ```
@@ -170,14 +183,15 @@ Then check that the data survives a restart:
 cd core_banking/bank-platform/deploy
 docker compose -f docker-compose.aws.yml -f docker-compose.home.yml restart
 docker compose -f docker-compose.aws.yml -f docker-compose.home.yml up -d --wait
-curl -fsS -H 'X-Performed-By: smoke-test' http://127.0.0.1:8080/api/operations/business-days/current; echo   # same date as before
+curl -fsS -H 'X-Performed-By: smoke-test' -H "X-Api-Key: $(cut -d= -f2- env/gateway.env)" \
+  http://127.0.0.1:8080/api/operations/business-days/current; echo   # same date as before
 ```
 
 Rebooting the host machine is the full check: after login, step 7 passes again without running any command.
 
 ## Bring the bank back up (quick guide)
 
-The bank is already installed: images built, passwords in `env/`, data in the volumes, Funnel saved in Tailscale. Nothing below deletes data.
+The bank is already installed: images built, passwords and the API key in `env/`, data in the volumes, the Tailscale entry saved. Nothing below deletes data.
 
 ```bash
 cd ~/repos/banking_demo/core_banking/bank-platform/deploy
@@ -186,8 +200,8 @@ alias bank='docker compose -f docker-compose.aws.yml -f docker-compose.home.yml'
 bank ps                                    # 1. what is running? After a reboot, usually everything already is.
 bank up -d --wait                          # 2. start whatever is stopped (safe to run any time)
 curl -fsS http://127.0.0.1:8080/health; echo                  # 3. Healthy
-tailscale funnel status                    # 4. shows "(Funnel on)" for the tailnet URL
-sudo tailscale funnel --bg 8080            #    only if step 4 shows nothing
+tailscale serve status                     # 4. shows the tailnet URL with "(tailnet only)"
+sudo tailscale serve --bg 8080             #    only if step 4 shows nothing
 curl -fsS "https://$(tailscale status --json | python3 -c 'import sys,json;print(json.load(sys.stdin)["Self"]["DNSName"].rstrip("."))')/health"; echo   # 5. Healthy
 ```
 

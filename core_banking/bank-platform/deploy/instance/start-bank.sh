@@ -37,6 +37,13 @@ for s in operations customers accounts cards lending ledger; do
 done
 printf 'Files__Bucket=%s\nAWS_REGION=%s\n' "$BANK_BUCKET" "$AWS_REGION" >> env/customers.env
 
+# The key every caller sends to the gateway in X-Api-Key. Same rule as the passwords: it goes into an env file.
+if ! api_key=$(jq -er '.GATEWAY_API_KEY | select(type == "string" and test("^[A-Za-z0-9]{32,}$"))' <<<"$secret"); then
+  echo "The secret has no GATEWAY_API_KEY of at least 32 letters and digits (deploy/README.md). Nothing was started." >&2
+  exit 1
+fi
+echo "Gateway__ApiKey=$api_key" > env/gateway.env
+
 # Only Customers (fixed address on the bank network, docker-compose.aws.yml) may reach the instance metadata service
 # and so the instance role; every other container, including the gateway and third-party images, is blocked.
 iptables -D DOCKER-USER -d 169.254.169.254 -j DROP 2>/dev/null || true
