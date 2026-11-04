@@ -18,6 +18,7 @@ Phase 1 is complete (closed 2026-11-03). It is reopened only to fix bugs. Phase 
 | Fix | The customer chooses the card payment amount | Done, on the home bank | 2026-11-04 | The agent replaced an entered 1,000 SEK with 8,004.17 SEK. Partial payments are allowed (Majid). Instructions and tool description changed; `ConfirmFirst` refuses a `card_payment` whose amount differs from the form; button messages no longer set the language; agent ADR 0010. Unit 101, MCP 43, integration 59. New eval case not run. |
 | Fix | Loan numbers without the schedule, fuller usage logs | Done, on the home bank | 2026-11-04 | `loan_summary` and `customer_loan_summary` answer without schedules, and `loans_by_classification` too. Instructions have their own cache point. 600,000 input tokens per run. Log lines per model call, tool and run; Seq keeps them. Agent ADR 0011. On the home bank; the savings are not yet measured on the real model. |
 | Fix | Guide on the first screen | Done, on the home bank | 2026-11-04 | A visitor saw a login form with no word on what the app is. `Guide.tsx` in three languages: open on the login screen, closed in a new chat. chat-ui 43 tests green; Playwright not rerun. `docs/learning/phase-2/fix-first-screen-guide.md` |
+| Docs | Root README | Done | 2026-11-04 | Goal, phases, design, subsystems, decisions, patterns, code map, getting started. Setup steps tried on a fresh clone. |
 
 ## Phase 1
 
