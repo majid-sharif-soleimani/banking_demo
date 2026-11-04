@@ -43,9 +43,9 @@ dotnet test tests/Bank.Agent.IntegrationTests   # 59 passed
 
 ## What to watch later
 
-- The bank's own services do not send logs to Seq yet; `docker logs` and the dashboard show them (`home-hosting.md`, "Logs in Seq").
+- The bank services did not send logs to Seq at first; `fix-report-limit-and-bank-logs.md` added them.
 - Tools with structured results answer with a JSON element and not `TextContent`. `ToolResult.Read` handles both.
-- The report always shows every customer, so "the first five" still gets the whole list.
+- The report had no limit, so "the first five" got the whole list; `fix-report-limit-and-bank-logs.md` added one.
 
 ## Check your understanding
 

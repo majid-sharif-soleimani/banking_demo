@@ -302,6 +302,22 @@ public class AgentToolTests(PostgresFixture postgres)
     }
 
     [Fact]
+    public async Task A_report_with_a_limit_asks_the_bank_for_that_many_and_tells_the_model_so()
+    {
+        var model = new ScriptedModel(
+            new CallTool("show_customers_report", new { includeContact = false, includeAccounts = false, includeLoans = false, limit = 5 }),
+            new Answer("Here are the first five."));
+        await using var app = await AgentApp.StartAsync(postgres, model);
+        var browser = app.NewBrowser();
+        await browser.LoginOkAsync("admin", "admin");
+
+        await browser.RunAsync("Show the first five customers.");
+
+        app.BankTools.ReportLimits.ShouldBe([5]);
+        model.EverythingSeen.ShouldContain("as asked");
+    }
+
+    [Fact]
     public async Task A_customer_never_gets_the_customers_report()
     {
         var model = new ScriptedModel(new Answer("Hello."));

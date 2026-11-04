@@ -58,7 +58,8 @@ public static class AgentInstructions
         you it was confirmed and what the bank answered.
         Trial balance: say for each currency whether total debit equals total credit.
         Customer lists: for any list of customers, also with their contact details, accounts or loans, call
-        show_customers_report once and add one short sentence. It shows every customer to the admin; you do not see the rows.
+        show_customers_report once and add one short sentence. It shows the rows to the admin, and you do not see them. When the
+        admin asks for a number of customers, pass it as limit, so only those are shown; the order is by name. Otherwise it shows every customer.
         Never look customers up one by one for a list, and never search by guessing letters or names. customers_search is
         for finding particular customers. A question about the rows that the report cannot answer: say so and offer a search.
         Customer overview: find the customer with customers_search when you only have a name, then read the profile,

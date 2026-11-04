@@ -158,21 +158,23 @@ public sealed class AdminTools(BankApi bank)
 
     [McpServerTool(Name = CustomersReport, ReadOnly = true)]
     [Description("Host only: every customer with their accounts and loans.")]
-    public async Task<string> CustomersReportAsync(bool includeAccounts, bool includeLoans, CancellationToken ct)
+    public async Task<string> CustomersReportAsync(bool includeAccounts, bool includeLoans, CancellationToken ct, int? limit = null)
     {
+        // Only the customers asked for: each one costs a bank call per list in the report.
+        var wanted = Math.Min(limit ?? MaxReportCustomers, MaxReportCustomers);
         var customers = new List<JsonElement>();
         string? cursor = null;
         var more = false;
         do
         {
-            using var page = JsonDocument.Parse(await bank.PostReadAsync("/api/customers/customers/search", new { limit = 200, cursor }, ct));
+            using var page = JsonDocument.Parse(await bank.PostReadAsync("/api/customers/customers/search", new { limit = Math.Min(wanted, 200), cursor }, ct));
             customers.AddRange(page.RootElement.GetProperty("items").EnumerateArray().Select(c => c.Clone()));
             cursor = page.RootElement.GetProperty("nextCursor").GetString();
-            more = customers.Count > MaxReportCustomers || (customers.Count == MaxReportCustomers && cursor is not null);
+            more = customers.Count > wanted || (customers.Count == wanted && cursor is not null);
         }
         while (cursor is not null && !more);
 
-        var rows = new object[Math.Min(customers.Count, MaxReportCustomers)];
+        var rows = new object[Math.Min(customers.Count, wanted)];
         await Parallel.ForEachAsync(Enumerable.Range(0, rows.Length), new ParallelOptions { MaxDegreeOfParallelism = ReportParallelCalls, CancellationToken = ct }, async (i, token) =>
         {
             var c = customers[i];

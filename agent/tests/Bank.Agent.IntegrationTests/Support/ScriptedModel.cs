@@ -127,6 +127,9 @@ public sealed class FakeBankTools : IBankTools
 
     public List<(string Token, Guid? CustomerId)> Opened { get; } = [];
 
+    /// <summary>The limit of every customers report the "bank" was asked for.</summary>
+    public List<int?> ReportLimits { get; } = [];
+
     /// <summary>Changes that reached the "bank": tool, confirmation id (idempotency key) and arguments.</summary>
     public List<(string Tool, string? ConfirmationId, string Arguments)> Ran { get; } = [];
 
@@ -162,7 +165,12 @@ public sealed class FakeBankTools : IBankTools
                     contentBase64 = Convert.ToBase64String(DocumentBytes),
                 }),
                 McpBankTools.CustomerDocument, "Host only.");
-            var report = AIFunctionFactory.Create((bool includeAccounts, bool includeLoans) => CustomersReportJson, McpBankTools.CustomersReport, "Host only.");
+            var report = AIFunctionFactory.Create((bool includeAccounts, bool includeLoans, int? limit) =>
+                {
+                    ReportLimits.Add(limit);
+                    return CustomersReportJson;
+                },
+                McpBankTools.CustomersReport, "Host only.");
             return Task.FromResult(new BankToolSet([trialBalance, interactions], [approve], [new AnswersLikeMcp(document), new AnswersLikeMcp(report)]));
         }
 

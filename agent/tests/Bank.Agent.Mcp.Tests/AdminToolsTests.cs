@@ -104,6 +104,26 @@ public class AdminToolsTests
         app.Gateway.Requests.ShouldNotContain(r => r.PathAndQuery.StartsWith("/api/lending/"));
     }
 
+    [Fact]
+    public async Task The_customers_report_with_a_limit_asks_only_for_that_many_and_says_there_are_more()
+    {
+        await using var app = new McpServerApp();
+        var (first, second) = (Guid.NewGuid(), Guid.NewGuid());
+        app.Gateway.BodiesByPath["/api/customers/customers/search"] =
+            $$"""{"items":[{"id":"{{first}}","name":"Ada","nationalId":"IMP-1","email":"a@example.com","phone":"070","status":"Active"},{"id":"{{second}}","name":"Bo","nationalId":"IMP-2","email":"b@example.com","phone":"071","status":"Active"}],"nextCursor":"next"}""";
+        app.Gateway.BodiesByPath["/api/accounts/accounts"] = "[]";
+        await using var client = await app.ConnectAdminAsync(Token);
+
+        var report = Text(await client.CallToolAsync("host_customers_report",
+            new Dictionary<string, object?> { ["includeAccounts"] = true, ["includeLoans"] = false, ["limit"] = 1 }, cancellationToken: TestContext.Current.CancellationToken));
+
+        using var json = JsonDocument.Parse(report);
+        json.RootElement.GetProperty("customers").GetArrayLength().ShouldBe(1);
+        json.RootElement.GetProperty("more").GetBoolean().ShouldBeTrue();
+        app.Gateway.Sent.Single(s => s.Body is not null).Body!.ShouldContain("\"limit\":1");
+        app.Gateway.Requests.Count(r => r.PathAndQuery.StartsWith("/api/accounts/")).ShouldBe(1);
+    }
+
     /// <summary>The host's ToolResult depends on these two shapes. A test double that returns a string would hide a change.</summary>
     [Fact]
     public async Task As_a_function_the_host_only_report_answers_with_text_content_and_a_refusal_with_is_error()
