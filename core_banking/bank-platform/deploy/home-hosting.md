@@ -278,6 +278,19 @@ bank up -d --wait --no-deps operations ledger customers accounts lending
 
 The evaluation set (`agent/eval`, agent README) runs on the host machine, not in a container, against the model only.
 
+## When Customers says "Address already in use"
+
+Customers has a fixed address (`172.30.0.10`), and a container created at the same time can take it. Find the holder, remove only that container, and start Customers first:
+
+```bash
+docker network inspect bank_bank --format '{{range .Containers}}{{.IPv4Address}} {{.Name}}{{println}}{{end}}' | grep '172.30.0.10/'
+bank rm -sf <holder-service>
+bank up -d --wait --no-deps customers
+bank up -d --wait --no-deps <holder-service>
+```
+
+To avoid it, recreate Customers on its own before other services. Remove a holder only if it keeps no data in its container.
+
 ## Logs in Seq
 
 Seq runs on the host machine, outside the bank's network, on port 5341 (bank-platform ADR 0005). In `docker-compose.home.yml`, `agent` and `bank-mcp` have `Seq__ServerUrl: http://host.docker.internal:5341` and `OTEL_RESOURCE_ATTRIBUTES: log_group=agent`.
