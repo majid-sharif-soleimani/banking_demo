@@ -31,7 +31,7 @@ The project stays a learning and portfolio project. The goal is a working demo, 
 
 1. The UI is a chat. Messages can contain plain text, tables, cards (one record shown as labelled fields), diagrams (for example a payment schedule, a flow or a chart) and forms.
 2. A form collects input with typed fields, required-field checks and a submit button. The submitted values go back to the agent as structured data, not as free text.
-3. The first screen is a login form inside the chat: username and password.
+3. The first screen is a login form inside the chat: username and password. Below it, a guide says what the app is for, how to use it and what its limits are; a new chat offers the same guide closed. The guide is UI text and never reaches the model.
 4. After a successful login, the UI opens a **new chat**. Nothing from the login chat (fields, messages, errors) is in the new chat, in its history or in the model's context.
 5. Every chat belongs to one login. Logging out, or a session that ends, closes the chat for further input.
 6. A customer can open a list of their own old chats, and the admin a list of every chat. Old chats are read-only.

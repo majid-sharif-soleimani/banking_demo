@@ -43,6 +43,17 @@ describe("LoginForm", () => {
     expect(logins).toContain("IMP-C001");
   });
 
+  it("shows the guide, open: what the app is for, how to use it and its limits", () => {
+    render(<LoginForm onSubmit={vi.fn()} />);
+
+    const guide = screen.getByText(/^About this app/).closest("details");
+    expect(guide?.open).toBe(true);
+    for (const heading of ["What it is for", "How to use it", "Limits"]) {
+      expect(screen.getByRole("heading", { name: heading })).toBeTruthy();
+    }
+    expect(guide?.textContent).toContain("Do not enter real personal details");
+  });
+
   it("keeps the password hidden", () => {
     render(<LoginForm onSubmit={vi.fn()} />);
 

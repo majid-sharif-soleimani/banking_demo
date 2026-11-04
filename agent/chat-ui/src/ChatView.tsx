@@ -4,6 +4,7 @@ import { AssistantRuntimeProvider, ComposerPrimitive, MessagePrimitive, ThreadPr
 import { useAgUiRuntime } from "@assistant-ui/react-ag-ui";
 import { CardTool, ChartTool, ConfirmationTool, DiagramTool, DocumentRequestTool, FormTool, TableTool } from "./components";
 import { clientHeaders, me, noticeFor, runProblemCodes, sessionEndCodes, type SessionInfo } from "./api";
+import { Guide } from "./Guide";
 import { LanguageContext, useText } from "./i18n";
 import { useContext } from "react";
 
@@ -93,6 +94,7 @@ export function ChatView({ session, onEnded }: Props) {
             <div className="bubble assistant" dir="auto">
               <p>{t("greeting", { name: session.name, role: t(session.role === "admin" ? "theAdmin" : "aCustomer") })}</p>
             </div>
+            <Guide open={false} />
           </ThreadPrimitive.Empty>
           <ThreadPrimitive.Messages components={{ UserMessage, AssistantMessage }} />
         </ThreadPrimitive.Viewport>

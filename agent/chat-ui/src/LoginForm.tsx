@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { Guide } from "./Guide";
 import { useText } from "./i18n";
 
 type Props = {
@@ -76,6 +77,7 @@ export function LoginForm({ onSubmit, notice }: Props) {
           </dd>
         </dl>
       </div>
+      <Guide open />
     </section>
   );
 }

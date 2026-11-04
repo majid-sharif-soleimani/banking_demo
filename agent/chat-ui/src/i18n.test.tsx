@@ -39,6 +39,7 @@ describe("languages", () => {
 
     expect(await screen.findByLabelText("نام کاربری")).toBeTruthy();
     expect(screen.getByRole("button", { name: "ورود" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "محدودیت‌ها" })).toBeTruthy();
     expect(document.documentElement.dir).toBe("rtl");
     expect(document.documentElement.lang).toBe("fa");
     expect(localStorage.getItem("bank-chat-language")).toBe("fa");

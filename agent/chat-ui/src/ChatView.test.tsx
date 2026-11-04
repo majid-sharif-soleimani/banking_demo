@@ -20,6 +20,25 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+describe("a new chat", () => {
+  it("offers the guide closed, and the guide is not part of what is sent to the agent", async () => {
+    const fetch = vi.fn().mockImplementation(async () => failingRun("no_answer"));
+    vi.stubGlobal("fetch", fetch);
+    Element.prototype.scrollTo = vi.fn();
+    vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
+    render(<ChatView session={{ chatId: "c-1", username: "admin", role: "admin", name: "Admin" } as never} onEnded={vi.fn()} />);
+
+    expect(screen.getByText(/^About this app/).closest("details")?.open).toBe(false);
+
+    await userEvent.type(screen.getByRole("textbox"), "Hello{Enter}");
+    await screen.findByText(/stopped early/, {}, { timeout: 3000 });
+
+    const sent = fetch.mock.calls.map(([, init]) => String(init?.body)).join();
+    expect(sent).toContain("Hello");
+    expect(sent).not.toContain("external AI provider");
+  });
+});
+
 describe("a failed run", () => {
   it.each([
     ["model_unavailable", "assistant is not available"],

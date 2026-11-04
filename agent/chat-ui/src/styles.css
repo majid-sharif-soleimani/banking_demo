@@ -68,6 +68,12 @@ button:disabled { opacity: 0.6; cursor: default; }
 .test-logins { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 6px 0 0; font-size: 0.9rem; }
 .test-logins dt { font-weight: 600; }
 .test-logins dd { margin: 0; }
+/* The guide (src/Guide.tsx): as wide as the page, it is reading text and not a chat message. */
+.bubble.guide { flex: none; align-self: stretch; max-width: 100%; white-space: normal; font-size: 0.9rem; }
+.guide summary { cursor: pointer; font-weight: 600; }
+.guide h2 { font-size: 0.95rem; margin: 12px 0 4px; }
+.guide ul { margin: 0; padding-inline-start: 20px; }
+.guide li { margin-bottom: 4px; }
 code { font-family: ui-monospace, monospace; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; }
 /* Tables and cards the agent shows (src/components.tsx). A wide table scrolls inside the bubble, not the page. */
 .bubble.assistant { white-space: pre-wrap; }
