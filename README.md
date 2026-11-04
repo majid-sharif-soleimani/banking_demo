@@ -332,6 +332,8 @@ git clone <this repository's URL> banking_demo
 cd banking_demo
 
 # Build the shared packages into the local NuGet feed, which is not in the repository.
+# The folder must exist first: NuGet refuses a package source that is missing.
+mkdir -p core_banking/.local-feed
 dotnet pack core_banking/bank-contracts -c Release -o core_banking/.local-feed
 dotnet pack core_banking/bank-platform/src/Bank.ServiceDefaults -c Release -o core_banking/.local-feed
 
