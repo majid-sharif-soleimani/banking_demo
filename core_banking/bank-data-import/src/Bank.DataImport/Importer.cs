@@ -469,9 +469,10 @@ public sealed class Importer(HttpClient gateway, ImportOptions options, TextWrit
 
     /// <summary>
     /// Codes that mean "the other service has not received the event yet" (eventual consistency between services): the
-    /// call is retried for up to a minute before it counts as skipped.
+    /// call is retried for up to a minute before it counts as skipped. stage_past_term belongs here because the last stage
+    /// falls on Operations' date plus the term, so it is a day too late while Lending's clock is still on the day before.
     /// </summary>
-    private static readonly HashSet<string> NotYet = ["customer_not_found", "currency_not_active", "repayment_account_invalid", "date_in_future"];
+    private static readonly HashSet<string> NotYet = ["customer_not_found", "currency_not_active", "repayment_account_invalid", "date_in_future", "stage_past_term"];
 
     private async Task<HttpResponseMessage> RetryAsync(Func<Task<HttpResponseMessage>> send, CancellationToken ct)
     {

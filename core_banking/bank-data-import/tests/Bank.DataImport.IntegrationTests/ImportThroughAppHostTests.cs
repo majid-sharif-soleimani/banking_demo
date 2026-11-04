@@ -34,12 +34,12 @@ public sealed class ImportThroughAppHostTests
         report.Customers.ShouldBe(5, markdown);
         report.Accounts.ShouldBe(5, markdown);
         report.Days.ShouldBeGreaterThanOrEqualTo(3);
-        report.Applied["deposits"].ShouldBe(5);
-        report.Applied["transfers"].ShouldBe(1);
-        report.Applied["external transfers"].ShouldBe(1);
-        report.Applied["loans (CAR)"].ShouldBe(1);
-        report.Applied["loans (PURCHASE)"].ShouldBe(1);
-        report.Applied["standing orders"].ShouldBe(1);
+        report.Applied.GetValueOrDefault("deposits").ShouldBe(5, markdown);
+        report.Applied.GetValueOrDefault("transfers").ShouldBe(1, markdown);
+        report.Applied.GetValueOrDefault("external transfers").ShouldBe(1, markdown);
+        report.Applied.GetValueOrDefault("loans (CAR)").ShouldBe(1, markdown);
+        report.Applied.GetValueOrDefault("loans (PURCHASE)").ShouldBe(1, markdown);
+        report.Applied.GetValueOrDefault("standing orders").ShouldBe(1, markdown);
         report.Skipped.ShouldContain(s => s.StartsWith("transaction T7") && s.Contains("insufficient_funds"));
         report.Skipped.ShouldContain(s => s.StartsWith("loan L3") && s.Contains("amount_out_of_range"));
         report.ToMarkdown().ShouldContain("Verification: passed");

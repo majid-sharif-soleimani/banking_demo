@@ -54,3 +54,15 @@ The "after" build also has only `bin/Release` for the Accounts, Identity and Age
 1. Why did the tests pass in a working copy and fail in a fresh clone?
 2. Why does the fix belong to the project holding the references, not to the services?
 3. What would you look at first if a new service made this test time out again?
+
+## Second cause: a loan refused by a clock one day behind
+
+With the build fixed, `bank-data-import` got further and failed differently on GitHub: the PURCHASE loan was missing from the report. It happened only sometimes.
+
+The importer takes today from Operations and sets the last stage to that date plus the term. Lending receives the new business day a moment later through Kafka. While Lending is still on the day before, its limit is one day earlier, so the last stage is one day too late and the application is refused with `stage_past_term`. A real import had the same gap: the loan was skipped and only the report said so.
+
+The importer already retries codes that mean "the other service has not received the event yet" (`NotYet` in `Importer.cs`), so `stage_past_term` joined that set. The alternative, reading Lending's date before planning, would need a new endpoint for a case the retry already covers. The price: a plan that is truly past the term waits one minute before it is skipped, and the importer's planner does not produce such a plan.
+
+The test now passes the full report to its loan and row assertions, so the next failure of this kind names its reason in the CI log.
+
+Limited to two CPUs, the test failed 1 run in 3 before the fix and passed 6 runs in 6 after it. A timing failure cannot be proven gone by repeated runs alone; the code path explains it.
