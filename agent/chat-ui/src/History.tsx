@@ -98,7 +98,7 @@ export function Stored({ message }: { message: StoredMessage }) {
     case "form_values":
       return <p>{t("sentTheForm", { title: String(data.title ?? "") })}</p>;
     case "change_result":
-      return <p>{data.status === "cancelled" ? t("cancelled") : data.status === "done" ? t("confirmed") : t("confirmedButRefused")}: {String(data.title ?? "")}.</p>;
+      return <p>{data.status === "cancelled" ? t("cancelled") : data.status === "done" ? t("confirmed") : data.status === "unknown" ? t("confirmedNoAnswer") : t("confirmedButRefused")}: {String(data.title ?? "")}.</p>;
     case "document":
       return <p>{t("uploadedFile", { file: String(data.fileName ?? t("aDocument")), status: String(data.status ?? "") })}</p>;
     default:

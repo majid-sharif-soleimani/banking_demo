@@ -26,9 +26,11 @@ public static class ChatEndpoints
 
     private static async Task<IResult> ListAsync(HttpContext http, SessionGuard guard, ChatStore chats, CancellationToken ct)
     {
-        if (await guard.CheckAsync(http, ct) is not GuardResult.Allowed(var session))
+        var guarded = await guard.CheckAsync(http, ct);
+        if (guarded is not GuardResult.Allowed(var session))
         {
-            return Problems.MissingSession();
+            // The guard's own answer: an ended session sends the person to the login, a bank outage says "try again".
+            return ((GuardResult.Denied)guarded).Problem;
         }
 
         return TypedResults.Ok(await chats.ListAsync(session.Principal, ListLimit, ct));
@@ -36,9 +38,11 @@ public static class ChatEndpoints
 
     private static async Task<IResult> GetAsync(Guid id, HttpContext http, SessionGuard guard, ChatStore chats, ILogger<ChatView> log, CancellationToken ct)
     {
-        if (await guard.CheckAsync(http, ct) is not GuardResult.Allowed(var session))
+        var guarded = await guard.CheckAsync(http, ct);
+        if (guarded is not GuardResult.Allowed(var session))
         {
-            return Problems.MissingSession();
+            // The guard's own answer: an ended session sends the person to the login, a bank outage says "try again".
+            return ((GuardResult.Denied)guarded).Problem;
         }
 
         var chat = await chats.FindAsync(id, ct);

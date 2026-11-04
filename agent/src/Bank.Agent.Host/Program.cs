@@ -41,6 +41,7 @@ builder.Services.AddHttpClient<BankGateway>((sp, client) =>
 });
 // The language model behind IChatClient: Claude with a key, the echo of stage 1 without one (Features/Agent/LanguageModel.cs).
 builder.AddLanguageModel();
+builder.Services.AddSingleton<RunLimiter>();
 // The bank tools come from the bank MCP server ("bank-mcp" is its Aspire resource name).
 builder.Services.AddHttpClient(McpBankTools.HttpClientName, client =>
 {

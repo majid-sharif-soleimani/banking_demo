@@ -18,8 +18,11 @@ namespace Bank.Agent.Mcp;
 [McpServerToolType]
 public sealed class CustomerChangeTools(BankApi bank)
 {
-    /// <summary>The name of the upload tool. The agent host calls it itself when the person uploads a file; the model does not get it.</summary>
-    public const string DocumentUpload = "document_upload";
+    /// <summary>
+    /// The name of the upload tool. The agent host calls it itself when the person uploads a file; the model does not get
+    /// it. The <see cref="ToolSets.HostOnlyPrefix"/> is what tells the host so.
+    /// </summary>
+    public const string DocumentUpload = ToolSets.HostOnlyPrefix + "document_upload";
 
     [McpServerTool(Name = "transfer_create", ReadOnly = false, Destructive = false)]
     [Description("Moves money from one of the customer's accounts to another account of theirs, in the source account's currency (the bank converts if the target has another currency). Use account ids from accounts_list.")]

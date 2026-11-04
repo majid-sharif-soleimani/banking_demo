@@ -1,6 +1,6 @@
 # 0005. Mark customer-written text as untrusted and read documents with a model that has no tools
 
-- Status: Accepted
+- Status: Accepted; changed by ADR 0007 (every read is marked unless bank-only, the history replays components between markers, the document tool is `host_customer_document` and the reader has its own model)
 - Date: 2026-11-03
 - Scope: agent (Bank.Agent.Host, Bank.Agent.Mcp), bank-lending
 - Design plan reference: `phase2-design-plan.md` sections 2.2 (Complex rows), 6 ("tool results are data, not instructions"), 9 step 5; agent ADRs 0003 and 0004

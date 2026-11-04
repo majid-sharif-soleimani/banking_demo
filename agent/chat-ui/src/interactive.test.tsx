@@ -39,6 +39,25 @@ describe("ConfirmationView", () => {
     expect((await screen.findByRole("alert")).textContent).toContain("insufficient_funds");
   });
 
+  it("keeps the buttons when the bank did not answer, so Confirm can be pressed again", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(respond(200, { status: "unknown", message: "no answer" }))
+      .mockResolvedValueOnce(respond(200, { status: "done" }));
+    vi.stubGlobal("fetch", fetchMock);
+    const onDone = vi.fn();
+    render(<ConfirmationView args={args} onDone={onDone} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
+    expect((await screen.findByRole("alert")).textContent).toContain("Press Confirm again");
+    expect(onDone).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[1][0]).toBe("/agent/changes/c-1/confirm");
+    expect(onDone).toHaveBeenCalledWith("I confirmed the change.");
+  });
+
   it("cancels", async () => {
     const fetchMock = vi.fn().mockResolvedValue(respond(200, { status: "cancelled" }));
     vi.stubGlobal("fetch", fetchMock);

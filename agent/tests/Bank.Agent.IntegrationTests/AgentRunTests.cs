@@ -171,4 +171,62 @@ public class AgentRunTests(PostgresFixture postgres)
             logged.ShouldNotContain(secret);
         }
     }
+
+    [Fact]
+    public async Task A_second_run_while_the_first_is_answering_fails_with_run_in_progress_and_stores_nothing()
+    {
+        var started = new TaskCompletionSource();
+        var release = new TaskCompletionSource();
+        var model = new ScriptedModel(new ScriptedModel.Hold(started, release.Task, "First answer."));
+        await using var app = await AgentApp.StartAsync(postgres, model);
+        var browser = app.NewBrowser();
+        var chatId = (await browser.LoginOkAsync("admin", "admin")).GetProperty("chatId").GetGuid();
+
+        // Two tabs of one browser: the same cookie, so the same session.
+        var first = browser.RunAsync("first");
+        await started.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        var second = await browser.RunAsync("second");
+        release.SetResult();
+        var firstEvents = await first;
+
+        Types(second).ShouldBe(["RUN_STARTED", "RUN_ERROR"]);
+        second[1].GetProperty("code").GetString().ShouldBe("run_in_progress");
+        Types(firstEvents)[^1].ShouldBe("RUN_FINISHED");
+        (await Messages(app, chatId)).ShouldBe([("user", "first"), ("assistant", "First answer.")]);
+
+        // The lock is free again once the first run ended.
+        Types(await browser.RunAsync("third"))[^1].ShouldBe("RUN_FINISHED");
+    }
+
+    [Fact]
+    public async Task Runs_beyond_the_limit_per_minute_fail_with_too_many_runs_even_after_a_new_login()
+    {
+        await using var app = await AgentApp.StartAsync(postgres, runsPerMinute: 2);
+        var browser = app.NewBrowser();
+        await browser.LoginOkAsync("admin", "admin");
+        await browser.RunAsync("one");
+        await browser.RunAsync("two");
+        var again = app.NewBrowser();
+        var chatId = (await again.LoginOkAsync("admin", "admin")).GetProperty("chatId").GetGuid();
+
+        var refused = await again.RunAsync("three");
+
+        Types(refused).ShouldBe(["RUN_STARTED", "RUN_ERROR"]);
+        refused[1].GetProperty("code").GetString().ShouldBe("too_many_runs");
+        (await Messages(app, chatId)).ShouldBeEmpty();
+        app.LogLines.ShouldContain(l => l.Contains("Run limit reached"));
+    }
+
+    [Fact]
+    public async Task Every_run_logs_its_token_counts_but_not_its_content()
+    {
+        await using var app = await AgentApp.StartAsync(postgres);
+        var browser = app.NewBrowser();
+        await browser.LoginOkAsync("admin", "admin");
+
+        await browser.RunAsync("count my tokens");
+
+        app.LogLines.ShouldContain(l => l.Contains("input and") && l.Contains("output tokens"));
+        app.LogLines.ShouldNotContain(l => l.Contains("count my tokens"));
+    }
 }

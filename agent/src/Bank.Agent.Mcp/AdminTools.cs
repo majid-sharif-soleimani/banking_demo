@@ -123,8 +123,11 @@ public sealed class AdminTools(BankApi bank)
     public Task<string> LoansByClassificationAsync([Description("Current, Overdue or Default.")] string classification, CancellationToken ct) =>
         bank.GetAsync($"/api/lending/loans?classification={Uri.EscapeDataString(classification)}", ct);
 
-    /// <summary>The name of the document tool. Only the agent host calls it (to read a document in isolation); the model does not get it.</summary>
-    public const string CustomerDocument = "customer_document";
+    /// <summary>
+    /// The name of the document tool. Only the agent host calls it (to read a document in isolation); the model does not
+    /// get it. The <see cref="ToolSets.HostOnlyPrefix"/> is what tells the host so.
+    /// </summary>
+    public const string CustomerDocument = ToolSets.HostOnlyPrefix + "customer_document";
 
     [McpServerTool(Name = CustomerDocument, ReadOnly = true)]
     [Description("Host only: the bytes of one uploaded file as base64, with its type and name.")]

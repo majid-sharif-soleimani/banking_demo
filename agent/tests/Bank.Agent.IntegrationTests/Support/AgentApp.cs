@@ -21,7 +21,7 @@ namespace Bank.Agent.IntegrationTests.Support;
 /// The real agent host (its Program.cs, endpoints and migrations) on a fresh "agent" schema, with
 /// <see cref="StubGateway"/> in place of the gateway and a clock the test moves by hand.
 /// </summary>
-public sealed class AgentApp(string connectionString, IChatClient? model = null) : WebApplicationFactory<Program>
+public sealed class AgentApp(string connectionString, IChatClient? model = null, int runsPerMinute = 100) : WebApplicationFactory<Program>
 {
     public StubGateway Gateway { get; } = new();
 
@@ -36,9 +36,10 @@ public sealed class AgentApp(string connectionString, IChatClient? model = null)
         Services.GetServices<ILoggerProvider>().OfType<CapturingLoggerProvider>().Single().Lines;
 
     /// <summary>Starts the host; without a model, the echo answers (no model key in tests).</summary>
-    public static async Task<AgentApp> StartAsync(PostgresFixture postgres, IChatClient? model = null)
+    /// <param name="runsPerMinute">The run limit per user; high by default, so only the test of the limit meets it.</param>
+    public static async Task<AgentApp> StartAsync(PostgresFixture postgres, IChatClient? model = null, int runsPerMinute = 100)
     {
-        var app = new AgentApp(await postgres.CreateServiceSchemaAsync("agent"), model);
+        var app = new AgentApp(await postgres.CreateServiceSchemaAsync("agent"), model, runsPerMinute);
         _ = app.Server;
         return app;
     }
@@ -81,6 +82,7 @@ public sealed class AgentApp(string connectionString, IChatClient? model = null)
         builder.UseSetting("ConnectionStrings:agent-db", ConnectionString);
         builder.UseSetting("Agent:Gateway:ApiKey", StubGateway.ApiKey);
         builder.UseSetting("Agent:IdleTimeout", "00:05:00");
+        builder.UseSetting("Agent:Model:RunsPerMinute", runsPerMinute.ToString(System.Globalization.CultureInfo.InvariantCulture));
         builder.UseEnvironment("Testing");
         builder.ConfigureAppConfiguration((_, configuration) =>
         {
@@ -100,6 +102,8 @@ public sealed class AgentApp(string connectionString, IChatClient? model = null)
             {
                 services.RemoveAll<IChatClient>();
                 services.AddSingleton(model);
+                services.RemoveAll<ReaderModel>();
+                services.AddSingleton(new ReaderModel(model));
             }
             // Every level reaches this provider, whatever the Logging section says.
             services.AddSingleton<ILoggerProvider, CapturingLoggerProvider>();

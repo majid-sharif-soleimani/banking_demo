@@ -14,6 +14,13 @@ public static class ToolSets
 
     public const string AdminPath = "/mcp/admin";
 
+    /// <summary>
+    /// The name prefix of a tool only the agent host may call (an upload's bytes, the raw document). The host keeps
+    /// every tool with this prefix away from the model, so the server says which tools are host-only, in one place,
+    /// and a new or renamed host-only tool cannot reach the model by mistake. Same value as McpBankTools.HostOnlyPrefix.
+    /// </summary>
+    public const string HostOnlyPrefix = "host_";
+
     private static readonly HashSet<string> Customer = NamesOf(typeof(SharedTools), typeof(CustomerTools), typeof(CustomerChangeTools));
 
     private static readonly HashSet<string> Admin = NamesOf(typeof(SharedTools), typeof(AdminTools), typeof(AdminChangeTools));

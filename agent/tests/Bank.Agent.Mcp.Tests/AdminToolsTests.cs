@@ -24,8 +24,8 @@ public class AdminToolsTests
 
         tools.Where(t => t.ProtocolTool.Annotations!.ReadOnlyHint == true).Select(t => t.Name).Order().ShouldBe([
             "appointment_slots", "arrears_report", "business_date", "currencies_list", "customer_accounts", "customer_appointments",
-            "customer_document", "customer_get", "customer_interactions", "customer_loans", "customer_standing_orders", "customers_search",
-            "information_requests_of_application", "information_requests_open", "journal_entries", "loan_application_get",
+            "customer_get", "customer_interactions", "customer_loans", "customer_standing_orders", "customers_search",
+            "host_customer_document", "information_requests_of_application", "information_requests_open", "journal_entries", "loan_application_get",
             "loan_applications_queue", "loan_products_list", "loans_by_classification", "portfolio_report", "trial_balance"]);
         tools.Where(t => t.ProtocolTool.Annotations!.ReadOnlyHint == false).Select(t => t.Name).Order().ShouldBe([
             "appointment_book_for_customer", "business_day_close", "currency_activate", "customer_note_add", "information_request_complete",
@@ -133,7 +133,7 @@ public class AdminToolsTests
         await using var client = await app.ConnectAdminAsync(Token);
         var interaction = Guid.NewGuid();
 
-        var result = await client.CallToolAsync("customer_document",
+        var result = await client.CallToolAsync("host_customer_document",
             new Dictionary<string, object?> { ["customerId"] = Customer, ["interactionId"] = interaction }, cancellationToken: Ct);
 
         app.Gateway.Requests.ShouldHaveSingleItem().ShouldBe(

@@ -66,6 +66,12 @@ export function ChatView({ session, onEnded }: Props) {
         return;
       }
 
+      // Refused before the agent started: too many runs, or another tab is still being answered.
+      if (code === "too_many_runs" || code === "run_in_progress") {
+        setProblem(noticeFor(code, language));
+        return;
+      }
+
       // Anything else (no code, or the bank down): ask the host what is left of the session.
       void me().then((answer) => {
         if (answer.ok) {

@@ -5,12 +5,13 @@ namespace Bank.Agent.Host.Features.Agent;
 
 /// <summary>
 /// The tools of one run, in one place, so the chat and the evaluation set (agent/eval) give the model exactly the same
-/// tools: the role's bank reads (those with customer-written text between untrusted markers), every change behind
+/// tools: the role's bank reads (all but the bank-only ones between untrusted markers), every change behind
 /// <see cref="ConfirmFirst"/>, the UI tools, and for the admin the isolated document reader.
 /// </summary>
 public static class AgentTools
 {
-    public static IList<AITool> For(BankToolSet bank, HostSession session, UiTools ui, IChatClient model)
+    /// <param name="reader">The model of the document reader (<see cref="ReaderModel"/>), not the agent's.</param>
+    public static IList<AITool> For(BankToolSet bank, HostSession session, UiTools ui, IChatClient reader)
     {
         IList<AITool> tools =
         [
@@ -18,9 +19,9 @@ public static class AgentTools
             .. bank.Changes.Select(c => new ConfirmFirst(c, session, ui)),
             .. ui.Tools,
         ];
-        if (bank.Find("customer_document") is { } documentFile)
+        if (bank.Find(McpBankTools.CustomerDocument) is { } documentFile)
         {
-            tools.Add(new DocumentReader(model, documentFile).Tool);
+            tools.Add(new DocumentReader(reader, documentFile).Tool);
         }
 
         return tools;

@@ -107,7 +107,7 @@ public static class FakeBank
                 fileName = "payslip.pdf",
                 contentType = "application/pdf",
                 contentBase64 = Convert.ToBase64String(Payslip()),
-            }), "customer_document", "Host only."),
+            }), McpBankTools.CustomerDocument, "Host only."),
         ]);
 
     private static AIFunction Read(string name, string description, Func<string> answer) => AIFunctionFactory.Create(answer, name, description);

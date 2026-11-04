@@ -1,6 +1,6 @@
 # 0003. Confirm changes, take forms and uploads through host endpoints outside the model
 
-- Status: Accepted
+- Status: Accepted; changed by ADR 0007 (an `unknown` outcome keeps the change pending; the upload tool is `host_document_upload`)
 - Date: 2026-11-03
 - Scope: agent (Bank.Agent.Host, Bank.Agent.Mcp, chat-ui), bank-accounts, bank-customers, bank-lending
 - Design plan reference: `phase2-design-plan.md` decisions A8, A11, flow 4.3, sections 5 and 8; agent ADR 0002

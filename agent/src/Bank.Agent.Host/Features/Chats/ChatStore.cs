@@ -65,10 +65,18 @@ public sealed class ChatStore(AgentDbContext db, TimeProvider time)
             .SetProperty(c => c.ClosedReason, code), ct);
     }
 
+    /// <summary>A chat with all its messages, for a run (the history) and for reading an old chat.</summary>
     public Task<Chat?> FindAsync(Guid chatId, CancellationToken ct) =>
         db.Chats.Include(c => c.Messages.OrderBy(m => m.Sequence)).SingleOrDefaultAsync(c => c.Id == chatId, ct);
 
-    /// <summary>Adds a message at the end. Only one run per chat at a time comes from one browser; the unique (chat, sequence) index catches a second.</summary>
+    /// <summary>A chat without its messages: enough to check who owns it and whether it is open.</summary>
+    public Task<Chat?> FindHeaderAsync(Guid chatId, CancellationToken ct) =>
+        db.Chats.AsNoTracking().SingleOrDefaultAsync(c => c.Id == chatId, ct);
+
+    /// <summary>
+    /// Adds a message at the end. Callers hold the session's <c>ChatLock</c>, so one writer appends at a time; the unique
+    /// (chat, sequence) index stays as the last guard.
+    /// </summary>
     public async Task<ChatMessage> AppendAsync(Chat chat, string author, string kind, string content, string performedBy, CancellationToken ct)
     {
         var now = time.GetUtcNow();
@@ -84,39 +92,9 @@ public sealed class ChatStore(AgentDbContext db, TimeProvider time)
             CreatedAt = now,
             PerformedBy = performedBy,
         };
-        var entry = db.Messages.Add(message);
-        try
-        {
-            await db.SaveChangesAsync(ct);
-        }
-        catch (DbUpdateException)
-        {
-            // Forget the failed row, so the caller can try again on the same context.
-            entry.State = EntityState.Detached;
-            throw;
-        }
-
+        db.Messages.Add(message);
+        await db.SaveChangesAsync(ct);
         return message;
-    }
-
-    /// <summary>
-    /// Adds a message after the person's action, trying again when a run appended at the same moment. The action has
-    /// already happened at the bank, so its record must not be lost to a race for the next sequence number.
-    /// </summary>
-    public async Task AppendActionAsync(Chat chat, string kind, string content, string performedBy, CancellationToken ct)
-    {
-        for (var attempt = 1; ; attempt++)
-        {
-            try
-            {
-                await AppendAsync(chat, "user", kind, content, performedBy, ct);
-                return;
-            }
-            catch (DbUpdateException) when (attempt < 5)
-            {
-                await Task.Delay(100 * attempt, ct);
-            }
-        }
     }
 
     /// <summary>The chats a person may read, newest first: their own, or every chat for the admin.</summary>

@@ -79,11 +79,30 @@ public class EvalTests
         });
         var c = new EvalCase("t", "customer", ["Move 500 SEK to savings"], "why");
 
-        var run = await new Runner(model, 1000).RunAsync(c, TestContext.Current.CancellationToken);
+        var run = await new Runner(model, new EchoModel(), 1000, 20).RunAsync(c, TestContext.Current.CancellationToken);
 
         run.ToolsCalled.ShouldBe(["transfer_create"]);
         run.Shown.ShouldBe(["show_confirmation"]);
         run.Answer.ShouldBe("Please press Confirm.");
+    }
+
+    [Fact]
+    public async Task A_later_turn_sees_the_stored_history_as_the_chat_does_not_the_raw_tool_results()
+    {
+        var model = new TwoStepModel("transfer_create", new Dictionary<string, object?>
+        {
+            ["fromAccountId"] = FakeBank.Current, ["toAccountId"] = FakeBank.Savings, ["amount"] = 500m, ["currency"] = "SEK",
+        });
+        var c = new EvalCase("t", "customer", ["Move 500 SEK to savings", "Was that the right amount?"], "why");
+
+        await new Runner(model, new EchoModel(), 1000, 20).RunAsync(c, TestContext.Current.CancellationToken);
+
+        var history = model.LastMessages;
+        history.Select(m => m.Role).ShouldBe([ChatRole.User, ChatRole.Assistant, ChatRole.Assistant, ChatRole.User]);
+        history.SelectMany(m => m.Contents).OfType<FunctionResultContent>().ShouldBeEmpty();
+        history[1].Text.ShouldStartWith("(Shown to the person as a confirmation:)");
+        history[1].Text.ShouldContain(UntrustedContent.Begin);
+        history[2].Text.ShouldBe("Please press Confirm.");
     }
 
     /// <summary>First asks for one tool call, then answers with text.</summary>
@@ -91,7 +110,21 @@ public class EvalTests
     {
         private int calls;
 
-        public Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default) =>
+        /// <summary>The messages of the last call that started a turn (not the agent's own follow-up after a tool).</summary>
+        public IReadOnlyList<ChatMessage> LastMessages { get; private set; } = [];
+
+        public Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default)
+        {
+            var list = messages.ToList();
+            if (list[^1].Role == ChatRole.User)
+            {
+                LastMessages = list;
+            }
+
+            return Respond();
+        }
+
+        private Task<ChatResponse> Respond() =>
             Task.FromResult(calls++ == 0
                 ? new ChatResponse(new ChatMessage(ChatRole.Assistant, [new FunctionCallContent("call-1", tool, arguments)]))
                 : new ChatResponse(new ChatMessage(ChatRole.Assistant, "Please press Confirm.")));

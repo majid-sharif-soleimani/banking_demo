@@ -6,22 +6,24 @@ using Bank.Agent.Host.Data;
 using Bank.Agent.Host.Features.Auth;
 using Bank.Agent.Host.Features.Chats;
 using Bank.Agent.Host.Logic;
-using Microsoft.EntityFrameworkCore;
 using Bank.Agent.Host.Features.Agent;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
-using AiChatMessage = Microsoft.Extensions.AI.ChatMessage;
 
 namespace Bank.Agent.Host.Features.AgUi;
 
-/// <summary>What a run needs besides the session: the model, its settings, the bank tools and a logger.</summary>
-public sealed record AgentParts(IChatClient Model, ModelOptions ModelOptions, IBankTools BankTools, ILogger<AgentParts> Log);
+/// <summary>What a run needs besides the session: the models, their settings and limits, the bank tools and a logger.</summary>
+public sealed record AgentParts(
+    IChatClient Model, ReaderModel Reader, ModelOptions ModelOptions, RunLimiter Limiter, IBankTools BankTools, ILogger<AgentParts> Log);
 
 /// <summary>
 /// POST /agent: one AG-UI run (phase 2 design plan, flow 4.2), written on the AG-UI .NET SDK's protocol types. The chat
 /// lives on the server: of the messages the client sends, only the last user message is used, and the history the
 /// model sees comes from schema "agent". The client cannot add or rewrite earlier turns, nor pick another chat: the
 /// session's open chat is the only one it can write.
+///
+/// A run, in five steps: check the session and the run limit, take the session's chat lock, store the person's
+/// message, open the role's bank tools, and stream the agent's answer (text and components) while storing it.
 /// </summary>
 public static class AgUiEndpoint
 {
@@ -60,7 +62,13 @@ public static class AgUiEndpoint
                 return problem;
             // A session that just ended, or a bank that does not answer: a failed run, so the UI gets the reason.
             case GuardResult.Denied(_, var code):
-                return TypedResults.ServerSentEvents(Failed(input, code));
+                var title = code == "bank_unavailable"
+                    ? BankUnavailable
+                    : Problems.Title(SessionEnd.FromIdentityCode(code) ?? ChatCloseReason.SessionExpired);
+                return TypedResults.ServerSentEvents(Failed(input, code, title));
+            case GuardResult.Allowed(var session) when !parts.Limiter.TryStart(session.Principal.Username):
+                parts.Log.LogWarning("Run limit reached in chat {ChatId} for role {Role}", session.ChatId, session.Principal.Role);
+                return TypedResults.ServerSentEvents(Failed(input, "too_many_runs", "You sent many messages in a short time. Wait a minute and try again."));
             case GuardResult.Allowed(var session):
                 return TypedResults.ServerSentEvents(Events(input, text, session, chats, parts, ct));
             default:
@@ -68,14 +76,13 @@ public static class AgUiEndpoint
         }
     }
 
-    private static async IAsyncEnumerable<SseItem<string>> Failed(RunAgentInput input, string code)
+    private const string BankUnavailable = "The bank could not be reached. Try again in a moment.";
+
+    private static async IAsyncEnumerable<SseItem<string>> Failed(RunAgentInput input, string code, string message)
     {
         await Task.CompletedTask;
         yield return Item(new RunStartedEvent { ThreadId = input.ThreadId ?? "", RunId = RunId(input) });
-        var title = code == "bank_unavailable"
-            ? "The bank could not be reached. Try again in a moment."
-            : Problems.Title(SessionEnd.FromIdentityCode(code) ?? ChatCloseReason.SessionExpired);
-        yield return Item(new RunErrorEvent { Code = code, Message = title });
+        yield return Item(new RunErrorEvent { Code = code, Message = message });
     }
 
     private static async IAsyncEnumerable<SseItem<string>> Events(
@@ -86,91 +93,94 @@ public static class AgUiEndpoint
         var runId = RunId(input);
         yield return Item(new RunStartedEvent { ThreadId = threadId, RunId = runId });
 
-        var chat = await chats.FindAsync(session.ChatId, ct);
-        if (chat is null || !ChatAccess.CanWrite(session.Principal, new ChatFacts(chat.Username, chat.Status == ChatStatus.Open)))
-        {
-            yield return Item(new RunErrorEvent { Code = "chat_closed", Message = "This chat no longer takes messages." });
-            yield break;
-        }
-
-        // One browser has one session and one chat; two tabs of it running at once would race for the next sequence
-        // number. The unique (chat, sequence) index lets one through; the other gets a clear error instead of a broken stream.
-        var appended = true;
-        try
-        {
-            await chats.AppendAsync(chat, "user", MessageKind.Text, text, session.Principal.Username, ct);
-        }
-        catch (DbUpdateException)
-        {
-            appended = false;
-        }
-
-        if (!appended)
+        // One writer per session at a time (HostSession.ChatLock). Two tabs of one browser share the session: the second
+        // run gets a clear error instead of interleaving its answer with the first one.
+        if (!await session.ChatLock.WaitAsync(0, ct))
         {
             yield return Item(new RunErrorEvent { Code = "run_in_progress", Message = "Another message is still being answered. Try again." });
             yield break;
         }
 
-        // The tools of this run: the role's bank tools (least privilege, design plan section 6) and the UI tools. The
-        // bank tools need the MCP server; if it does not answer, the run fails like a bank outage.
+        var failed = false;
+        try
+        {
+            await foreach (var e in TurnAsync(text, session, chats, parts, ct))
+            {
+                failed |= e is RunErrorEvent;
+                yield return Item(e);
+            }
+        }
+        finally
+        {
+            // Also runs when the browser goes away: ASP.NET Core disposes the stream, and the lock is free again.
+            session.ChatLock.Release();
+        }
+
+        if (!failed)
+        {
+            yield return Item(new RunFinishedEvent { ThreadId = threadId, RunId = runId });
+        }
+    }
+
+    /// <summary>
+    /// One turn, under the chat lock: stores the person's message, then streams the agent's answer and stores it. Ends
+    /// with a <see cref="RunErrorEvent"/> when something failed; the caller adds the finish otherwise.
+    /// </summary>
+    private static async IAsyncEnumerable<BaseEvent> TurnAsync(
+        string text, HostSession session, ChatStore chats, AgentParts parts, [EnumeratorCancellation] CancellationToken ct)
+    {
+        var chat = await chats.FindAsync(session.ChatId, ct);
+        if (chat is null || !ChatAccess.CanWrite(session.Principal, new ChatFacts(chat.Username, chat.Status == ChatStatus.Open)))
+        {
+            yield return new RunErrorEvent { Code = "chat_closed", Message = "This chat no longer takes messages." };
+            yield break;
+        }
+
+        // The chat is tracked, so the new message also appears in chat.Messages, and the history below ends with it.
+        await chats.AppendAsync(chat, "user", MessageKind.Text, text, session.Principal.Username, ct);
+
+        // The bank tools need the MCP server; if it does not answer, the run fails like a bank outage.
         var bank = await OpenBankToolsAsync(session, parts, ct);
         if (bank is null)
         {
-            yield return Item(new RunErrorEvent { Code = "bank_unavailable", Message = "The bank could not be reached. Try again in a moment." });
+            yield return new RunErrorEvent { Code = "bank_unavailable", Message = BankUnavailable };
             yield break;
         }
 
         await using (bank)
         {
             var ui = new UiTools(session);
-            // Reads as they are (customer-written text between untrusted markers), changes behind ConfirmFirst, the UI
-            // tools and the document reader: see AgentTools.
-            var tools = AgentTools.For(bank, session, ui, parts.Model);
-            var agent = new ChatClientAgent(parts.Model, new ChatClientAgentOptions
-            {
-                ChatOptions = new ChatOptions
-                {
-                    Instructions = AgentInstructions.For(session.Principal),
-                    Tools = tools,
-                    MaxOutputTokens = parts.ModelOptions.MaxOutputTokens,
-                },
-            });
-            var history = chat.Messages.OrderBy(m => m.Sequence).Select(ToModel).ToList();
+            var agent = BuildAgent(session, parts, bank, ui);
+            var history = ChatHistory.ForModel(
+                chat.Messages.OrderBy(m => m.Sequence).Select(m => new StoredMessage(m.Author, m.Kind, m.Content)), parts.ModelOptions.HistoryMessages);
 
             // The agent loop runs inside RunStreamingAsync: the model answers with text or with tool calls; the agent
             // runs the tools, gives the model their results and asks again, until the model answers with text only.
             // Here we only watch what comes out: text goes to the browser as it arrives, a shown table or card goes to
-            // the browser as a tool call, and every tool call is logged.
+            // the browser as a tool call, every tool call is logged, and the tokens are counted.
             var turn = new TurnWriter(chat, chats, session.Principal.Username);
             var toolNames = new Dictionary<string, string>();
+            var usage = new UsageDetails();
             var failed = false;
-            await using var updates = agent.RunStreamingAsync(history, cancellationToken: ct).GetAsyncEnumerator(ct);
-            while (true)
+            await foreach (var update in UntilFailure(agent.RunStreamingAsync(history, cancellationToken: ct), session, parts.Log, ct))
             {
-                AgentResponseUpdate update;
-                try
+                if (update is null)
                 {
-                    if (!await updates.MoveNextAsync())
-                    {
-                        break;
-                    }
-
-                    update = updates.Current;
-                }
-                catch (Exception ex) when (!ct.IsCancellationRequested)
-                {
-                    // Only the type: a model provider's message could echo the request.
-                    parts.Log.LogWarning("The model failed in chat {ChatId}: {Error}", session.ChatId, ex.GetType().Name);
                     failed = true;
                     break;
                 }
 
                 LogToolCalls(update, toolNames, session, parts.Log);
+                foreach (var counted in update.Contents.OfType<UsageContent>())
+                {
+                    usage.Add(counted.Details);
+                }
+
                 if (!string.IsNullOrEmpty(update.Text))
                 {
                     foreach (var e in turn.Text(update.Text))
                     {
-                        yield return Item(e);
+                        yield return e;
                     }
                 }
 
@@ -178,19 +188,78 @@ public static class AgUiEndpoint
                 {
                     foreach (var e in await turn.ComponentAsync(component, ct))
                     {
-                        yield return Item(e);
+                        yield return e;
                     }
                 }
             }
 
             foreach (var e in await turn.EndTextAsync(ct))
             {
-                yield return Item(e);
+                yield return e;
             }
 
-            yield return failed
-                ? Item(new RunErrorEvent { Code = "model_unavailable", Message = "The assistant could not answer. Try again in a moment." })
-                : Item(new RunFinishedEvent { ThreadId = threadId, RunId = runId });
+            // What the run cost, so spending is visible per chat (agent ADR 0007). Counts only, never content.
+            parts.Log.LogInformation("Run in chat {ChatId} for role {Role} used {InputTokens} input and {OutputTokens} output tokens",
+                session.ChatId, session.Principal.Role, usage.InputTokenCount ?? 0, usage.OutputTokenCount ?? 0);
+
+            if (failed)
+            {
+                yield return new RunErrorEvent { Code = "model_unavailable", Message = "The assistant could not answer. Try again in a moment." };
+            }
+        }
+    }
+
+    /// <summary>
+    /// The agent of one run: the role's instructions, and the tools of <see cref="AgentTools"/> (reads, changes behind
+    /// ConfirmFirst, the UI tools and the document reader), with the configured output limit.
+    /// </summary>
+    private static ChatClientAgent BuildAgent(HostSession session, AgentParts parts, BankToolSet bank, UiTools ui) =>
+        new(parts.Model, new ChatClientAgentOptions
+        {
+            ChatOptions = new ChatOptions
+            {
+                Instructions = AgentInstructions.For(session.Principal),
+                Tools = AgentTools.For(bank, session, ui, parts.Reader.Client),
+                MaxOutputTokens = parts.ModelOptions.MaxOutputTokens,
+            },
+        });
+
+    /// <summary>
+    /// Passes the model's updates on, and turns a failure of the model into one null at the end, so the caller can use
+    /// a plain await foreach. C# allows no yield inside a try that has a catch, so the catch only remembers the failure.
+    /// </summary>
+    private static async IAsyncEnumerable<AgentResponseUpdate?> UntilFailure(
+        IAsyncEnumerable<AgentResponseUpdate> updates, HostSession session, ILogger log, [EnumeratorCancellation] CancellationToken ct)
+    {
+        await using var e = updates.GetAsyncEnumerator(ct);
+        while (true)
+        {
+            AgentResponseUpdate? next;
+            var failed = false;
+            try
+            {
+                next = await e.MoveNextAsync() ? e.Current : null;
+            }
+            catch (Exception ex) when (!ct.IsCancellationRequested)
+            {
+                // Only the type: a model provider's message could echo the request.
+                log.LogWarning("The model failed in chat {ChatId}: {Error}", session.ChatId, ex.GetType().Name);
+                next = null;
+                failed = true;
+            }
+
+            if (failed)
+            {
+                yield return null;
+                yield break;
+            }
+
+            if (next is null)
+            {
+                yield break;
+            }
+
+            yield return next;
         }
     }
 
@@ -228,18 +297,6 @@ public static class AgUiEndpoint
             }
         }
     }
-
-    /// <summary>
-    /// A stored message as the model sees it in a later turn. A component becomes a short assistant note with its data,
-    /// so the model remembers what the person has seen; an action of the person (a form sent, a change confirmed, a
-    /// document uploaded) becomes a short user note with its outcome.
-    /// </summary>
-    private static AiChatMessage ToModel(Data.ChatMessage m) => m switch
-    {
-        { Kind: MessageKind.Text } => new AiChatMessage(m.Author == "user" ? ChatRole.User : ChatRole.Assistant, m.Content),
-        { Author: "user" } => new AiChatMessage(ChatRole.User, $"(My {m.Kind.Replace('_', ' ')}: {m.Content})"),
-        _ => new AiChatMessage(ChatRole.Assistant, $"(Shown to the person as a {m.Kind.Replace('_', ' ')}: {m.Content})"),
-    };
 
     private static string RunId(RunAgentInput input) => string.IsNullOrWhiteSpace(input.RunId) ? Guid.NewGuid().ToString() : input.RunId;
 

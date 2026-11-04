@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Bank.Agent.Host.Features.Agent;
 using Bank.Agent.IntegrationTests.Support;
 using Bank.Testing;
 using Npgsql;
@@ -102,6 +103,26 @@ public class ActionTests(PostgresFixture postgres)
     }
 
     [Fact]
+    public async Task A_change_whose_answer_was_lost_stays_pending_and_Confirm_again_reuses_the_same_key()
+    {
+        var (app, browser, chatId, changeId) = await AskForTransferAsync(postgres);
+        await using var _ = app;
+        app.BankTools.LoseNextAnswer = true;
+
+        using var lost = await browser.PostAsync($"/agent/changes/{changeId}/confirm");
+        using var retried = await browser.PostAsync($"/agent/changes/{changeId}/confirm");
+
+        (await lost.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("status").GetString().ShouldBe("unknown");
+        (await retried.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("status").GetString().ShouldBe("done");
+        // Both calls carry the confirmation id, so the bank's idempotency check makes one transfer of them.
+        app.BankTools.Ran.Select(r => r.ConfirmationId).ShouldBe([changeId, changeId]);
+        var results = (await Messages(app, chatId)).Where(m => m.Kind == "change_result").Select(m => m.Content).ToList();
+        results.Count.ShouldBe(2);
+        results[0].ShouldContain("\"status\":\"unknown\"");
+        results[1].ShouldContain("\"status\":\"done\"");
+    }
+
+    [Fact]
     public async Task The_model_sees_the_outcome_of_the_confirmation_in_the_next_turn()
     {
         var model = new ScriptedModel(new CallTool("transfer_create", TransferArgs), new Answer("Please press Confirm."), new Answer("Done."));
@@ -183,7 +204,7 @@ public class ActionTests(PostgresFixture postgres)
         wrong.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         right.StatusCode.ShouldBe(HttpStatusCode.OK);
         var ran = app.BankTools.Ran.ShouldHaveSingleItem();
-        (ran.Tool, ran.ConfirmationId).ShouldBe(("document_upload", requestId));
+        (ran.Tool, ran.ConfirmationId).ShouldBe((McpBankTools.DocumentUpload, requestId));
         ran.Arguments.ShouldContain(application.ToString());
         ran.Arguments.ShouldContain("payslip.pdf");
     }

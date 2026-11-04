@@ -19,7 +19,7 @@ public sealed class ConfirmFirst(AIFunction inner, HostSession session, UiTools 
 {
     protected override ValueTask<object?> InvokeCoreAsync(AIFunctionArguments arguments, CancellationToken cancellationToken)
     {
-        var values = JsonSerializer.SerializeToElement(arguments.ToDictionary(a => a.Key, a => a.Value), UiTools.Json);
+        var values = JsonSerializer.SerializeToElement(arguments.ToDictionary(a => a.Key, a => a.Value), HostJson.Options);
         var change = new PendingChange(UiTools.NewId(), Name, ChangeSummary.Title(Name), values);
         session.Pending[change.Id] = change;
 

@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Text.Json;
 using Anthropic;
 using Bank.Agent.Eval;
+using Bank.Agent.Host.Features.Agent;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 
@@ -21,14 +22,18 @@ if (string.IsNullOrWhiteSpace(key))
     return 2;
 }
 
-var modelName = config["Agent:Model:Name"] ?? "claude-opus-5-5";
+// The same defaults as the host (ModelOptions), so the evaluation measures what runs.
+var defaults = new ModelOptions();
+var modelName = config["Agent:Model:Name"] ?? defaults.Name;
+var readerName = config["Agent:Model:ReaderName"] ?? defaults.ReaderName;
 var only = Arg("--case");
 var repeat = int.TryParse(Arg("--repeat"), out var r) && r > 0 ? r : 1;
 
 var json = new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true };
 var cases = JsonSerializer.Deserialize<EvalCase[]>(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "cases.json")), json)!
     .Where(c => only is null || c.Id == only).ToList();
-var runner = new Runner(new AnthropicClient { ApiKey = key }.AsIChatClient(modelName), 4000);
+var anthropic = new AnthropicClient { ApiKey = key };
+var runner = new Runner(anthropic.AsIChatClient(modelName), anthropic.AsIChatClient(readerName), defaults.MaxOutputTokens, defaults.HistoryMessages);
 
 var results = new List<object>();
 var passed = 0;

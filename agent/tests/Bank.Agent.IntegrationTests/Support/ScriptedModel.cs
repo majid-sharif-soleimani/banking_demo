@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using System.Text.Json;
+using Bank.Agent.Host.Features;
 using Bank.Agent.Host.Features.Agent;
 using Bank.Agent.Host.Features.Auth;
 using Bank.Agent.Host.Logic;
@@ -21,6 +22,9 @@ public sealed class ScriptedModel(params ScriptedModel.Step[] steps) : IChatClie
     public sealed record Answer(string Text) : Step;
 
     public sealed record Fail : Step;
+
+    /// <summary>Says it started, then answers only when the test releases it: a run that is still going.</summary>
+    public sealed record Hold(TaskCompletionSource Started, Task Release, string Text) : Step;
 
     private readonly Queue<Step> script = new(steps);
 
@@ -49,7 +53,7 @@ public sealed class ScriptedModel(params ScriptedModel.Step[] steps) : IChatClie
         switch (step)
         {
             case CallTool call:
-                var arguments = JsonSerializer.Deserialize<Dictionary<string, object?>>(JsonSerializer.Serialize(call.Arguments, UiTools.Json));
+                var arguments = JsonSerializer.Deserialize<Dictionary<string, object?>>(JsonSerializer.Serialize(call.Arguments, HostJson.Options));
                 yield return new ChatResponseUpdate(ChatRole.Assistant, [new FunctionCallContent(Guid.NewGuid().ToString(), call.Name, arguments)]);
                 break;
             case Answer answer:
@@ -61,6 +65,11 @@ public sealed class ScriptedModel(params ScriptedModel.Step[] steps) : IChatClie
                 break;
             case Fail:
                 throw new HttpRequestException("The model provider is down.");
+            case Hold hold:
+                hold.Started.TrySetResult();
+                await hold.Release;
+                yield return new ChatResponseUpdate(ChatRole.Assistant, hold.Text);
+                break;
         }
     }
 
@@ -104,6 +113,9 @@ public sealed class FakeBankTools : IBankTools
 
     public bool Down { get; set; }
 
+    /// <summary>The next change runs at the bank, but its answer is lost on the way back (a timeout).</summary>
+    public bool LoseNextAnswer { get; set; }
+
     public Task<BankToolSet> OpenAsync(HostSession session, CancellationToken ct, string? confirmationId = null)
     {
         if (Down)
@@ -130,7 +142,7 @@ public sealed class FakeBankTools : IBankTools
                     contentType = "application/pdf",
                     contentBase64 = Convert.ToBase64String(DocumentBytes),
                 }),
-                "customer_document", "Host only.");
+                McpBankTools.CustomerDocument, "Host only.");
             return Task.FromResult(new BankToolSet([trialBalance, interactions], [approve], [document]));
         }
 
@@ -139,16 +151,22 @@ public sealed class FakeBankTools : IBankTools
             (Guid fromAccountId, Guid toAccountId, decimal amount, string currency) =>
             {
                 Ran.Add(("transfer_create", confirmationId, JsonSerializer.Serialize(new { fromAccountId, toAccountId, amount, currency })));
+                if (LoseNextAnswer)
+                {
+                    LoseNextAnswer = false;
+                    throw new TimeoutException("The answer was lost.");
+                }
+
                 return ReceiptJson;
             },
             "transfer_create", "Moves money between the customer's accounts.");
         var upload = AIFunctionFactory.Create(
             (Guid applicationId, string fileName, string contentType, string contentBase64) =>
             {
-                Ran.Add(("document_upload", confirmationId, JsonSerializer.Serialize(new { applicationId, fileName, contentType, size = Convert.FromBase64String(contentBase64).Length })));
+                Ran.Add((McpBankTools.DocumentUpload, confirmationId, JsonSerializer.Serialize(new { applicationId, fileName, contentType, size = Convert.FromBase64String(contentBase64).Length })));
                 return """{"id":"i-1"}""";
             },
-            "document_upload", "Host only.");
+            McpBankTools.DocumentUpload, "Host only.");
         return Task.FromResult(new BankToolSet([accounts], [transfer], [upload]));
     }
 }

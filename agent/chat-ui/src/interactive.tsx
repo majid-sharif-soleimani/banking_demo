@@ -98,7 +98,7 @@ export function FormView({ args, onDone, readOnly }: { args?: Partial<FormArgs>;
 export type ConfirmationArgs = { changeId: string; title: string; fields: { label: string; value: string }[] };
 
 export function ConfirmationView({ args, onDone, readOnly }: { args?: Partial<ConfirmationArgs>; onDone?: Done; readOnly?: boolean }) {
-  const [state, setState] = useState<"open" | "busy" | "done" | "failed" | "cancelled" | "gone">("open");
+  const [state, setState] = useState<"open" | "busy" | "done" | "failed" | "cancelled" | "gone" | "unknown">("open");
   const [message, setMessage] = useState<string>();
   const t = useText();
 
@@ -116,7 +116,10 @@ export function ConfirmationView({ args, onDone, readOnly }: { args?: Partial<Co
 
     setState(result.status);
     setMessage(result.message);
-    onDone?.(result.status === "cancelled" ? t("iCancelled") : t("iConfirmed"));
+    // No answer from the bank: the buttons stay, and the agent is told nothing until the person tries again.
+    if (result.status !== "unknown") {
+      onDone?.(result.status === "cancelled" ? t("iCancelled") : t("iConfirmed"));
+    }
   }
 
   return (
@@ -130,7 +133,7 @@ export function ConfirmationView({ args, onDone, readOnly }: { args?: Partial<Co
           </div>
         ))}
       </dl>
-      {!readOnly && state === "open" && (
+      {!readOnly && (state === "open" || state === "unknown") && (
         <div className="actions">
           <button type="button" onClick={() => void answer("confirm")}>
             {t("confirm")}
@@ -150,6 +153,11 @@ export function ConfirmationView({ args, onDone, readOnly }: { args?: Partial<Co
         </p>
       )}
       {state === "gone" && <p className="error">{t("changeGone")}</p>}
+      {state === "unknown" && (
+        <p className="error" role="alert">
+          {t("bankNoAnswer")}
+        </p>
+      )}
     </section>
   );
 }
@@ -158,7 +166,7 @@ export type DocumentRequestArgs = { requestId: string; applicationId: string; de
 
 export function DocumentRequestView({ args, onDone, readOnly }: { args?: Partial<DocumentRequestArgs>; onDone?: Done; readOnly?: boolean }) {
   const [file, setFile] = useState<File>();
-  const [state, setState] = useState<"open" | "busy" | "done" | "failed">("open");
+  const [state, setState] = useState<"open" | "busy" | "done" | "failed" | "unknown">("open");
   const t = useText();
 
   async function send(event: FormEvent) {
@@ -169,8 +177,9 @@ export function DocumentRequestView({ args, onDone, readOnly }: { args?: Partial
 
     setState("busy");
     const answer = await uploadDocument(args.requestId, file);
-    setState(answer.ok && answer.status === "done" ? "done" : "failed");
-    if (answer.ok) {
+    const next = !answer.ok ? "failed" : answer.status === "done" ? "done" : answer.status === "unknown" ? "unknown" : "failed";
+    setState(next);
+    if (answer.ok && next !== "unknown") {
       onDone?.(t("iUploaded", { file: file.name }));
     }
   }
@@ -181,14 +190,15 @@ export function DocumentRequestView({ args, onDone, readOnly }: { args?: Partial
       <p dir="auto">{args?.description}</p>
       {!readOnly && (
         <>
-          <input type="file" accept="application/pdf,image/png,image/jpeg" disabled={state !== "open"} onChange={(e) => setFile(e.target.files?.[0])} />
-          <button type="submit" disabled={!file || state !== "open"}>
+          <input type="file" accept="application/pdf,image/png,image/jpeg" disabled={state !== "open" && state !== "unknown"} onChange={(e) => setFile(e.target.files?.[0])} />
+          <button type="submit" disabled={!file || (state !== "open" && state !== "unknown")}>
             {t("upload")}
           </button>
         </>
       )}
       {state === "done" && <p className="notice" role="status">{t("uploaded")}</p>}
       {state === "failed" && <p className="error">{t("uploadFailed")}</p>}
+      {state === "unknown" && <p className="error">{t("uploadNoAnswer")}</p>}
     </form>
   );
 }

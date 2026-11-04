@@ -59,10 +59,16 @@ public sealed class McpBankTools(IHttpClientFactory httpClients, ILoggerFactory 
     public const string HttpClientName = "bank-mcp";
 
     /// <summary>
-    /// Tools of the MCP server that only the host calls: the upload (CustomerChangeTools.DocumentUpload) and the raw
-    /// document (AdminTools.CustomerDocument, read through <see cref="DocumentReader"/>).
+    /// The MCP server names a tool only the host may call with this prefix (Bank.Agent.Mcp ToolSets.HostOnlyPrefix). The
+    /// host keeps every such tool away from the model, whatever its name, so a new or renamed one cannot reach the model.
     /// </summary>
-    public static readonly string[] HostOnlyTools = ["document_upload", "customer_document"];
+    public const string HostOnlyPrefix = "host_";
+
+    /// <summary>The upload the host runs when the person sends a file (CustomerChangeTools.DocumentUpload).</summary>
+    public const string DocumentUpload = HostOnlyPrefix + "document_upload";
+
+    /// <summary>The raw document, read only through <see cref="DocumentReader"/> (AdminTools.CustomerDocument).</summary>
+    public const string CustomerDocument = HostOnlyPrefix + "customer_document";
 
     public async Task<BankToolSet> OpenAsync(HostSession session, CancellationToken ct, string? confirmationId = null)
     {
@@ -89,7 +95,7 @@ public sealed class McpBankTools(IHttpClientFactory httpClients, ILoggerFactory 
             // over MCP to the server.
             var tools = await client.ListToolsAsync(cancellationToken: ct);
             // The MCP server marks every tool that changes data with ReadOnly = false (its "readOnlyHint" annotation).
-            var hostOnly = tools.Where(t => HostOnlyTools.Contains(t.Name)).ToList();
+            var hostOnly = tools.Where(t => t.Name.StartsWith(HostOnlyPrefix, StringComparison.Ordinal)).ToList();
             var rest = tools.Except(hostOnly).ToList();
             return new BankToolSet(
                 [.. rest.Where(t => t.ProtocolTool.Annotations?.ReadOnlyHint == true)],

@@ -29,7 +29,7 @@ public sealed class SessionSweeper(
     /// <summary>One sweep; the timer calls it, and tests call it after moving the clock.</summary>
     public async Task SweepOnceAsync(CancellationToken ct)
     {
-        var idle = sessions.RemoveIdle();
+        var idle = sessions.FindIdle();
         if (idle.Count == 0)
         {
             return;
@@ -39,7 +39,9 @@ public sealed class SessionSweeper(
         var chats = scope.ServiceProvider.GetRequiredService<ChatStore>();
         foreach (var session in idle)
         {
+            // Close first, forget after: if closing fails, the session is still idle on the next sweep and tried again.
             await chats.CloseAsync(session.ChatId, ChatCloseReason.SessionExpired, ct);
+            sessions.End(session.Id);
         }
     }
 
@@ -54,7 +56,7 @@ public sealed class SessionSweeper(
             }
             catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
             {
-                // A failed sweep is retried on the next tick; the sessions it removed are closed then or at the next start.
+                // A failed sweep is retried on the next tick: sessions are forgotten only after their chat is closed.
                 log.LogWarning("Session sweep failed: {Error}", ex.GetType().Name);
             }
         }

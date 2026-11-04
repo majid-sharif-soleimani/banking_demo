@@ -65,6 +65,8 @@ export function noticeFor(code: string, language: Language = "en"): string | und
     new_login: "noticeNewLogin",
     logout: "noticeLogout",
     bank_unavailable: "noticeBankUnavailable",
+    too_many_runs: "noticeTooManyRuns",
+    run_in_progress: "noticeRunInProgress",
   }[code] as TextKey | undefined;
   return key ? text(language, key) : undefined;
 }
@@ -73,14 +75,18 @@ export const sessionEndCodes = new Set(["session_expired", "session_replaced", "
 
 // What the person does outside the text box (agent host ActionEndpoints): confirm or cancel a change, send a form,
 // upload a document. Each answers one item the agent showed, once.
+// "unknown": the bank did not answer, so the change may have happened; the item stays open and can be sent again with
+// the same idempotency key.
+export type ActionStatus = "done" | "failed" | "cancelled" | "unknown";
+
 export type ActionAnswer =
-  | { ok: true; status: "done" | "failed" | "cancelled"; message?: string }
+  | { ok: true; status: ActionStatus; message?: string }
   | { ok: false; code: string; errors?: Record<string, string> };
 
 async function actionAnswer(response: Response): Promise<ActionAnswer> {
   const body = (await response.json().catch(() => ({}))) as { status?: string; message?: string; code?: string; errors?: Record<string, string> };
   return response.ok
-    ? { ok: true, status: (body.status ?? "done") as "done" | "failed" | "cancelled", message: body.message }
+    ? { ok: true, status: (body.status ?? "done") as ActionStatus, message: body.message }
     : { ok: false, code: body.code ?? `http_${response.status}`, errors: body.errors };
 }
 

@@ -103,7 +103,7 @@ public class CustomerChangeToolsTests
         await using var client = await app.ConnectAsync(Token, Customer, idempotencyKey: "upload-1");
         var application = Guid.NewGuid();
 
-        await client.CallToolAsync("document_upload", new Dictionary<string, object?>
+        await client.CallToolAsync("host_document_upload", new Dictionary<string, object?>
         {
             ["applicationId"] = application, ["fileName"] = "payslip.pdf", ["contentType"] = "application/pdf",
             ["contentBase64"] = Convert.ToBase64String("%PDF-1.4 test"u8.ToArray()),

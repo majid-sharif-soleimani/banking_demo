@@ -49,6 +49,14 @@ public sealed class HostSession
     /// session.
     /// </summary>
     public System.Collections.Concurrent.ConcurrentDictionary<string, PendingAction> Pending { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// One writer at a time on this session's chat: a run holds it from the person's message to the end of the answer,
+    /// an action of the person holds it while its outcome is stored. Two tabs of one browser share the cookie, so they
+    /// share this lock; a second run is refused with run_in_progress instead of interleaving two answers. The host is one
+    /// process and sessions live in its memory, so an in-memory lock is enough.
+    /// </summary>
+    public SemaphoreSlim ChatLock { get; } = new(1, 1);
 }
 
 /// <summary>Something the agent asked the person for. The id is random and unguessable, like the cookie.</summary>
@@ -148,18 +156,19 @@ public sealed class HostSessions(TimeProvider time, IOptions<AgentOptions> optio
     }
 
     /// <summary>
-    /// Removes every idle session, including ended ones nobody asked about. Returns the idle ones that still own an open
-    /// chat (an ended session's chat was closed by the login that ended it).
+    /// The idle sessions that still own an open chat (an ended session's chat was closed by the login that ended it).
+    /// Nothing is removed here: the sweeper closes their chats first and then calls <see cref="End"/>, so a failed close
+    /// is tried again on the next sweep. Ended sessions nobody asked about are removed on the way.
     /// </summary>
-    public IReadOnlyList<HostSession> RemoveIdle()
+    public IReadOnlyList<HostSession> FindIdle()
     {
         var now = time.GetUtcNow();
         lock (gate)
         {
-            var idle = byId.Values.Where(s => SessionEnd.IsIdle(s.LastSeen, now, options.Value.IdleTimeout)).ToList();
-            foreach (var session in idle)
+            var idle = IdleLocked(now);
+            foreach (var ended in idle.Where(s => s.EndedBy is not null))
             {
-                byId.Remove(session.Id);
+                byId.Remove(ended.Id);
             }
 
             return [.. idle.Where(s => s.EndedBy is null)];
@@ -176,7 +185,7 @@ public sealed class HostSessions(TimeProvider time, IOptions<AgentOptions> optio
         var now = time.GetUtcNow();
         lock (gate)
         {
-            var idle = byId.Values.Where(s => SessionEnd.IsIdle(s.LastSeen, now, options.Value.IdleTimeout)).ToList();
+            var idle = IdleLocked(now);
             foreach (var session in idle)
             {
                 byId.Remove(session.Id);
@@ -191,4 +200,8 @@ public sealed class HostSessions(TimeProvider time, IOptions<AgentOptions> optio
             return [.. idle.Where(s => s.EndedBy is null), .. replaced];
         }
     }
+
+    /// <summary>Every session unused for the idle timeout, ended or not. Call it inside the lock.</summary>
+    private List<HostSession> IdleLocked(DateTimeOffset now) =>
+        [.. byId.Values.Where(s => SessionEnd.IsIdle(s.LastSeen, now, options.Value.IdleTimeout))];
 }

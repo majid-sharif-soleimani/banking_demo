@@ -1,6 +1,6 @@
 # 0002. Run the first agent on ChatClientAgent with MCP bank tools and server-side UI tools
 
-- Status: Accepted
+- Status: Accepted; point 2 changed by ADR 0007 (default model `claude-sonnet-5-5`, a key is required outside Development)
 - Date: 2026-11-03
 - Scope: agent (Bank.Agent.Host, Bank.Agent.Mcp, chat-ui), bank-platform
 - Design plan reference: `phase2-design-plan.md` decisions A1, A2, A8, sections 3.3, 4.2, 5, 6; agent ADR 0001 point 4
