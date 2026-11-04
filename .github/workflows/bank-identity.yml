@@ -27,6 +27,7 @@ jobs:
         with:
           dotnet-version: "10.0.x"
       # The local feed is gitignored: build the shared Bank.* packages from this commit into it. Nothing is published.
+      - run: mkdir -p ../.local-feed
       - run: dotnet pack ../bank-platform/src/Bank.ServiceDefaults -c Release -o ../.local-feed
       - run: dotnet restore
       - run: dotnet build --no-restore -c Release
@@ -51,6 +52,7 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "10.0.x"
+      - run: mkdir -p ../.local-feed
       - run: dotnet pack ../bank-platform/src/Bank.ServiceDefaults -c Release -o ../.local-feed
       - uses: docker/login-action@v3
         with:

@@ -19,6 +19,7 @@ Phase 1 is complete (closed 2026-11-03). It is reopened only to fix bugs. Phase 
 | Fix | Loan numbers without the schedule, fuller usage logs | Done, on the home bank | 2026-11-04 | `loan_summary` and `customer_loan_summary` answer without schedules, and `loans_by_classification` too. Instructions have their own cache point. 600,000 input tokens per run. Log lines per model call, tool and run; Seq keeps them. Agent ADR 0011. On the home bank; the savings are not yet measured on the real model. |
 | Fix | Guide on the first screen | Done, on the home bank | 2026-11-04 | A visitor saw a login form with no word on what the app is. `Guide.tsx` in three languages: open on the login screen, closed in a new chat. chat-ui 43 tests green; Playwright not rerun. `docs/learning/phase-2/fix-first-screen-guide.md` |
 | Docs | Root README | Done | 2026-11-04 | Goal, phases, design, subsystems, decisions, patterns, code map, getting started. Setup steps tried on a fresh clone. |
+| Fix | CI: the local feed folder | Built | 2026-11-04 | The first runs on GitHub failed with NU1301: the feed folder did not exist before `dotnet pack`, which only a filled NuGet cache had hidden. Every workflow now creates it first. |
 
 ## Phase 1
 
