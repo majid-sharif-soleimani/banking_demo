@@ -26,6 +26,8 @@ Majid first suggested a background worker. That helps with waiting, but it has t
 
 Caching and clearing live in one small wrapper in `LanguageModel.cs`, so the rest of the host still does not name the provider (decision A1). They need Anthropic's beta client (`client.Beta.AsIChatClient`). The document reader stays on the plain client: a single call with nothing to reuse.
 
+6. **The agent's model is `claude-haiku-5-5`** (Majid, 2026-11-04, changes the default of ADR 0007). `Agent:Model:Name` still changes it without a rebuild.
+
 ## Rationale
 
 - The report removes the cost instead of reducing it: its rows use no model tokens, in that turn or later ones.

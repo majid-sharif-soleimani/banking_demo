@@ -17,9 +17,9 @@ public sealed class ModelOptions
     public const string Section = "Agent:Model";
 
     /// <summary>The Claude model id of the agent.</summary>
-    public string Name { get; set; } = "claude-sonnet-5-5";
+    public string Name { get; set; } = "claude-haiku-5-5";
 
-    /// <summary>The Claude model id of the document reader (<see cref="DocumentReader"/>): a smaller model is enough to list facts.</summary>
+    /// <summary>The Claude model id of the document reader (<see cref="DocumentReader"/>). Its own setting, so the two can differ.</summary>
     public string ReaderName { get; set; } = "claude-haiku-5-5";
 
     /// <summary>The Anthropic API key. A secret: user secrets locally, env/agent.env at home. Empty means the echo.</summary>
