@@ -18,23 +18,32 @@ public sealed record StoredMessage(string Author, string Kind, string Content);
 /// trusted context in every later turn. Between the markers it stays data for the whole chat, not only for the turn in
 /// which a tool read it. The person's own typed text is not wrapped: it is what the model answers.
 ///
-/// Only the last <c>limit</c> messages go to the model (cost, agent ADR 0007). The bank's data is read again through
-/// the tools anyway. The history starts at a message the person typed, so it never opens with half of an exchange.
+/// Only the last <c>limit</c> messages go to the model (cost, agent ADR 0007), and a long component comes back shortened
+/// (agent ADR 0009): a report of 100 customers would otherwise be sent again, in full, on every later turn. The bank's
+/// data is read again through the tools anyway. The history starts at a message the person typed, so it never opens with half of an exchange.
 /// </summary>
 public static class ChatHistory
 {
-    public static IReadOnlyList<ChatMessage> ForModel(IEnumerable<StoredMessage> messages, int limit)
+    /// <summary>The default for <c>maxComponentLength</c>; the host passes Agent:Model:HistoryComponentLength.</summary>
+    public const int DefaultComponentLength = 1000;
+
+    public static IReadOnlyList<ChatMessage> ForModel(IEnumerable<StoredMessage> messages, int limit, int maxComponentLength = DefaultComponentLength)
     {
         var last = messages.TakeLast(limit).SkipWhile(m => !IsTypedByPerson(m));
-        return [.. last.Select(ToModel)];
+        return [.. last.Select(m => ToModel(m, maxComponentLength))];
     }
 
-    public static ChatMessage ToModel(StoredMessage m) => m switch
+    public static ChatMessage ToModel(StoredMessage m, int maxComponentLength = DefaultComponentLength) => m switch
     {
         { Kind: "text" } => new ChatMessage(m.Author == "user" ? ChatRole.User : ChatRole.Assistant, m.Content),
-        { Author: "user" } => new ChatMessage(ChatRole.User, $"(My {Name(m.Kind)}:)\n{UntrustedContent.Wrap($"earlier {m.Kind}", m.Content)}"),
-        _ => new ChatMessage(ChatRole.Assistant, $"(Shown to the person as a {Name(m.Kind)}:)\n{UntrustedContent.Wrap($"earlier {m.Kind}", m.Content)}"),
+        { Author: "user" } => new ChatMessage(ChatRole.User, $"(My {Name(m.Kind)}:)\n{UntrustedContent.Wrap($"earlier {m.Kind}", Shorten(m.Content, maxComponentLength))}"),
+        _ => new ChatMessage(ChatRole.Assistant, $"(Shown to the person as a {Name(m.Kind)}:)\n{UntrustedContent.Wrap($"earlier {m.Kind}", Shorten(m.Content, maxComponentLength))}"),
     };
+
+    private static string Shorten(string content, int max) =>
+        content.Length <= max
+            ? content
+            : $"{content[..max]} ... (cut here to save space. The person saw all of it. Read it again with the tools if you need the rest.)";
 
     private static bool IsTypedByPerson(StoredMessage m) => m is { Author: "user", Kind: "text" };
 

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.ComponentModel;
 using ModelContextProtocol.Server;
 
@@ -129,6 +130,62 @@ public sealed class AdminTools(BankApi bank)
     /// get it. The <see cref="ToolSets.HostOnlyPrefix"/> is what tells the host so.
     /// </summary>
     public const string CustomerDocument = ToolSets.HostOnlyPrefix + "customer_document";
+
+    /// <summary>
+    /// Every customer with the numbers of their accounts and their loans, for a table the host shows without the model
+    /// (agent ADR 0009). The bank has no such read, so this asks per customer; a few bank calls at a time keep the gateway
+    /// and the services calm. The model does not get this tool, and <see cref="MaxReportCustomers"/> keeps the answer sane.
+    /// </summary>
+    public const string CustomersReport = ToolSets.HostOnlyPrefix + "customers_report";
+
+    public const int MaxReportCustomers = 1000;
+
+    private const int ReportParallelCalls = 8;
+
+    [McpServerTool(Name = CustomersReport, ReadOnly = true)]
+    [Description("Host only: every customer with their accounts and loans.")]
+    public async Task<string> CustomersReportAsync(bool includeAccounts, bool includeLoans, CancellationToken ct)
+    {
+        var customers = new List<JsonElement>();
+        string? cursor = null;
+        var more = false;
+        do
+        {
+            using var page = JsonDocument.Parse(await bank.PostReadAsync("/api/customers/customers/search", new { limit = 200, cursor }, ct));
+            customers.AddRange(page.RootElement.GetProperty("items").EnumerateArray().Select(c => c.Clone()));
+            cursor = page.RootElement.GetProperty("nextCursor").GetString();
+            more = customers.Count > MaxReportCustomers || (customers.Count == MaxReportCustomers && cursor is not null);
+        }
+        while (cursor is not null && !more);
+
+        var rows = new object[Math.Min(customers.Count, MaxReportCustomers)];
+        await Parallel.ForEachAsync(Enumerable.Range(0, rows.Length), new ParallelOptions { MaxDegreeOfParallelism = ReportParallelCalls, CancellationToken = ct }, async (i, token) =>
+        {
+            var c = customers[i];
+            var id = c.GetProperty("id").GetGuid();
+            rows[i] = new
+            {
+                name = c.GetProperty("name").GetString(),
+                nationalId = c.GetProperty("nationalId").GetString(),
+                email = c.GetProperty("email").GetString(),
+                phone = c.GetProperty("phone").GetString(),
+                status = c.GetProperty("status").GetString(),
+                accounts = includeAccounts ? await PickAsync($"/api/accounts/accounts?customerId={id}", ["number", "type"], token) : [],
+                loans = includeLoans ? await PickAsync($"/api/lending/loans?customerId={id}", ["id", "productCode", "status"], token) : [],
+            };
+        });
+
+        return JsonSerializer.Serialize(new { customers = rows, more }, ReportJson);
+    }
+
+    private static readonly JsonSerializerOptions ReportJson = new(JsonSerializerDefaults.Web);
+
+    /// <summary>A bank list reduced to the fields the report shows, so a loan's whole schedule does not travel along.</summary>
+    private async Task<Dictionary<string, JsonElement>[]> PickAsync(string path, string[] fields, CancellationToken ct)
+    {
+        using var list = JsonDocument.Parse(await bank.GetAsync(path, ct));
+        return [.. list.RootElement.EnumerateArray().Select(item => fields.ToDictionary(f => f, f => item.GetProperty(f).Clone()))];
+    }
 
     [McpServerTool(Name = CustomerDocument, ReadOnly = true)]
     [Description("Host only: the bytes of one uploaded file as base64, with its type and name.")]

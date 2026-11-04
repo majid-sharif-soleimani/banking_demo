@@ -245,7 +245,7 @@ Build both images and start them:
 cd core_banking/bank-platform/deploy && bank up -d --wait --no-deps bank-mcp agent
 ```
 
-The model name is `Agent__Model__Name` (default `claude-sonnet-5-5`), the document reader's is `Agent__Model__ReaderName` (default `claude-haiku-5-5`); put them in `env/agent.env` to change them. The other cost limits (agent ADR 0007) are `Agent__Model__MaxOutputTokens`, `Agent__Model__HistoryMessages` and `Agent__Model__RunsPerMinute`. Update `bank-mcp` and `agent` together: the host-only MCP tools were renamed (`host_` prefix).
+The model name is `Agent__Model__Name` (default `claude-sonnet-5-5`), the document reader's is `Agent__Model__ReaderName` (default `claude-haiku-5-5`); put them in `env/agent.env` to change them. The other cost limits (agent ADRs 0007, 0009) are `Agent__Model__MaxOutputTokens`, `Agent__Model__HistoryMessages`, `Agent__Model__RunsPerMinute`, `Agent__Model__MaxInputTokensPerRun`, `Agent__Model__ClearToolResultsAbove`, `Agent__Model__KeepToolResults`, `Agent__Model__ClearToolResultsAtLeast` and `Agent__Model__HistoryComponentLength`. Update `bank-mcp` and `agent` together: the host-only MCP tools were renamed (`host_` prefix).
 
 Publish it in the tailnet on its own HTTPS port, next to the gateway on 443:
 

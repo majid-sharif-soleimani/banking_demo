@@ -16,6 +16,26 @@ public class ChatHistoryTests
     }
 
     [Fact]
+    public void A_long_component_comes_back_shortened_inside_the_markers_and_says_so()
+    {
+        var table = new string('x', 5000);
+
+        var replayed = ChatHistory.ToModel(new StoredMessage("assistant", "table", table), maxComponentLength: 100);
+
+        replayed.Text.ShouldNotContain(new string('x', 101));
+        replayed.Text.ShouldContain("cut here");
+        replayed.Text.ShouldEndWith(UntrustedContent.End);
+    }
+
+    [Fact]
+    public void Typed_text_is_never_shortened()
+    {
+        var text = new string('x', 5000);
+
+        ChatHistory.ForModel([new("user", "text", text)], 20, maxComponentLength: 100).Single().Text.ShouldBe(text);
+    }
+
+    [Fact]
     public void A_shown_component_comes_back_between_untrusted_markers()
     {
         var replayed = ChatHistory.ToModel(new StoredMessage("assistant", "table", Purpose));

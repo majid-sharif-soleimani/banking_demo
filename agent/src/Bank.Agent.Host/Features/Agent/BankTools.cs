@@ -70,6 +70,9 @@ public sealed class McpBankTools(IHttpClientFactory httpClients, ILoggerFactory 
     /// <summary>The raw document, read only through <see cref="DocumentReader"/> (AdminTools.CustomerDocument).</summary>
     public const string CustomerDocument = HostOnlyPrefix + "customer_document";
 
+    /// <summary>All customers with their accounts and loans, shown by <see cref="CustomersReportTool"/> (AdminTools.CustomersReport).</summary>
+    public const string CustomersReport = HostOnlyPrefix + "customers_report";
+
     public async Task<BankToolSet> OpenAsync(HostSession session, CancellationToken ct, string? confirmationId = null)
     {
         var http = httpClients.CreateClient(HttpClientName);

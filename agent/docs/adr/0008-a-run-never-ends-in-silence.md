@@ -8,7 +8,7 @@
 
 ## Context
 
-Twice the admin asked for a customer list and got no answer and no error. The logs of that chat show 118 `customers_search` calls, about 582,000 input tokens and no `show_table` result. The model was guessing two-letter names because the bank refused a search without a filter. The most likely end of each run: it tried to write all the rows into one `show_table` call, reached the limit of 2000 output tokens per model call, and the cut-off call was dropped. The host saw a stream that ended normally. The cut-off itself was not logged at the time, so this cause is inferred from the token counts; the check below logs it from now on.
+Twice the admin asked for a customer list and got no answer and no error. The logs of that chat show 118 `customers_search` calls, about 582,000 input tokens and no `show_table` result. The model was guessing two-letter names because the bank refused a search without a filter. The most likely end of each run: it tried to write all the rows into one `show_table` call, reached the limit of 2000 output tokens per model call, and the cut-off call was dropped. The host saw a stream that ended normally. The cut-off itself was not logged at the time, so this cause was inferred from the token counts. A later run confirmed it: the new check logged `finish reason length` after a long run.
 
 ## Decision
 
@@ -29,4 +29,4 @@ Twice the admin asked for a customer list and got no answer and no error. The lo
 
 - A long list costs one model call per page, and every call also pays for the pages before it. The token log line shows the real cost.
 - A cut-off answer can leave partial text in the chat, followed by the notice.
-- Nothing limits the number of model calls in one run except the framework's default. A low limit is still open.
+- The limit on one run's cost came with ADR 0009, which also replaced page-by-page lists with a report.

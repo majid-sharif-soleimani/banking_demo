@@ -3,7 +3,7 @@ import { HttpAgent } from "@ag-ui/client";
 import { AssistantRuntimeProvider, ComposerPrimitive, MessagePrimitive, ThreadPrimitive } from "@assistant-ui/react";
 import { useAgUiRuntime } from "@assistant-ui/react-ag-ui";
 import { CardTool, ChartTool, ConfirmationTool, DiagramTool, DocumentRequestTool, FormTool, TableTool } from "./components";
-import { clientHeaders, me, noticeFor, sessionEndCodes, type SessionInfo } from "./api";
+import { clientHeaders, me, noticeFor, runProblemCodes, sessionEndCodes, type SessionInfo } from "./api";
 import { LanguageContext, useText } from "./i18n";
 import { useContext } from "react";
 
@@ -66,9 +66,8 @@ export function ChatView({ session, onEnded }: Props) {
         return;
       }
 
-      // Refused before the agent started (too many runs, another tab is still being answered), or an answer that stopped
-      // early. The session is fine in all three.
-      if (code === "too_many_runs" || code === "run_in_progress" || code === "no_answer") {
+      // The run failed but the session is fine, and the host said why. Never the bank's note: the bank may be fine.
+      if (typeof code === "string" && runProblemCodes.has(code)) {
         setProblem(noticeFor(code, language));
         return;
       }

@@ -51,9 +51,10 @@ public static class AgentInstructions
         card with the exact values and presses Confirm or Cancel. Never say a change is done until a later message tells
         you it was confirmed and what the bank answered.
         Trial balance: say for each currency whether total debit equals total credit.
-        Customer lists: customers_search with no filter lists every customer, 20 per page, with their national ids. Show
-        each page in its own show_table as soon as you read it, then read the next page with nextCursor until it is null.
-        Never join pages into one table: one answer has a limited length. Never search by guessing letters or names.
+        Customer lists: for any list of customers, also with their contact details, accounts or loans, call
+        show_customers_report once and add one short sentence. It shows every customer to the admin; you do not see the rows.
+        Never look customers up one by one for a list, and never search by guessing letters or names. customers_search is
+        for finding particular customers. A question about the rows that the report cannot answer: say so and offer a search.
         Customer overview: find the customer with customers_search when you only have a name, then read the profile,
         accounts, loans, appointments and contact history, and show them as cards and tables with a short summary.
         Closing the day: first check the trial balance of every active currency and tell the admin the result. Close only

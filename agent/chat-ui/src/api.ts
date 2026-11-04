@@ -68,9 +68,14 @@ export function noticeFor(code: string, language: Language = "en"): string | und
     too_many_runs: "noticeTooManyRuns",
     run_in_progress: "noticeRunInProgress",
     no_answer: "noticeNoAnswer",
+    run_budget: "noticeRunBudget",
+    model_unavailable: "noticeModelUnavailable",
   }[code] as TextKey | undefined;
   return key ? text(language, key) : undefined;
 }
+
+// A run that failed while the session is fine: the chat stays, with the note for that code.
+export const runProblemCodes = new Set(["too_many_runs", "run_in_progress", "no_answer", "run_budget", "model_unavailable"]);
 
 export const sessionEndCodes = new Set(["session_expired", "session_replaced", "new_login", "chat_closed", "missing_session"]);
 

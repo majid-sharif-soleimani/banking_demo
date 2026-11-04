@@ -32,6 +32,8 @@ describe("api", () => {
     ["session_replaced", "logged in somewhere else"],
     ["bank_unavailable", "could not be reached"],
     ["no_answer", "stopped early"],
+    ["run_budget", "too much work"],
+    ["model_unavailable", "assistant is not available"],
   ])("explains %s", (code, text) => {
     expect(noticeFor(code)).toContain(text);
   });

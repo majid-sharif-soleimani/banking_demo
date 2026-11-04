@@ -24,7 +24,7 @@ if (string.IsNullOrWhiteSpace(key))
 
 // The same defaults as the host (ModelOptions), so the evaluation measures what runs.
 var defaults = new ModelOptions();
-var modelName = config["Agent:Model:Name"] ?? defaults.Name;
+defaults.Name = config["Agent:Model:Name"] ?? defaults.Name;
 var readerName = config["Agent:Model:ReaderName"] ?? defaults.ReaderName;
 var only = Arg("--case");
 var repeat = int.TryParse(Arg("--repeat"), out var r) && r > 0 ? r : 1;
@@ -33,7 +33,7 @@ var json = new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented
 var cases = JsonSerializer.Deserialize<EvalCase[]>(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "cases.json")), json)!
     .Where(c => only is null || c.Id == only).ToList();
 var anthropic = new AnthropicClient { ApiKey = key };
-var runner = new Runner(anthropic.AsIChatClient(modelName), anthropic.AsIChatClient(readerName), defaults.MaxOutputTokens, defaults.HistoryMessages);
+var runner = new Runner(LanguageModel.Claude(anthropic, defaults), anthropic.AsIChatClient(readerName), defaults.MaxOutputTokens, defaults.HistoryMessages);
 
 var results = new List<object>();
 var passed = 0;
@@ -61,13 +61,13 @@ foreach (var c in cases)
 }
 
 var total = cases.Count * repeat;
-Console.WriteLine($"\n{passed} of {total} passed ({modelName}).");
+Console.WriteLine($"\n{passed} of {total} passed ({defaults.Name}).");
 var folder = Path.Combine(Directory.GetCurrentDirectory(), "agent", "eval", "results");
 if (Directory.Exists(Path.Combine(Directory.GetCurrentDirectory(), "agent", "eval")))
 {
     Directory.CreateDirectory(folder);
     var file = Path.Combine(folder, $"{DateTime.UtcNow:yyyyMMdd-HHmmss}.json");
-    File.WriteAllText(file, JsonSerializer.Serialize(new { model = modelName, passed, total, results }, json));
+    File.WriteAllText(file, JsonSerializer.Serialize(new { model = defaults.Name, passed, total, results }, json));
     Console.WriteLine($"Details: {Path.GetRelativePath(Directory.GetCurrentDirectory(), file)}");
 }
 

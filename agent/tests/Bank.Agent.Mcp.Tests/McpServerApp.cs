@@ -68,6 +68,9 @@ public sealed class FakeGateway : HttpMessageHandler
 
     public string Body { get; set; } = """{"ok":true}""";
 
+    /// <summary>A body per path prefix, for a tool that calls several bank paths. Anything else gets <see cref="Body"/>.</summary>
+    public Dictionary<string, string> BodiesByPath { get; } = [];
+
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
     {
         Sent.Enqueue((request.Method,
@@ -77,6 +80,8 @@ public sealed class FakeGateway : HttpMessageHandler
             request.RequestUri!.PathAndQuery,
             request.Headers.Authorization?.ToString(),
             request.Headers.TryGetValues("X-Api-Key", out var keys) ? keys.Single() : null));
-        return new HttpResponseMessage(Status) { Content = new StringContent(Body, Encoding.UTF8, "application/json") };
+        var path = request.RequestUri!.PathAndQuery;
+        var body = BodiesByPath.FirstOrDefault(b => path.StartsWith(b.Key, StringComparison.Ordinal)).Value ?? Body;
+        return new HttpResponseMessage(Status) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
     }
 }

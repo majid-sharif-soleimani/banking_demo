@@ -30,12 +30,12 @@ public class AgentInstructionsTests
     }
 
     [Fact]
-    public void The_admin_lists_customers_page_by_page_and_never_by_guessing()
+    public void The_admin_lists_customers_with_the_report_and_never_one_by_one_or_by_guessing()
     {
         var text = AgentInstructions.For(Admin);
 
-        text.ShouldContain("customers_search with no filter lists every customer");
-        text.ShouldContain("Never join pages into one table");
+        text.ShouldContain("show_customers_report");
+        text.ShouldContain("Never look customers up one by one for a list");
         text.ShouldContain("Never search by guessing");
     }
 

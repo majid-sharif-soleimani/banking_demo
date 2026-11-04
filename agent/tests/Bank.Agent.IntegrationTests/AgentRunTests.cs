@@ -226,7 +226,7 @@ public class AgentRunTests(PostgresFixture postgres)
 
         await browser.RunAsync("count my tokens");
 
-        app.LogLines.ShouldContain(l => l.Contains("input and") && l.Contains("output tokens"));
+        app.LogLines.ShouldContain(l => l.Contains("from the cache") && l.Contains("output tokens"));
         app.LogLines.ShouldNotContain(l => l.Contains("count my tokens"));
     }
 }

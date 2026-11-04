@@ -1,3 +1,4 @@
+using System.Text.Json;
 using ModelContextProtocol.Protocol;
 
 namespace Bank.Agent.Mcp.Tests;
@@ -25,7 +26,7 @@ public class AdminToolsTests
         tools.Where(t => t.ProtocolTool.Annotations!.ReadOnlyHint == true).Select(t => t.Name).Order().ShouldBe([
             "appointment_slots", "arrears_report", "business_date", "currencies_list", "customer_accounts", "customer_appointments",
             "customer_get", "customer_interactions", "customer_loans", "customer_standing_orders", "customers_search",
-            "host_customer_document", "information_requests_of_application", "information_requests_open", "journal_entries", "loan_application_get",
+            "host_customer_document", "host_customers_report", "information_requests_of_application", "information_requests_open", "journal_entries", "loan_application_get",
             "loan_applications_queue", "loan_products_list", "loans_by_classification", "portfolio_report", "trial_balance"]);
         tools.Where(t => t.ProtocolTool.Annotations!.ReadOnlyHint == false).Select(t => t.Name).Order().ShouldBe([
             "appointment_book_for_customer", "business_day_close", "currency_activate", "customer_note_add", "information_request_complete",
@@ -81,6 +82,27 @@ public class AdminToolsTests
 
         result.IsError.ShouldNotBe(true, Text(result));
         app.Gateway.Requests.ShouldHaveSingleItem().ShouldBe((path, $"Bearer {Token}", McpServerApp.ApiKey));
+    }
+
+    [Fact]
+    public async Task The_customers_report_reads_every_page_and_only_what_is_asked_for()
+    {
+        await using var app = new McpServerApp();
+        var id = Guid.NewGuid();
+        app.Gateway.BodiesByPath["/api/customers/customers/search"] = $$"""{"items":[{"id":"{{id}}","name":"Ada","nationalId":"IMP-1","email":"a@example.com","phone":"070","status":"Active"}],"nextCursor":null}""";
+        app.Gateway.BodiesByPath["/api/accounts/accounts"] = """[{"number":"111","type":"Current","balance":{"amount":1,"currency":"SEK"}}]""";
+        await using var client = await app.ConnectAdminAsync(Token);
+
+        var report = Text(await client.CallToolAsync("host_customers_report", new Dictionary<string, object?> { ["includeAccounts"] = true, ["includeLoans"] = false }, cancellationToken: Ct));
+
+        using var json = JsonDocument.Parse(report);
+        var customer = json.RootElement.GetProperty("customers").EnumerateArray().Single();
+        customer.GetProperty("nationalId").GetString().ShouldBe("IMP-1");
+        customer.GetProperty("accounts")[0].GetProperty("number").GetString().ShouldBe("111");
+        customer.GetProperty("accounts")[0].TryGetProperty("balance", out _).ShouldBeFalse();
+        customer.GetProperty("loans").GetArrayLength().ShouldBe(0);
+        json.RootElement.GetProperty("more").GetBoolean().ShouldBeFalse();
+        app.Gateway.Requests.ShouldNotContain(r => r.PathAndQuery.StartsWith("/api/lending/"));
     }
 
     [Fact]

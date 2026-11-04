@@ -266,6 +266,55 @@ public class AgentToolTests(PostgresFixture postgres)
     }
 
     [Fact]
+    public async Task A_run_over_its_token_limit_stops_with_no_more_model_calls_and_the_chat_stays_open()
+    {
+        var model = new ScriptedModel(
+            new CallToolCosting("accounts_list", new { }, 200_000),
+            new Answer("This call must never be made."),
+            new Answer("Back again."));
+        await using var app = await AgentApp.StartAsync(postgres, model);
+        var browser = app.NewBrowser();
+        await browser.LoginOkAsync(StubGateway.TesterUsername, StubGateway.TesterPassword);
+
+        var stopped = await browser.RunAsync("Everything, please.");
+
+        stopped[^1].GetProperty("code").GetString().ShouldBe("run_budget");
+        model.Calls.Count.ShouldBe(1);
+        app.LogLines.ShouldContain(line => line.Contains("token limit"));
+    }
+
+    [Fact]
+    public async Task The_customers_report_reaches_the_browser_as_a_table_and_its_rows_never_reach_the_model()
+    {
+        var model = new ScriptedModel(
+            new CallTool("show_customers_report", new { includeContact = false, includeAccounts = true, includeLoans = false }),
+            new Answer("The report is above."));
+        await using var app = await AgentApp.StartAsync(postgres, model);
+        var browser = app.NewBrowser();
+        await browser.LoginOkAsync("admin", "admin");
+
+        var events = await browser.RunAsync("All customers with their accounts.");
+
+        var shown = events.Where(e => e.GetProperty("type").GetString() == "TOOL_CALL_ARGS").Select(e => e.GetProperty("delta").GetString()).ToList();
+        shown.ShouldContain(delta => delta!.Contains("IMP-SECRET-1") && delta.Contains("111 (Current)"));
+        model.EverythingSeen.ShouldNotContain("IMP-SECRET-1");
+        model.EverythingSeen.ShouldContain("1 customers");
+    }
+
+    [Fact]
+    public async Task A_customer_never_gets_the_customers_report()
+    {
+        var model = new ScriptedModel(new Answer("Hello."));
+        await using var app = await AgentApp.StartAsync(postgres, model);
+        var browser = app.NewBrowser();
+        await browser.LoginOkAsync(StubGateway.TesterUsername, StubGateway.TesterPassword);
+
+        await browser.RunAsync("Hi");
+
+        model.ToolNamesOfFirstCall.ShouldNotContain("show_customers_report");
+    }
+
+    [Fact]
     public async Task When_the_model_fails_the_run_ends_with_an_error_and_the_chat_stays_open()
     {
         await using var app = await AgentApp.StartAsync(postgres, new ScriptedModel(new Fail(), new Answer("Back again.")));

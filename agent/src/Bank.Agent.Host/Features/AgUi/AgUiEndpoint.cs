@@ -152,7 +152,7 @@ public static class AgUiEndpoint
             var ui = new UiTools(session);
             var agent = BuildAgent(session, parts, bank, ui);
             var history = ChatHistory.ForModel(
-                chat.Messages.OrderBy(m => m.Sequence).Select(m => new StoredMessage(m.Author, m.Kind, m.Content)), parts.ModelOptions.HistoryMessages);
+                chat.Messages.OrderBy(m => m.Sequence).Select(m => new StoredMessage(m.Author, m.Kind, m.Content)), parts.ModelOptions.HistoryMessages, parts.ModelOptions.HistoryComponentLength);
 
             // The agent loop runs inside RunStreamingAsync: the model answers with text or with tool calls; the agent
             // runs the tools, gives the model their results and asks again, until the model answers with text only.
@@ -162,6 +162,7 @@ public static class AgUiEndpoint
             var toolNames = new Dictionary<string, string>();
             var usage = new UsageDetails();
             var failed = false;
+            var overBudget = false;
             // Whether the person got something since the last tool result, and why the model's last call ended. Together
             // they catch a run that would otherwise just stop: see the check after the loop.
             var answered = false;
@@ -199,6 +200,13 @@ public static class AgUiEndpoint
                         yield return e;
                     }
                 }
+
+                // Leaving the loop ends the agent's enumeration, so no further tool runs and no further model call is made.
+                if (usage.InputTokenCount > parts.ModelOptions.MaxInputTokensPerRun)
+                {
+                    overBudget = true;
+                    break;
+                }
             }
 
             foreach (var e in await turn.EndTextAsync(ct))
@@ -207,12 +215,18 @@ public static class AgUiEndpoint
             }
 
             // What the run cost, so spending is visible per chat (agent ADR 0007). Counts only, never content.
-            parts.Log.LogInformation("Run in chat {ChatId} for role {Role} used {InputTokens} input and {OutputTokens} output tokens",
-                session.ChatId, session.Principal.Role, usage.InputTokenCount ?? 0, usage.OutputTokenCount ?? 0);
+            parts.Log.LogInformation("Run in chat {ChatId} for role {Role} used {InputTokens} input ({CachedTokens} from the cache) and {OutputTokens} output tokens",
+                session.ChatId, session.Principal.Role, usage.InputTokenCount ?? 0, usage.CachedInputTokenCount ?? 0, usage.OutputTokenCount ?? 0);
 
             if (failed)
             {
-                yield return new RunErrorEvent { Code = "model_unavailable", Message = "The assistant could not answer. Try again in a moment." };
+                yield return new RunErrorEvent { Code = "model_unavailable", Message = "The assistant is not available right now. Try again later." };
+            }
+            else if (overBudget)
+            {
+                parts.Log.LogWarning("Run in chat {ChatId} for role {Role} stopped at its token limit ({MaxInputTokens} input tokens)",
+                    session.ChatId, session.Principal.Role, parts.ModelOptions.MaxInputTokensPerRun);
+                yield return new RunErrorEvent { Code = "run_budget", Message = "This request needs too much work for one message. Ask for a smaller part." };
             }
             else if (!answered || finishReason == ChatFinishReason.Length)
             {
@@ -259,8 +273,7 @@ public static class AgUiEndpoint
             }
             catch (Exception ex) when (!ct.IsCancellationRequested)
             {
-                // Only the type: a model provider's message could echo the request.
-                log.LogWarning("The model failed in chat {ChatId}: {Error}", session.ChatId, ex.GetType().Name);
+                log.LogWarning("The model failed in chat {ChatId}: {Error}", session.ChatId, LanguageModel.Describe(ex));
                 next = null;
                 failed = true;
             }

@@ -12,11 +12,11 @@ public class ToolSetsTests
     ];
 
     [Fact]
-    public void The_host_only_tools_are_exactly_the_upload_and_the_raw_document()
+    public void The_host_only_tools_are_exactly_the_upload_the_raw_document_and_the_customers_report()
     {
         // The host keeps every tool with the prefix away from the model. A tool that carries a file's bytes must have it;
         // a tool the model should get must not.
         AllToolNames.Where(n => n.StartsWith(ToolSets.HostOnlyPrefix, StringComparison.Ordinal)).Order()
-            .ShouldBe([AdminTools.CustomerDocument, CustomerChangeTools.DocumentUpload]);
+            .ShouldBe([AdminTools.CustomerDocument, AdminTools.CustomersReport, CustomerChangeTools.DocumentUpload]);
     }
 }
