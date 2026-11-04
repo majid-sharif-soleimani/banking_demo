@@ -35,3 +35,7 @@ Finding out why a chat stopped answering meant reading `docker logs` of two cont
 - What is logged reaches Seq as is, so the rule stays: no personal data, tool arguments or results in logs.
 - The Seq address is plain configuration; Seq ingestion on the host machine currently needs no key. If a key is added, it needs a header on the exporter and a secret.
 - If Seq is down, the exporter drops those logs after retrying. The service and the dashboard are not affected.
+
+## Update, 2026-11-04
+
+The bank services now send their logs to Seq too, in the group `banking-demo`, set in `docker-compose.home.yml`. Their images were rebuilt, because the older ones lacked this `Bank.ServiceDefaults`. As in point 5, HTTP client, Polly and YARP lines stay at `Warning`, set through the environment so that AWS and CI do not change.

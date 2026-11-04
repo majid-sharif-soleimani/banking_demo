@@ -299,7 +299,7 @@ Make the group visible in Seq once: open `http://localhost:5341`, type `@Resourc
 
 Seq keeps its data in a folder on the host machine, so the logs survive a rebuild of the agent. `docker logs` does not: it ends with the container. To read token use, search for `@Message like 'Model call%'` or `@Message like 'Run in chat%'` (agent ADR 0011; `docs/learning/phase-2/fix-loan-summary-and-usage-logs.md` explains the numbers).
 
-To add the bank's logs later: give each bank service the same two settings with `log_group=banking-demo`, plus `extra_hosts: ["host.docker.internal:host-gateway"]`, and rebuild its image, because the running images still have the older `Bank.ServiceDefaults`. Then save a second signal.
+The bank's eight services are in `docker-compose.home.yml` too, in the group `banking-demo`: search for `@Resource.log_group = 'banking-demo'` and save that signal the same way. `service.name` tells the containers apart. HTTP client, Polly and YARP lines stay at `Warning` there, because one call through the gateway would otherwise write several of them. To see a request fail, search for `@Level = 'Error'`.
 
 ## Bring the bank back up (quick guide)
 

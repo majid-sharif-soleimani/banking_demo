@@ -4,25 +4,49 @@
 #
 #   docker compose -f docker-compose.aws.yml -f docker-compose.home.yml up -d --wait
 
+# The bank's logs also go to Seq on the host machine, in the group banking-demo (bank-platform ADR 0005). HTTP client, Polly and
+# YARP lines stay out: one call through the gateway would otherwise write several of them.
+x-seq-logs: &seq-logs
+  OTEL_RESOURCE_ATTRIBUTES: log_group=banking-demo
+  Seq__ServerUrl: http://host.docker.internal:5341
+  Logging__LogLevel__System.Net.Http.HttpClient: Warning
+  Logging__LogLevel__Polly: Warning
+  Logging__LogLevel__Yarp: Warning
+x-seq-host: &seq-host ["host.docker.internal:host-gateway"]
+
 services:
   operations:
     image: bank-operations:home
+    environment: *seq-logs
+    extra_hosts: *seq-host
   customers:
     image: bank-customers:home
     environment:
+      <<: *seq-logs
       Files__Provider: Local
       # The app user's home in the .NET base image, writable without a volume. Lost when the container is recreated.
       Files__Root: /home/app/files
+    extra_hosts: *seq-host
   accounts:
     image: bank-accounts:home
+    environment: *seq-logs
+    extra_hosts: *seq-host
   cards:
     image: bank-cards:home
+    environment: *seq-logs
+    extra_hosts: *seq-host
   lending:
     image: bank-lending:home
+    environment: *seq-logs
+    extra_hosts: *seq-host
   ledger:
     image: bank-ledger:home
+    environment: *seq-logs
+    extra_hosts: *seq-host
   identity:
     image: bank-identity:home
+    environment: *seq-logs
+    extra_hosts: *seq-host
   # Phase 2: the agent host with the chat UI (phase 2 design plan, decision A13: on the host machine, not on AWS). It reaches
   # the bank only through the gateway, with the gateway's key, and keeps chats in schema "agent".
   agent:
@@ -80,6 +104,8 @@ services:
       gateway: { condition: service_started }
   gateway:
     image: bank-gateway:home
+    environment: *seq-logs
+    extra_hosts: *seq-host
     # Replaces the AWS mapping (all interfaces): only this machine, and Tailscale, can reach it.
     ports: !override
       - "127.0.0.1:8080:8080"
