@@ -19,6 +19,24 @@ public class AgentInstructionsTests
     }
 
     [Fact]
+    public void A_customer_is_never_overruled_on_the_amount_they_entered()
+    {
+        var text = AgentInstructions.For(Anna);
+
+        text.ShouldContain("use what the person entered, exactly");
+        text.ShouldContain("Paying less than an installment is allowed");
+    }
+
+    [Fact]
+    public void The_messages_of_the_buttons_do_not_set_the_language()
+    {
+        var text = AgentInstructions.For(Anna);
+
+        text.ShouldContain("the last message the person wrote themselves");
+        text.ShouldContain("I sent the form.");
+    }
+
+    [Fact]
     public void The_admin_is_told_their_tools_and_that_loan_decisions_are_the_admins()
     {
         var text = AgentInstructions.For(Admin);

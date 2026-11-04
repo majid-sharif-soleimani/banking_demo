@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.Json;
 
 namespace Bank.Agent.Host.Logic;
 
@@ -70,6 +71,37 @@ public static class FormCheck
 
         return errors;
     }
+
+    /// <summary>The numbers the person typed in a form whose values have passed <see cref="Values"/>.</summary>
+    public static IReadOnlyList<decimal> Numbers(IReadOnlyList<FormField> fields, IReadOnlyDictionary<string, string?> values) =>
+    [
+        .. fields.Where(f => f.Type == "number")
+            .Select(f => values.GetValueOrDefault(f.Name)?.Trim())
+            .Where(v => !string.IsNullOrEmpty(v))
+            .Select(v => decimal.Parse(v!, NumberStyles.Number, CultureInfo.InvariantCulture)),
+    ];
+
+    /// <returns>Null when the tool's amount is one the person entered, or they entered none; otherwise what is wrong, written for the model.</returns>
+    public static string? DiffersFromEntered(IReadOnlyList<decimal> entered, JsonElement arguments)
+    {
+        if (entered.Count == 0)
+        {
+            return null;
+        }
+
+        var amount = arguments.TryGetProperty("amount", out var value) ? Decimal(value) : null;
+        return amount is { } known && entered.Contains(known)
+            ? null
+            : $"Not prepared, the person sees no card: the amount is not what they entered in the form ({string.Join(", ", entered.Select(n => n.ToString(CultureInfo.InvariantCulture)))}). " +
+              "Call this tool again with their amount. It may be less than the installment. If you think they meant another amount, say why and ask with show_form.";
+    }
+
+    private static decimal? Decimal(JsonElement value) => value.ValueKind switch
+    {
+        JsonValueKind.Number => value.GetDecimal(),
+        JsonValueKind.String when decimal.TryParse(value.GetString(), NumberStyles.Number, CultureInfo.InvariantCulture, out var parsed) => parsed,
+        _ => null,
+    };
 
     private static string? Problem(FormField field, string value)
     {

@@ -114,6 +114,12 @@ public static class ActionEndpoints
         }
 
         var values = form.Fields.ToDictionary(f => f.Name, f => submission.Values.GetValueOrDefault(f.Name)?.Trim());
+        var numbers = FormCheck.Numbers(form.Fields, values);
+        if (numbers.Count > 0)
+        {
+            session.EnteredNumbers = numbers;
+        }
+
         await RecordAsync(session, chat, MessageKind.FormValues, new { formId = form.Id, title = form.Title, values }, chats, ct);
         return TypedResults.Ok(new Outcome("done", null));
     }

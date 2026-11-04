@@ -55,7 +55,7 @@ Customer:
 | Transfer | Medium | Find the target account, check balance and currency, confirm, transfer, show the receipt |
 | Standing orders | Medium | Create, list or cancel, with confirmation |
 | Book an appointment | Medium | Free slots, suggest a few, book or cancel |
-| Pay an installment by card | Medium | Find the due installment, confirm the amount, pay with the test card |
+| Pay an installment by card | Medium | Find the due installment, take the amount the customer enters (it may be less than the installment), confirm, pay with the test card |
 | Early payoff | Medium | Payoff quote, explain its parts, check the balance, confirm, pay off |
 | Spending analysis | Complex | Read several months of movements, group them, show trends and outliers |
 | Explain a debit | Complex | "What was this?": trace it through the statement, standing orders and loan installments |

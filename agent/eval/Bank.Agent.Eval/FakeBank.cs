@@ -57,6 +57,8 @@ public static class FakeBank
                 "Moves money between the customer's own accounts."),
             AIFunctionFactory.Create((string productCode, decimal amount, string currency, int termMonths, Guid repaymentAccountId) => "{}",
                 "loan_application_submit", "Submits a loan application."),
+            AIFunctionFactory.Create((string cardNumber, Guid loanId, decimal amount, string currency, int? scheduleItemNumber) => "{}",
+                "card_payment", "Pays a loan installment with a test card. The amount is the customer's choice and may be less than the installment."),
         ],
         []);
 

@@ -55,4 +55,44 @@ public class FormCheckTests
     [Fact]
     public void A_value_for_a_field_the_form_does_not_have_is_refused() =>
         FormCheck.Values([Date], new Dictionary<string, string?> { ["role"] = "admin" }).Keys.ShouldBe(["role"]);
+
+    private static readonly FormField AmountField = new("amount", "Amount", "number", true, null, 1m, null);
+
+    private static System.Text.Json.JsonElement Tool(object arguments) => System.Text.Json.JsonSerializer.SerializeToElement(arguments);
+
+    [Fact]
+    public void Numbers_are_read_from_the_number_fields_only()
+    {
+        FormField[] fields = [AmountField, new("card", "Card", "text", true, null, null, null), new("item", "Item", "number", false, null, null, null)];
+
+        FormCheck.Numbers(fields, new Dictionary<string, string?> { ["amount"] = " 1000 ", ["card"] = "42", ["item"] = "" }).ShouldBe([1000m]);
+    }
+
+    [Theory]
+    [InlineData(1000.00)]
+    [InlineData(1000)]
+    public void The_entered_amount_passes_however_it_is_written(double amount) =>
+        FormCheck.DiffersFromEntered([1000m], Tool(new { amount = (decimal)amount })).ShouldBeNull();
+
+    [Fact]
+    public void The_entered_amount_also_passes_as_text() =>
+        FormCheck.DiffersFromEntered([1000m], Tool(new { amount = "1000.00" })).ShouldBeNull();
+
+    [Fact]
+    public void Another_amount_is_refused_and_the_model_is_told_the_entered_one()
+    {
+        var refusal = FormCheck.DiffersFromEntered([1000m], Tool(new { amount = 8004.17m }));
+
+        refusal.ShouldNotBeNull();
+        refusal.ShouldContain("(1000)");
+        refusal.ShouldContain("less than the installment");
+    }
+
+    [Fact]
+    public void A_missing_amount_is_refused_when_one_was_entered() =>
+        FormCheck.DiffersFromEntered([1000m], Tool(new { loanId = "x" })).ShouldNotBeNull();
+
+    [Fact]
+    public void Without_an_entered_number_there_is_nothing_to_compare() =>
+        FormCheck.DiffersFromEntered([], Tool(new { amount = 8004.17m })).ShouldBeNull();
 }

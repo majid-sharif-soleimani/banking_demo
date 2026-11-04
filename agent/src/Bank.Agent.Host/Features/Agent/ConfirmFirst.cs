@@ -14,12 +14,25 @@ namespace Bank.Agent.Host.Features.Agent;
 /// Instead this function keeps the call (tool and exact arguments) in the session, shows the person a confirmation card
 /// with those values and Confirm / Cancel buttons, and tells the model to wait. Only the person's click on Confirm runs
 /// the tool (<c>ActionEndpoints</c>), with the stored arguments. The model cannot press the button.
+///
+/// A card payment must also use the amount the person typed in a form (agent ADR 0010): the model cannot replace it with
+/// a number of its own, such as the installment from the schedule.
 /// </summary>
 public sealed class ConfirmFirst(AIFunction inner, HostSession session, UiTools ui) : DelegatingAIFunction(inner)
 {
     protected override ValueTask<object?> InvokeCoreAsync(AIFunctionArguments arguments, CancellationToken cancellationToken)
     {
         var values = JsonSerializer.SerializeToElement(arguments.ToDictionary(a => a.Key, a => a.Value), HostJson.Options);
+        if (Name == McpBankTools.CardPayment)
+        {
+            if (FormCheck.DiffersFromEntered(session.EnteredNumbers, values) is { } refusal)
+            {
+                return ValueTask.FromResult<object?>(refusal);
+            }
+
+            session.EnteredNumbers = [];
+        }
+
         var change = new PendingChange(UiTools.NewId(), Name, ChangeSummary.Title(Name), values);
         session.Pending[change.Id] = change;
 

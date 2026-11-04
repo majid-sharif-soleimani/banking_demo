@@ -78,7 +78,7 @@ public class AgentToolTests(PostgresFixture postgres)
 
         var token = app.Gateway.IssuedTokens.Single();
         app.BankTools.Opened.ShouldBe([(token, StubGateway.TesterCustomerId)]);
-        model.ToolNamesOfFirstCall.Order().ShouldBe([.. new[] { "accounts_list", "transfer_create" }.Concat(UiToolNames).Order()]);
+        model.ToolNamesOfFirstCall.Order().ShouldBe([.. new[] { "accounts_list", "card_payment", "transfer_create" }.Concat(UiToolNames).Order()]);
         var seen = model.EverythingSeen;
         seen.ShouldContain("5555 0000 1");          // the tool result reached the model
         seen.ShouldContain("Tess Tester");          // the instructions name the person

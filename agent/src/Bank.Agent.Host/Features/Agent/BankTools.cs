@@ -64,6 +64,9 @@ public sealed class McpBankTools(IHttpClientFactory httpClients, ILoggerFactory 
     /// </summary>
     public const string HostOnlyPrefix = "host_";
 
+    /// <summary>Pays a loan installment with a test card; <see cref="ConfirmFirst"/> checks its amount.</summary>
+    public const string CardPayment = "card_payment";
+
     /// <summary>The upload the host runs when the person sends a file (CustomerChangeTools.DocumentUpload).</summary>
     public const string DocumentUpload = HostOnlyPrefix + "document_upload";
 

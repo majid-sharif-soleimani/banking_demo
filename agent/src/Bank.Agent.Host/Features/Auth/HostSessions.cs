@@ -51,6 +51,12 @@ public sealed class HostSession
     public System.Collections.Concurrent.ConcurrentDictionary<string, PendingAction> Pending { get; } = new(StringComparer.Ordinal);
 
     /// <summary>
+    /// The numbers in the last form the person sent that had any. A card payment must use one of them; it uses them up
+    /// (agent ADR 0010). They end with the session.
+    /// </summary>
+    public IReadOnlyList<decimal> EnteredNumbers { get; set; } = [];
+
+    /// <summary>
     /// One writer at a time on this session's chat: a run holds it from the person's message to the end of the answer,
     /// an action of the person holds it while its outcome is stored. Two tabs of one browser share the cookie, so they
     /// share this lock; a second run is refused with run_in_progress instead of interleaving two answers. The host is one

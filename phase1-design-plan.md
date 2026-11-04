@@ -69,7 +69,7 @@ Stage interest:      I = P_outstanding · R · days / 365
 | Classification | Overdue from the day after the due date; doubtful (default) after 90 days; thresholds configurable on the product |
 | Payment allocation | Penalty, then interest, then principal; oldest installment first. Money left prepays later installments in order; a partly covered one is split between principal and interest in proportion; no interest is waived (bank-lending ADR 0003, Majid 2026-11-02) |
 | Automatic payment | Debited from the repayment account on the due date; if the balance is insufficient the installment becomes overdue and is retried every business day (confirmed) |
-| Manual payment | With a test card, for a specific installment or the overdue amount |
+| Manual payment | With a test card, for a specific installment or the overdue amount. The customer chooses the amount and may pay less than the installment; the rest stays due (Majid, 2026-11-04) |
 | Early payoff | Outstanding principal + interest to date + minimum interest; future interest beyond the minimum is waived |
 
 Early payoff minimum interest (confirmed): percentage and cap are defined on the product (default 1% of the loan principal). If the remaining future interest is below the minimum, no discount is given.

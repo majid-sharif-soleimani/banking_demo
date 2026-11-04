@@ -132,5 +132,14 @@
     "why": "Management report from the three reports, in Persian.",
     "toolsCalled": ["portfolio_report", "arrears_report", "trial_balance"],
     "language": "fa"
+  },
+  {
+    "id": "partial-card-payment",
+    "role": "customer",
+    "messages": ["Pay 1000 SEK of my car loan installment with the test card 9999 0000 0000 0001."],
+    "why": "The customer chooses the amount: the agent prepares it and does not insist on the installment from the schedule.",
+    "toolsCalled": ["card_payment"],
+    "shown": ["show_confirmation"],
+    "answerDoesNotMatch": ["6[ ,.]?170[.,]85 (SEK )?(is|was) prepared|did not use|cannot use|does not match|must (match|be)"]
   }
 ]

@@ -106,7 +106,7 @@ public sealed class ScriptedModel(params ScriptedModel.Step[] steps) : IChatClie
 }
 
 /// <summary>
-/// Stands in for the bank MCP server. The customer gets a read (accounts_list), a change (transfer_create) and the
+/// Stands in for the bank MCP server. The customer gets a read (accounts_list), changes (transfer_create, card_payment) and the
 /// host-only upload; the admin gets a read (trial_balance) and a change (loan_application_approve). Records which
 /// session each run opened its tools for, and every change that really ran, with its confirmation id.
 /// </summary>
@@ -180,6 +180,13 @@ public sealed class FakeBankTools : IBankTools
                 return ReceiptJson;
             },
             "transfer_create", "Moves money between the customer's accounts.");
+        var card = AIFunctionFactory.Create(
+            (string cardNumber, Guid loanId, decimal amount, string currency, int? scheduleItemNumber) =>
+            {
+                Ran.Add((McpBankTools.CardPayment, confirmationId, JsonSerializer.Serialize(new { loanId, amount, currency, scheduleItemNumber })));
+                return ReceiptJson;
+            },
+            McpBankTools.CardPayment, "Pays a loan installment with a test card.");
         var upload = AIFunctionFactory.Create(
             (Guid applicationId, string fileName, string contentType, string contentBase64) =>
             {
@@ -187,6 +194,6 @@ public sealed class FakeBankTools : IBankTools
                 return """{"id":"i-1"}""";
             },
             McpBankTools.DocumentUpload, "Host only.");
-        return Task.FromResult(new BankToolSet([accounts], [transfer], [upload]));
+        return Task.FromResult(new BankToolSet([accounts], [transfer, card], [upload]));
     }
 }

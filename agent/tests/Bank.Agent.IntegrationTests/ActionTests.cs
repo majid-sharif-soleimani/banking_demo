@@ -189,6 +189,28 @@ public class ActionTests(PostgresFixture postgres)
     }
 
     [Fact]
+    public async Task A_card_payment_with_another_amount_than_the_form_gets_no_card_until_the_model_uses_the_persons_amount()
+    {
+        var model = new ScriptedModel(
+            new CallTool("show_form", AmountForm), new Answer("Waiting."),
+            new CallTool("card_payment", new { cardNumber = "test-card", loanId = From, amount = 8004.17m, currency = "SEK", scheduleItemNumber = 7 }),
+            new CallTool("card_payment", new { cardNumber = "test-card", loanId = From, amount = 250.00m, currency = "SEK", scheduleItemNumber = 7 }),
+            new Answer("Please press Confirm."));
+        await using var app = await AgentApp.StartAsync(postgres, model);
+        var browser = app.NewBrowser();
+        var chatId = (await browser.LoginOkAsync(StubGateway.TesterUsername, StubGateway.TesterPassword)).GetProperty("chatId").GetGuid();
+        var formId = ToolArgs(await browser.RunAsync("Pay part of my installment"), "show_form").GetProperty("formId").GetString();
+
+        using var sent = await browser.PostAsync($"/agent/forms/{formId}", new { values = new { amount = "250" } });
+        await browser.RunAsync("I sent the form.");
+
+        var card = JsonDocument.Parse((await Messages(app, chatId)).Single(m => m.Kind == "confirmation").Content).RootElement;
+        card.GetProperty("fields").EnumerateArray().Select(f => (f.GetProperty("label").GetString(), f.GetProperty("value").GetString()))
+            .ShouldContain(("Amount", "250.00"));
+        app.BankTools.Ran.ShouldBeEmpty();
+    }
+
+    [Fact]
     public async Task A_requested_document_is_uploaded_to_the_bank_and_a_wrong_file_is_refused()
     {
         var application = Guid.NewGuid();
