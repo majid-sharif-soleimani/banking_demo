@@ -1,11 +1,15 @@
 using System.Text.Json;
+using Microsoft.Extensions.AI;
 
 namespace Bank.Agent.Host.Features.Agent;
 
 /// <summary>What one bank tool answered: whether it worked, and the bank's text.</summary>
 public sealed record ToolAnswer(bool Done, string? Text);
 
-/// <summary>Reads a bank tool's answer. An MCP tool error (isError) is a refusal by the bank; anything else worked.</summary>
+/// <summary>
+/// Reads a bank tool's answer. An MCP tool error (isError) is a refusal by the bank; anything else worked. On success a
+/// real MCP tool gives <see cref="TextContent"/>, and its text is the bank's answer; serializing it would wrap the answer.
+/// </summary>
 public static class ToolResult
 {
     public static ToolAnswer Read(object? result)
@@ -21,6 +25,7 @@ public static class ToolResult
         {
             null => null,
             string s => s,
+            TextContent t => t.Text,
             JsonElement { ValueKind: JsonValueKind.String } e => e.GetString(),
             JsonElement e => e.GetRawText(),
             _ => JsonSerializer.Serialize(result),

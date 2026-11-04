@@ -20,6 +20,7 @@ Phase 1 is complete (closed 2026-11-03). It is reopened only to fix bugs. Phase 
 | Fix | Guide on the first screen | Done, on the home bank | 2026-11-04 | A visitor saw a login form with no word on what the app is. `Guide.tsx` in three languages: open on the login screen, closed in a new chat. chat-ui 43 tests green; Playwright not rerun. `docs/learning/phase-2/fix-first-screen-guide.md` |
 | Docs | Root README | Done | 2026-11-04 | Goal, phases, design, subsystems, decisions, patterns, code map, getting started. Setup steps tried on a fresh clone. |
 | Fix | CI: the local feed folder | Built | 2026-11-04 | The first runs on GitHub failed with NU1301: the feed folder did not exist before `dotnet pack`, which only a filled NuGet cache had hidden. Every workflow now creates it first. |
+| Fix | Customers report and document reading on real tool answers | Done, on the home bank | 2026-11-04 | `ToolResult.Read` wrapped the `TextContent` of a real MCP tool, so both tools threw. Tool failures now log type and stack trace (also to Seq). Unit 106, MCP 53, integration 59. `docs/learning/phase-2/fix-tool-result-text-content.md` |
 
 ## Phase 1
 

@@ -163,7 +163,7 @@ public sealed class FakeBankTools : IBankTools
                 }),
                 McpBankTools.CustomerDocument, "Host only.");
             var report = AIFunctionFactory.Create((bool includeAccounts, bool includeLoans) => CustomersReportJson, McpBankTools.CustomersReport, "Host only.");
-            return Task.FromResult(new BankToolSet([trialBalance, interactions], [approve], [document, report]));
+            return Task.FromResult(new BankToolSet([trialBalance, interactions], [approve], [new AnswersLikeMcp(document), new AnswersLikeMcp(report)]));
         }
 
         var accounts = AIFunctionFactory.Create(() => AccountsJson, "accounts_list", "The customer's accounts.");

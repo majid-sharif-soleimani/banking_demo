@@ -339,6 +339,13 @@ public static class AgUiEndpoint
                         started.Item1, session.ChatId, session.Principal.Role,
                         result.Exception is not null ? "failed" : text.StartsWith(FormCheck.NotPrepared, StringComparison.Ordinal) ? "refused" : "ok",
                         text.Length, (long)System.Diagnostics.Stopwatch.GetElapsedTime(started.Item2).TotalMilliseconds);
+                    // The model gets only "Function failed". Type and stack trace say where; the message could hold customer data.
+                    if (result.Exception is { } failure)
+                    {
+                        log.LogError("Tool {Tool} failed in chat {ChatId}: {Error}\n{StackTrace}",
+                            started.Item1, session.ChatId, failure.GetType().Name, failure.StackTrace);
+                    }
+
                     break;
             }
         }

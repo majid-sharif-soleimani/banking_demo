@@ -104,6 +104,25 @@ public class AdminToolsTests
         app.Gateway.Requests.ShouldNotContain(r => r.PathAndQuery.StartsWith("/api/lending/"));
     }
 
+    /// <summary>The host's ToolResult depends on these two shapes. A test double that returns a string would hide a change.</summary>
+    [Fact]
+    public async Task As_a_function_the_host_only_report_answers_with_text_content_and_a_refusal_with_is_error()
+    {
+        await using var app = new McpServerApp();
+        app.Gateway.BodiesByPath["/api/customers/customers/search"] = """{"items":[],"nextCursor":null}""";
+        await using var client = await app.ConnectAdminAsync(Token);
+        var ct = TestContext.Current.CancellationToken;
+        var report = (await client.ListToolsAsync(cancellationToken: ct)).Single(t => t.Name == "host_customers_report");
+        var arguments = new Microsoft.Extensions.AI.AIFunctionArguments(new Dictionary<string, object?> { ["includeAccounts"] = false, ["includeLoans"] = false });
+
+        var answer = await report.InvokeAsync(arguments, ct);
+        app.Gateway.Status = System.Net.HttpStatusCode.Forbidden;
+        var refusal = await report.InvokeAsync(arguments, ct);
+
+        answer.ShouldBeOfType<Microsoft.Extensions.AI.TextContent>().Text.ShouldBe("""{"customers":[],"more":false}""");
+        refusal.ShouldBeOfType<JsonElement>().GetProperty("isError").GetBoolean().ShouldBeTrue();
+    }
+
     [Fact]
     public async Task A_customer_search_without_a_filter_sends_none_so_the_bank_lists_every_customer()
     {
