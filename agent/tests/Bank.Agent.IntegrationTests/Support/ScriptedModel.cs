@@ -23,6 +23,9 @@ public sealed class ScriptedModel(params ScriptedModel.Step[] steps) : IChatClie
 
     public sealed record Fail : Step;
 
+    /// <summary>Ends the model's turn with nothing to show, optionally cut off by the output limit, as a real model can.</summary>
+    public sealed record Silence(string? Text = null, ChatFinishReason? Reason = null) : Step;
+
     /// <summary>Says it started, then answers only when the test releases it: a run that is still going.</summary>
     public sealed record Hold(TaskCompletionSource Started, Task Release, string Text) : Step;
 
@@ -65,6 +68,9 @@ public sealed class ScriptedModel(params ScriptedModel.Step[] steps) : IChatClie
                 break;
             case Fail:
                 throw new HttpRequestException("The model provider is down.");
+            case Silence silence:
+                yield return new ChatResponseUpdate(ChatRole.Assistant, silence.Text) { FinishReason = silence.Reason };
+                break;
             case Hold hold:
                 hold.Started.TrySetResult();
                 await hold.Release;

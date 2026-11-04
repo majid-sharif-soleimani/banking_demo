@@ -67,6 +67,7 @@ export function noticeFor(code: string, language: Language = "en"): string | und
     bank_unavailable: "noticeBankUnavailable",
     too_many_runs: "noticeTooManyRuns",
     run_in_progress: "noticeRunInProgress",
+    no_answer: "noticeNoAnswer",
   }[code] as TextKey | undefined;
   return key ? text(language, key) : undefined;
 }

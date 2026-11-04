@@ -31,6 +31,7 @@ describe("api", () => {
     ["session_expired", "nothing happened for a while"],
     ["session_replaced", "logged in somewhere else"],
     ["bank_unavailable", "could not be reached"],
+    ["no_answer", "stopped early"],
   ])("explains %s", (code, text) => {
     expect(noticeFor(code)).toContain(text);
   });

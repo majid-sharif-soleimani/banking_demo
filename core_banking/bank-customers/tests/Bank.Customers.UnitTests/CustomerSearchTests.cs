@@ -21,8 +21,16 @@ public class CustomerSearchTests
         CustomerSearch.ContainsPattern(term).ShouldBe(pattern);
 
     [Fact]
-    public void Validate_NoFilter_IsAnError() =>
-        CustomerSearch.Validate(new CustomerSearchFilter(null, " ", null, null)).Keys.ShouldBe(["filter"]);
+    public void Validate_NoFilter_ListsEveryCustomer() =>
+        CustomerSearch.Validate(new CustomerSearchFilter(null, null, null, null)).ShouldBeEmpty();
+
+    [Theory]
+    [InlineData(" ", null, null, null)]
+    [InlineData(null, "", null, null)]
+    [InlineData(null, null, " ", null)]
+    [InlineData(null, null, null, "  ")]
+    public void Validate_BlankFilter_IsAnError_SoALostValueNeverListsEveryone(string? name, string? email, string? phone, string? nationalId) =>
+        CustomerSearch.Validate(new CustomerSearchFilter(name, email, phone, null, nationalId)).Keys.ShouldBe(["filter"]);
 
     [Fact]
     public void Validate_TooShortNameAndPhone_AreErrors()

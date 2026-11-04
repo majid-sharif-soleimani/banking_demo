@@ -125,17 +125,44 @@ public class CustomerSearchTests(PostgresFixture postgres)
     }
 
     [Fact]
-    public async Task Missing_or_too_short_filters_and_bad_paging_are_bad_requests()
+    public async Task No_filter_lists_every_customer_page_by_page_with_the_national_id()
+    {
+        await using var app = await CustomersApp.StartAsync(postgres);
+        await RegisterAsync(app, "Ada Lovelace", "ada@example.com", "+46 70 111 11 11");
+        await RegisterAsync(app, "Grace Hopper", "grace@example.com", "+46 70 222 22 22");
+        await RegisterAsync(app, "Alan Turing", "alan@example.com", "+46 70 333 33 33");
+
+        var first = await PageAsync(app, new(null, null, null, null, 2, null));
+        var second = await PageAsync(app, new(null, null, null, null, 2, first.NextCursor));
+
+        first.Items.Select(c => c.Name).ShouldBe(["Ada Lovelace", "Alan Turing"]);
+        second.Items.Select(c => c.Name).ShouldBe(["Grace Hopper"]);
+        second.NextCursor.ShouldBeNull();
+        first.Items.ShouldAllBe(c => c.NationalId.StartsWith("ID-"));
+    }
+
+    [Fact]
+    public async Task Listing_every_customer_is_for_staff_only()
     {
         await using var app = await CustomersApp.StartAsync(postgres);
 
-        var none = await SearchAsync(app, new(null, null, null, null, null, null));
+        var asCustomer = await SearchAsync(app, new(null, null, null, null, null, null), performedBy: null, customerId: Guid.NewGuid());
+
+        asCustomer.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task Blank_or_too_short_filters_and_bad_paging_are_bad_requests()
+    {
+        await using var app = await CustomersApp.StartAsync(postgres);
+
+        var blank = await SearchAsync(app, new(null, null, null, null, null, null, NationalId: " "));
         var shortName = await SearchAsync(app, ByName("A"));
         var limit = await SearchAsync(app, ByName("Ada", limit: 0));
         var cursor = await SearchAsync(app, ByName("Ada", cursor: "eyJuYW1lIjoiQWRhIn0"));
 
-        none.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
-        (await none.Content.ReadFromJsonAsync<ValidationProblemDetails>(Ct))!.Errors.Keys.ShouldBe(["filter"]);
+        blank.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await blank.Content.ReadFromJsonAsync<ValidationProblemDetails>(Ct))!.Errors.Keys.ShouldBe(["filter"]);
         (await shortName.Content.ReadFromJsonAsync<ValidationProblemDetails>(Ct))!.Errors.Keys.ShouldBe(["name"]);
         (await CodeAsync(limit)).ShouldBe("invalid_limit");
         (await CodeAsync(cursor)).ShouldBe("invalid_cursor");

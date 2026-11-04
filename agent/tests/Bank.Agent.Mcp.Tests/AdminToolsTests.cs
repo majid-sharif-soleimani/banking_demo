@@ -84,6 +84,30 @@ public class AdminToolsTests
     }
 
     [Fact]
+    public async Task A_customer_search_without_a_filter_sends_none_so_the_bank_lists_every_customer()
+    {
+        await using var app = new McpServerApp();
+        await using var client = await app.ConnectAdminAsync(Token);
+
+        await client.CallToolAsync("customers_search", new Dictionary<string, object?>(), cancellationToken: Ct);
+
+        var body = app.Gateway.Sent.ShouldHaveSingleItem().Body!;
+        body.ShouldContain("\"name\":null");
+        body.ShouldContain("\"nationalId\":null");
+    }
+
+    [Fact]
+    public async Task A_customer_search_can_filter_on_the_national_id()
+    {
+        await using var app = new McpServerApp();
+        await using var client = await app.ConnectAdminAsync(Token);
+
+        await client.CallToolAsync("customers_search", new Dictionary<string, object?> { ["nationalId"] = "IMP-C001" }, cancellationToken: Ct);
+
+        app.Gateway.Sent.ShouldHaveSingleItem().Body!.ShouldContain("\"nationalId\":\"IMP-C001\"");
+    }
+
+    [Fact]
     public async Task A_customer_search_is_a_post_so_the_filter_stays_out_of_the_url()
     {
         await using var app = new McpServerApp();

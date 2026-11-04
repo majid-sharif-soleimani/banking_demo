@@ -14,6 +14,7 @@ The local platform and its infrastructure, not a service: owns no tables and pub
 - In `AppHost.cs`: `builder.AddProject<Projects.Bank_X_Api>("x").WithReference(serviceDatabases["x"]).WithReference(kafka).WaitFor(...)`. The `<service>-db` connection strings already exist for all six services.
 - Add a `ProjectReference` to the service's API project in `Bank.AppHost.csproj` (it generates `Projects.Bank_X_Api`), `.WithHttpHealthCheck("/health")`, a case in `InfrastructureHealthTests` and a migration check in `ServiceStartupTests`, and the service's `src/**` path to `.github/workflows/bank-platform.yml`.
 - Services reference `Bank.ServiceDefaults` as a package from `../.local-feed` (`dotnet pack src/Bank.ServiceDefaults -c Release -o ../.local-feed`). The CI workflows pack it and `bank-contracts` from the same commit first.
+- `Seq:ServerUrl` sends a service's logs to Seq as well, and `OTEL_RESOURCE_ATTRIBUTES: log_group=<group>` puts them in a group (ADR 0005). At home the agent's group is on; `banking-demo` is the next step.
 - A new service name (not one of the six) needs: a block in the init script, `BankDatabase.Services`, `.env.example`, `docker-compose.yml` and `ServiceRoleIsolationTests.Services`.
 
 ## Gotchas

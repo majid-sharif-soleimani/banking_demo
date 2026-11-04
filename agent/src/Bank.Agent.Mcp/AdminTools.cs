@@ -50,18 +50,19 @@ public sealed class AdminTools(BankApi bank)
         bank.GetAsync($"/api/lending/reports/arrears{DateQuery(date, "?")}", ct);
 
     [McpServerTool(Name = "customers_search", ReadOnly = true)]
-    [Description("Finds customers. Give at least one filter; filters are combined with AND. Name matches a part of the name; email and phone must be complete. Returns id, name, email, phone and status, up to 20 per page, and a cursor for the next page.")]
+    [Description("Lists or finds customers. Give no filter to list every customer; filters are combined with AND. Leave out a filter you do not use. Name matches a part of the name; email, phone and national id must be complete. Returns id, name, national id, email, phone and status, up to 20 per page, and nextCursor for the next page (null on the last page).")]
     public Task<string> SearchCustomersAsync(
         CancellationToken ct,
         [Description("A part of the name.")] string? name = null,
         string? email = null,
         string? phone = null,
         [Description("The customer number (the customer id).")] Guid? customerNumber = null,
+        string? nationalId = null,
         [Description("The cursor from the previous page.")] string? cursor = null) =>
-        bank.PostReadAsync("/api/customers/customers/search", new { name, email, phone, customerNumber, limit = 20, cursor }, ct);
+        bank.PostReadAsync("/api/customers/customers/search", new { name, email, phone, customerNumber, nationalId, limit = 20, cursor }, ct);
 
     [McpServerTool(Name = "customer_get", ReadOnly = true)]
-    [Description("One customer's profile: name, contact details, preferred language and status.")]
+    [Description("One customer's profile: name, national id, contact details, preferred language and status.")]
     public Task<string> CustomerAsync(Guid customerId, CancellationToken ct) =>
         bank.GetAsync($"/api/customers/customers/{customerId}", ct);
 

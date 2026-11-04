@@ -278,6 +278,14 @@ bank up -d --wait --no-deps operations ledger customers accounts lending
 
 The evaluation set (`agent/eval`, agent README) runs on the host machine, not in a container, against the model only.
 
+## Logs in Seq
+
+Seq runs on the host machine, outside the bank's network, on port 5341 (bank-platform ADR 0005). In `docker-compose.home.yml`, `agent` and `bank-mcp` have `Seq__ServerUrl: http://host.docker.internal:5341` and `OTEL_RESOURCE_ATTRIBUTES: log_group=agent`.
+
+Make the group visible in Seq once: open `http://localhost:5341`, type `@Resource.log_group = 'agent'` in the search box, then save it as a signal named `agent`.
+
+To add the bank's logs later: give each bank service the same two settings with `log_group=banking-demo`, plus `extra_hosts: ["host.docker.internal:host-gateway"]`, and rebuild its image, because the running images still have the older `Bank.ServiceDefaults`. Then save a second signal.
+
 ## Bring the bank back up (quick guide)
 
 The bank is already installed: images built, passwords and the API key in `env/`, data in the volumes, the Tailscale entry saved. Nothing below deletes data.

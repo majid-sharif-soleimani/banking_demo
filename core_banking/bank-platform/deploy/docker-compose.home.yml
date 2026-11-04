@@ -34,8 +34,12 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://dashboard:18889
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
       OTEL_SERVICE_NAME: agent
+      OTEL_RESOURCE_ATTRIBUTES: log_group=agent
+      Seq__ServerUrl: http://host.docker.internal:5341
       services__gateway__http__0: http://gateway:8080
       services__bank-mcp__http__0: http://bank-mcp:8080
+    # Seq runs on the host machine, outside this network (home-hosting.md, "Logs in Seq").
+    extra_hosts: ["host.docker.internal:host-gateway"]
     # ConnectionStrings__agent-db, Agent__Gateway__ApiKey and Agent__Model__ApiKey (home-hosting.md, "The chat").
     env_file: [{ path: env/agent.env, required: false }]
     ports:
@@ -61,7 +65,10 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://dashboard:18889
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
       OTEL_SERVICE_NAME: bank-mcp
+      OTEL_RESOURCE_ATTRIBUTES: log_group=agent
+      Seq__ServerUrl: http://host.docker.internal:5341
       services__gateway__http__0: http://gateway:8080
+    extra_hosts: ["host.docker.internal:host-gateway"]
     # BankMcp__Gateway__ApiKey (home-hosting.md, "The chat").
     env_file: [{ path: env/bank-mcp.env, required: false }]
     healthcheck:

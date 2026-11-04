@@ -223,6 +223,49 @@ public class AgentToolTests(PostgresFixture postgres)
     }
 
     [Fact]
+    public async Task When_the_model_goes_silent_after_a_tool_the_person_hears_about_it_and_the_chat_stays_open()
+    {
+        // What happened on the home bank: the model tried to write a table too long for its output limit, the tool call
+        // was cut off, and the run ended with no answer and no error.
+        await using var silent = await AgentApp.StartAsync(postgres, new ScriptedModel(
+            new CallTool("accounts_list", new { }), new Silence(Reason: ChatFinishReason.Length), new Answer("Back again.")));
+        var browser = silent.NewBrowser();
+        await browser.LoginOkAsync(StubGateway.TesterUsername, StubGateway.TesterPassword);
+
+        var ended = await browser.RunAsync("Accounts?");
+        var next = await browser.RunAsync("Hello?");
+
+        ended[^1].GetProperty("type").GetString().ShouldBe("RUN_ERROR");
+        ended[^1].GetProperty("code").GetString().ShouldBe("no_answer");
+        next[^1].GetProperty("type").GetString().ShouldBe("RUN_FINISHED");
+        silent.LogLines.ShouldContain(line => line.Contains("no answer") && line.Contains("length"));
+    }
+
+    [Fact]
+    public async Task When_the_output_limit_cuts_a_text_the_person_hears_about_it()
+    {
+        await using var app = await AgentApp.StartAsync(postgres, new ScriptedModel(new Silence("Your balance is", ChatFinishReason.Length)));
+        var browser = app.NewBrowser();
+        await browser.LoginOkAsync(StubGateway.TesterUsername, StubGateway.TesterPassword);
+
+        var events = await browser.RunAsync("Balance?");
+
+        events[^1].GetProperty("code").GetString().ShouldBe("no_answer");
+    }
+
+    [Fact]
+    public async Task A_shown_table_with_no_words_after_it_is_an_answer()
+    {
+        await using var app = await AgentApp.StartAsync(postgres, new ScriptedModel(new CallTool("show_table", AccountsTable), new Silence()));
+        var browser = app.NewBrowser();
+        await browser.LoginOkAsync(StubGateway.TesterUsername, StubGateway.TesterPassword);
+
+        var events = await browser.RunAsync("Accounts?");
+
+        events[^1].GetProperty("type").GetString().ShouldBe("RUN_FINISHED");
+    }
+
+    [Fact]
     public async Task When_the_model_fails_the_run_ends_with_an_error_and_the_chat_stays_open()
     {
         await using var app = await AgentApp.StartAsync(postgres, new ScriptedModel(new Fail(), new Answer("Back again.")));

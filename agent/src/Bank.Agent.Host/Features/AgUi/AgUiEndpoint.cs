@@ -162,6 +162,10 @@ public static class AgUiEndpoint
             var toolNames = new Dictionary<string, string>();
             var usage = new UsageDetails();
             var failed = false;
+            // Whether the person got something since the last tool result, and why the model's last call ended. Together
+            // they catch a run that would otherwise just stop: see the check after the loop.
+            var answered = false;
+            ChatFinishReason? finishReason = null;
             await foreach (var update in UntilFailure(agent.RunStreamingAsync(history, cancellationToken: ct), session, parts.Log, ct))
             {
                 if (update is null)
@@ -171,6 +175,8 @@ public static class AgUiEndpoint
                 }
 
                 LogToolCalls(update, toolNames, session, parts.Log);
+                answered &= !update.Contents.Any(c => c is FunctionResultContent);
+                finishReason = update.FinishReason ?? finishReason;
                 foreach (var counted in update.Contents.OfType<UsageContent>())
                 {
                     usage.Add(counted.Details);
@@ -178,6 +184,7 @@ public static class AgUiEndpoint
 
                 if (!string.IsNullOrEmpty(update.Text))
                 {
+                    answered = true;
                     foreach (var e in turn.Text(update.Text))
                     {
                         yield return e;
@@ -186,6 +193,7 @@ public static class AgUiEndpoint
 
                 foreach (var component in ui.TakeShown())
                 {
+                    answered = true;
                     foreach (var e in await turn.ComponentAsync(component, ct))
                     {
                         yield return e;
@@ -205,6 +213,15 @@ public static class AgUiEndpoint
             if (failed)
             {
                 yield return new RunErrorEvent { Code = "model_unavailable", Message = "The assistant could not answer. Try again in a moment." };
+            }
+            else if (!answered || finishReason == ChatFinishReason.Length)
+            {
+                // The model ended without a word after its last tool, or hit the output limit (Agent:Model:MaxOutputTokens),
+                // for example on a table too long to write. No exception comes with this, so without the check the person
+                // would see the chat just stop.
+                parts.Log.LogWarning("Run in chat {ChatId} for role {Role} ended with no answer (finish reason {FinishReason})",
+                    session.ChatId, session.Principal.Role, finishReason?.Value ?? "none");
+                yield return new RunErrorEvent { Code = "no_answer", Message = "The answer stopped early. Ask for a smaller part, for example one page of a list." };
             }
         }
     }

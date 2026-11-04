@@ -66,8 +66,9 @@ export function ChatView({ session, onEnded }: Props) {
         return;
       }
 
-      // Refused before the agent started: too many runs, or another tab is still being answered.
-      if (code === "too_many_runs" || code === "run_in_progress") {
+      // Refused before the agent started (too many runs, another tab is still being answered), or an answer that stopped
+      // early. The session is fine in all three.
+      if (code === "too_many_runs" || code === "run_in_progress" || code === "no_answer") {
         setProblem(noticeFor(code, language));
         return;
       }

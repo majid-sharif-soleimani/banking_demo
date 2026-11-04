@@ -4,12 +4,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Bank.Customers.Api.Features.Customers;
 
-/// <summary>One search hit: enough to pick the right customer. The full record is GET /customers/{id}.</summary>
-public sealed record CustomerSummary(Guid Id, string Name, string Email, string Phone, string Status);
+/// <summary>One search hit: enough to tell customers apart and pick the right one. The full record is GET /customers/{id}.</summary>
+public sealed record CustomerSummary(Guid Id, string Name, string NationalId, string Email, string Phone, string Status);
 
 /// <summary>
-/// POST /customers/search: find customers by name, email, phone, customer number (the customer id) or national id, sorted by
-/// (name, id), keyset paging (workspace ADR 0004). A POST so the personal data in the filters and in the cursor never sits
+/// POST /customers/search: find customers by name, email, phone, customer number (the customer id) or national id, or list
+/// them all by giving no filter (bank-customers ADR 0002), sorted by (name, id), keyset paging (workspace ADR 0004). A POST so the personal data in the filters and in the cursor never sits
 /// in a URL (ADR 0005); nothing is stored and nothing about the filters is logged. Staff only (ADR 0006). Matching rules:
 /// bank-customers ADR 0001.
 /// </summary>
@@ -22,7 +22,7 @@ public static class SearchCustomers
     public static void Map(IEndpointRouteBuilder app) =>
         app.MapPost("/customers/search", HandleAsync)
             .WithName(nameof(SearchCustomers)).WithTags("Customers")
-            .WithSummary("Search customers by name (contains), email, phone (digits), customer number or national id. Staff only; stores nothing.")
+            .WithSummary("Search customers by name (contains), email, phone (digits), customer number or national id; no filter lists them all. Staff only; stores nothing.")
             .Produces<Page<CustomerSummary>>()
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -88,6 +88,6 @@ public static class SearchCustomers
         var take = request.Limit ?? Paging.DefaultLimit;
         var rows = await query.OrderBy(c => c.Name).ThenBy(c => c.Id).Take(take + 1).ToListAsync(ct);
         return Results.Ok(Paging.ToPage(rows, take,
-            c => new CustomerSummary(c.Id, c.Name, c.Email, c.Phone, c.Status.ToString()), c => new Key(c.Name, c.Id)));
+            c => new CustomerSummary(c.Id, c.Name, c.NationalId, c.Email, c.Phone, c.Status.ToString()), c => new Key(c.Name, c.Id)));
     }
 }

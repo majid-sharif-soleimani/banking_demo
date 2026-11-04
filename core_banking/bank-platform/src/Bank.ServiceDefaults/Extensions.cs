@@ -5,6 +5,8 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using OpenTelemetry;
+using OpenTelemetry.Exporter;
+using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 
@@ -15,7 +17,8 @@ namespace Microsoft.Extensions.Hosting;
 /// <c>Build()</c>, <c>app.MapDefaultEndpoints()</c>. It gives logs, traces and metrics over OTLP (the Aspire dashboard
 /// locally, its standalone version on AWS), the health endpoints the AppHost and Docker wait on, service discovery and
 /// resilience for outgoing HTTP calls (to external APIs such as the Riksbank, and the one call between services:
-/// identity looking a national id up in Customers, workspace ADR 0007).
+/// identity looking a national id up in Customers, workspace ADR 0007). Logs can also go to Seq (<c>Seq:ServerUrl</c>,
+/// bank-platform ADR 0005).
 /// </summary>
 public static class Extensions
 {
@@ -44,6 +47,17 @@ public static class Extensions
         {
             logging.IncludeFormattedMessage = true;
             logging.IncludeScopes = true;
+
+            // A second destination next to the dashboard, only where it is configured. Seq takes OTLP over HTTP on its own
+            // path; the group a service's logs belong to is the resource attribute log_group (OTEL_RESOURCE_ATTRIBUTES).
+            if (builder.Configuration["Seq:ServerUrl"] is { Length: > 0 } seq)
+            {
+                logging.AddProcessor(new BatchLogRecordExportProcessor(new OtlpLogExporter(new OtlpExporterOptions
+                {
+                    Endpoint = new Uri($"{seq.TrimEnd('/')}/ingest/otlp/v1/logs"),
+                    Protocol = OtlpExportProtocol.HttpProtobuf,
+                })));
+            }
         });
 
         builder.Services.AddOpenTelemetry()

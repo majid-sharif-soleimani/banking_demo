@@ -30,6 +30,16 @@ public class AgentInstructionsTests
     }
 
     [Fact]
+    public void The_admin_lists_customers_page_by_page_and_never_by_guessing()
+    {
+        var text = AgentInstructions.For(Admin);
+
+        text.ShouldContain("customers_search with no filter lists every customer");
+        text.ShouldContain("Never join pages into one table");
+        text.ShouldContain("Never search by guessing");
+    }
+
+    [Fact]
     public void The_customer_gets_the_loan_advisor_workflow()
     {
         var text = AgentInstructions.For(Anna);

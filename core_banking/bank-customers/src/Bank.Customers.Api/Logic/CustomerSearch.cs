@@ -2,7 +2,7 @@ using System.Text;
 
 namespace Bank.Customers.Api.Logic;
 
-/// <summary>The search filters; every given one must match (AND). <paramref name="CustomerNumber"/> is the customer id.</summary>
+/// <summary>The search filters; every given one must match (AND), and none at all lists every customer. <paramref name="CustomerNumber"/> is the customer id.</summary>
 public sealed record CustomerSearchFilter(string? Name, string? Email, string? Phone, Guid? CustomerNumber, string? NationalId = null);
 
 /// <summary>
@@ -42,10 +42,12 @@ public static class CustomerSearch
     public static Dictionary<string, string[]> Validate(CustomerSearchFilter filter)
     {
         var errors = new Dictionary<string, string[]>();
-        if (string.IsNullOrWhiteSpace(filter.Name) && string.IsNullOrWhiteSpace(filter.Email)
-            && string.IsNullOrWhiteSpace(filter.Phone) && filter.CustomerNumber is null && string.IsNullOrWhiteSpace(filter.NationalId))
+
+        // Leaving every filter out lists every customer (bank-customers ADR 0002). A filter that is given but blank is a
+        // caller that lost its value, such as a login with an empty national id: it must never get the whole list.
+        if (IsBlank(filter.Name) || IsBlank(filter.Email) || IsBlank(filter.Phone) || IsBlank(filter.NationalId))
         {
-            errors["filter"] = ["Give at least one of name, email, phone, customerNumber or nationalId."];
+            errors["filter"] = ["A filter cannot be blank. Leave it out to list every customer."];
             return errors;
         }
 
@@ -61,4 +63,6 @@ public static class CustomerSearch
 
         return errors;
     }
+
+    private static bool IsBlank(string? value) => value is not null && string.IsNullOrWhiteSpace(value);
 }

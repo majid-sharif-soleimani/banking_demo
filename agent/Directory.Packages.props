@@ -4,7 +4,7 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- Shared bank packages from ../core_banking/.local-feed; exact versions (implementation-decisions, "Package versions"). -->
-    <PackageVersion Include="Bank.ServiceDefaults" Version="0.1.0" />
+    <PackageVersion Include="Bank.ServiceDefaults" Version="0.2.0" />
     <PackageVersion Include="Bank.Toolkit.Data" Version="0.6.1" />
     <PackageVersion Include="Bank.Testing" Version="0.6.1" />
     <!-- Agent host -->

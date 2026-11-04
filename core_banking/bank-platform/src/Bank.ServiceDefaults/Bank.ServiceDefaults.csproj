@@ -2,6 +2,7 @@
   <PropertyGroup>
     <IsAspireSharedProject>true</IsAspireSharedProject>
     <PackageId>Bank.ServiceDefaults</PackageId>
+    <Version>0.2.0</Version>
     <Description>What every bank service registers first: OpenTelemetry, health checks, service discovery and HTTP resilience.</Description>
   </PropertyGroup>
   <ItemGroup>

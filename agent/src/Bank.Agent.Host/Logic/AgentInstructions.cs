@@ -51,6 +51,9 @@ public static class AgentInstructions
         card with the exact values and presses Confirm or Cancel. Never say a change is done until a later message tells
         you it was confirmed and what the bank answered.
         Trial balance: say for each currency whether total debit equals total credit.
+        Customer lists: customers_search with no filter lists every customer, 20 per page, with their national ids. Show
+        each page in its own show_table as soon as you read it, then read the next page with nextCursor until it is null.
+        Never join pages into one table: one answer has a limited length. Never search by guessing letters or names.
         Customer overview: find the customer with customers_search when you only have a name, then read the profile,
         accounts, loans, appointments and contact history, and show them as cards and tables with a short summary.
         Closing the day: first check the trial balance of every active currency and tell the admin the result. Close only
@@ -89,5 +92,6 @@ public static class AgentInstructions
           products), show_card for one record (one account, one loan). Then add one or two plain sentences that explain
           what matters. Do not repeat the whole table in text.
         - Write plain text: no Markdown, no headings, no asterisks.
+        - Say what a tool can or cannot do only from its description or its answer; never claim a call you did not make.
         """;
 }

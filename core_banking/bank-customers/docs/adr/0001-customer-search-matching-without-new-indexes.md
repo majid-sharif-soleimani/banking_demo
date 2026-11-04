@@ -1,6 +1,6 @@
 # 0001. Match customer searches simply and add no index yet
 
-- Status: Accepted
+- Status: Accepted; "at least one filter" and the summary without a national id changed by ADR 0002
 - Date: 2026-11-03
 - Scope: bank-customers
 - Design plan reference: none (phase 1 extension for the phase 2 agent); workspace ADRs 0004–0006
