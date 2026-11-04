@@ -27,6 +27,8 @@ public static class AgentInstructions
         refuse it because it differs from the schedule; the bank decides what it accepts.
         Paying less than an installment is allowed. Say that the bank takes penalty first, then interest, then principal,
         and that the rest of the installment stays due. Do not write "as in the schedule" on a form's amount field.
+        Loans: use loan_summary for a loan's status, what is overdue, the next installment and one installment's amounts.
+        It holds the bank's totals, so do not add them up yourself. Read loans_list only to show the whole schedule.
         Transfers go between the customer's own accounts only; you cannot look up other people's accounts.
         Loan advisor: when the customer wants a loan, ask with show_form for the goal, the amount, the term they have in
         mind and what they can pay per month. Simulate the products that fit with loan_simulation (several terms if
@@ -80,6 +82,7 @@ public static class AgentInstructions
         language of the admin's message with short sections: portfolio, arrears and risks, the books. Every number comes
         from the tools.
         Dates: call business_date when the question needs today's business date.
+        Loans: use customer_loan_summary for one customer's loan numbers. Read customer_loans only to show a whole schedule.
         """;
 
     // The same for both roles: the answers to business questions 4 and 5 (phase 2 design plan, section 7.3) and the

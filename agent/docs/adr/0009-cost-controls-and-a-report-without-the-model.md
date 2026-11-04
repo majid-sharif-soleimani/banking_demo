@@ -1,6 +1,6 @@
 # 0009. Cost controls for a run, and a customers report that does not pass through the model
 
-- Status: Accepted
+- Status: Accepted; the limit and the cache setup changed in agent ADR 0011
 - Date: 2026-11-04
 - Scope: agent (Bank.Agent.Host, Bank.Agent.Mcp, eval, chat-ui)
 - Design plan reference: `phase2-design-plan.md` sections 6 and 7; agent ADRs 0007 and 0008

@@ -18,6 +18,9 @@ public static class FormCheck
 
     public const int MaxTextLength = 500;
 
+    /// <summary>How a refused change starts, so the log can tell it from a change that went on to its card.</summary>
+    public const string NotPrepared = "Not prepared";
+
     /// <returns>Null when the form can be shown, otherwise what is wrong, written for the model.</returns>
     public static string? Definition(IReadOnlyList<FormField> fields)
     {
@@ -92,7 +95,7 @@ public static class FormCheck
         var amount = arguments.TryGetProperty("amount", out var value) ? Decimal(value) : null;
         return amount is { } known && entered.Contains(known)
             ? null
-            : $"Not prepared, the person sees no card: the amount is not what they entered in the form ({string.Join(", ", entered.Select(n => n.ToString(CultureInfo.InvariantCulture)))}). " +
+            : $"{NotPrepared}, the person sees no card: the amount is not what they entered in the form ({string.Join(", ", entered.Select(n => n.ToString(CultureInfo.InvariantCulture)))}). " +
               "Call this tool again with their amount. It may be less than the installment. If you think they meant another amount, say why and ask with show_form.";
     }
 

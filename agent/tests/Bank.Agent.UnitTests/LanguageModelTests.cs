@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using Anthropic;
 using Bank.Agent.Host.Features.Agent;
+using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 
 namespace Bank.Agent.UnitTests;
@@ -65,6 +66,32 @@ public class LanguageModelTests
         edit.GetProperty("keep").GetProperty("value").GetInt32().ShouldBe(2);
         edit.GetProperty("clear_at_least").GetProperty("value").GetInt32().ShouldBe(33);
         beta.ShouldContain("context-management-2025-06-27");
+    }
+
+    [Fact]
+    public async Task The_instructions_of_an_agent_carry_their_own_cache_point()
+    {
+        var capture = new Capture();
+        var client = new AnthropicClient { ApiKey = "test-key", HttpClient = new HttpClient(capture) };
+        var agent = new ChatClientAgent(LanguageModel.Claude(client, new ModelOptions()), new ChatClientAgentOptions
+        {
+            ChatOptions = new ChatOptions { Instructions = "Be kind." },
+        });
+
+        await agent.RunAsync("Hi", cancellationToken: TestContext.Current.CancellationToken);
+
+        var body = JsonDocument.Parse(capture.Body).RootElement;
+        var system = body.GetProperty("system").EnumerateArray().ToList();
+        system.Count(b => b.GetProperty("text").GetString() == "Be kind.").ShouldBe(1);
+        system.ShouldHaveSingleItem().GetProperty("cache_control").GetProperty("type").GetString().ShouldBe("ephemeral");
+        body.GetProperty("cache_control").GetProperty("type").GetString().ShouldBe("ephemeral");
+    }
+
+    [Fact]
+    public void The_tokens_written_to_the_cache_are_read_from_the_usage()
+    {
+        LanguageModel.CacheWritten(new UsageDetails()).ShouldBe(0);
+        LanguageModel.CacheWritten(new UsageDetails { AdditionalCounts = new() { ["CacheCreationInputTokens"] = 20 } }).ShouldBe(20);
     }
 
     [Fact]

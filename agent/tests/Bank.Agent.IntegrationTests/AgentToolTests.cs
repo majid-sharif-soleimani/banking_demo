@@ -269,7 +269,7 @@ public class AgentToolTests(PostgresFixture postgres)
     public async Task A_run_over_its_token_limit_stops_with_no_more_model_calls_and_the_chat_stays_open()
     {
         var model = new ScriptedModel(
-            new CallToolCosting("accounts_list", new { }, 200_000),
+            new CallToolCosting("accounts_list", new { }, 700_000),
             new Answer("This call must never be made."),
             new Answer("Back again."));
         await using var app = await AgentApp.StartAsync(postgres, model);

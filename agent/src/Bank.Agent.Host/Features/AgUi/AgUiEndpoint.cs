@@ -159,8 +159,11 @@ public static class AgUiEndpoint
             // Here we only watch what comes out: text goes to the browser as it arrives, a shown table or card goes to
             // the browser as a tool call, every tool call is logged, and the tokens are counted.
             var turn = new TurnWriter(chat, chats, session.Principal.Username);
-            var toolNames = new Dictionary<string, string>();
+            var tools = new ToolCalls();
             var usage = new UsageDetails();
+            var runClock = System.Diagnostics.Stopwatch.StartNew();
+            var callClock = System.Diagnostics.Stopwatch.StartNew();
+            var modelCalls = 0;
             var failed = false;
             var overBudget = false;
             // Whether the person got something since the last tool result, and why the model's last call ended. Together
@@ -175,12 +178,18 @@ public static class AgUiEndpoint
                     break;
                 }
 
-                LogToolCalls(update, toolNames, session, parts.Log);
+                LogToolCalls(update, tools, session, parts.Log);
                 answered &= !update.Contents.Any(c => c is FunctionResultContent);
                 finishReason = update.FinishReason ?? finishReason;
                 foreach (var counted in update.Contents.OfType<UsageContent>())
                 {
                     usage.Add(counted.Details);
+                    modelCalls++;
+                    parts.Log.LogInformation(
+                        "Model call {ModelCall} in chat {ChatId} for role {Role}: {InputTokens} input ({CachedTokens} read from the cache, {CacheWrittenTokens} written to it) and {OutputTokens} output tokens in {ElapsedMs} ms, finish reason {FinishReason}",
+                        modelCalls, session.ChatId, session.Principal.Role, counted.Details.InputTokenCount ?? 0, counted.Details.CachedInputTokenCount ?? 0,
+                        LanguageModel.CacheWritten(counted.Details), counted.Details.OutputTokenCount ?? 0, callClock.ElapsedMilliseconds, update.FinishReason?.Value ?? "unknown");
+                    callClock.Restart();
                 }
 
                 if (!string.IsNullOrEmpty(update.Text))
@@ -215,8 +224,10 @@ public static class AgUiEndpoint
             }
 
             // What the run cost, so spending is visible per chat (agent ADR 0007). Counts only, never content.
-            parts.Log.LogInformation("Run in chat {ChatId} for role {Role} used {InputTokens} input ({CachedTokens} from the cache) and {OutputTokens} output tokens",
-                session.ChatId, session.Principal.Role, usage.InputTokenCount ?? 0, usage.CachedInputTokenCount ?? 0, usage.OutputTokenCount ?? 0);
+            parts.Log.LogInformation(
+                "Run in chat {ChatId} for role {Role} on {Model} used {InputTokens} input ({CachedTokens} read from the cache, {CacheWrittenTokens} written to it) and {OutputTokens} output tokens: {ModelCalls} model calls, {ToolCallCount} tool calls, {ToolResultCharacters} characters of tool results, {HistoryMessages} history messages, {ElapsedMs} ms, finish reason {FinishReason}",
+                session.ChatId, session.Principal.Role, parts.ModelOptions.Name, usage.InputTokenCount ?? 0, usage.CachedInputTokenCount ?? 0, LanguageModel.CacheWritten(usage), usage.OutputTokenCount ?? 0,
+                modelCalls, tools.Count, tools.ResultCharacters, history.Count, runClock.ElapsedMilliseconds, finishReason?.Value ?? "unknown");
 
             if (failed)
             {
@@ -310,22 +321,37 @@ public static class AgUiEndpoint
     /// Every tool call, with chat id, role, tool name and outcome (design plan section 6: every action is traceable).
     /// Never the arguments or the result: they hold personal data.
     /// </summary>
-    private static void LogToolCalls(AgentResponseUpdate update, Dictionary<string, string> toolNames, HostSession session, ILogger log)
+    private static void LogToolCalls(AgentResponseUpdate update, ToolCalls tools, HostSession session, ILogger log)
     {
         foreach (var content in update.Contents)
         {
             switch (content)
             {
                 case FunctionCallContent call:
-                    toolNames[call.CallId] = call.Name;
+                    tools.Started[call.CallId] = (call.Name, System.Diagnostics.Stopwatch.GetTimestamp());
                     break;
                 case FunctionResultContent result:
-                    log.LogInformation("Tool {Tool} in chat {ChatId} for role {Role}: {Outcome}",
-                        toolNames.GetValueOrDefault(result.CallId, "unknown"), session.ChatId, session.Principal.Role,
-                        result.Exception is null ? "ok" : "failed");
+                    var text = result.Result?.ToString() ?? "";
+                    var started = tools.Started.GetValueOrDefault(result.CallId, ("unknown", System.Diagnostics.Stopwatch.GetTimestamp()));
+                    tools.Count++;
+                    tools.ResultCharacters += text.Length;
+                    log.LogInformation("Tool {Tool} in chat {ChatId} for role {Role}: {Outcome}, {ResultCharacters} characters in {ElapsedMs} ms",
+                        started.Item1, session.ChatId, session.Principal.Role,
+                        result.Exception is not null ? "failed" : text.StartsWith(FormCheck.NotPrepared, StringComparison.Ordinal) ? "refused" : "ok",
+                        text.Length, (long)System.Diagnostics.Stopwatch.GetElapsedTime(started.Item2).TotalMilliseconds);
                     break;
             }
         }
+    }
+
+    /// <summary>The tool calls of one run, for the log.</summary>
+    private sealed class ToolCalls
+    {
+        public Dictionary<string, (string Name, long StartedAt)> Started { get; } = [];
+
+        public int Count { get; set; }
+
+        public long ResultCharacters { get; set; }
     }
 
     private static string RunId(RunAgentInput input) => string.IsNullOrWhiteSpace(input.RunId) ? Guid.NewGuid().ToString() : input.RunId;

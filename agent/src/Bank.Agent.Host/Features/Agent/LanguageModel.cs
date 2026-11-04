@@ -102,6 +102,10 @@ public static class LanguageModel
     public static IChatClient Claude(IAnthropicClient client, ModelOptions options) =>
         new CostControlledModel(client.Beta.AsIChatClient(options.Name), options);
 
+    /// <summary>The tokens a call wrote to the provider's cache; they cost more than plain input. Zero for another model.</summary>
+    public static long CacheWritten(UsageDetails usage) =>
+        usage.AdditionalCounts?.GetValueOrDefault("CacheCreationInputTokens") ?? 0;
+
     /// <summary>
     /// A failure of the model for the log. The provider's own message says what is wrong (a spent limit, a bad request), so
     /// it is kept, cut short. Its status and message hold no chat content; any other exception's message might, so that
@@ -150,11 +154,19 @@ public static class LanguageModel
         {
             var controlled = options?.Clone() ?? new ChatOptions();
             var maxTokens = controlled.MaxOutputTokens ?? model.MaxOutputTokens;
+            // The instructions go in here so that they can carry a cache point of their own (agent ADR 0011). The other
+            // one moves with the last block, and its prefix stops matching when the history window slides: without this,
+            // the first call of each such run wrote the tools and the instructions again.
+            var instructions = controlled.Instructions;
+            controlled.Instructions = null;
             controlled.RawRepresentationFactory = _ => new MessageCreateParams
             {
                 Model = model.Name,
                 MaxTokens = maxTokens,
                 Messages = [],
+                System = string.IsNullOrEmpty(instructions)
+                    ? null
+                    : (MessageCreateParamsSystem)new List<BetaTextBlockParam> { new() { Text = instructions, CacheControl = new BetaCacheControlEphemeral() } },
                 CacheControl = new BetaCacheControlEphemeral(),
                 ContextManagement = new BetaContextManagementConfig
                 {

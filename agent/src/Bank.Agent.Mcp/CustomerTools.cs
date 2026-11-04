@@ -32,8 +32,19 @@ public sealed class CustomerTools(BankApi bank)
         CancellationToken ct) =>
         bank.GetAsync($"/api/accounts/accounts/{accountId}/statement?from={from:yyyy-MM-dd}&to={to:yyyy-MM-dd}", ct);
 
+    [McpServerTool(Name = "loan_summary", ReadOnly = true)]
+    [Description("The customer's loans as numbers only, without the schedule: id, status, classification, outstanding principal, overdue amount, days past due, how many installments are paid, open and overdue, what is paid so far, what is unpaid on the schedule, the oldest open installment and the next one not yet due, each split into principal, interest and penalty. Use this for every question about a loan, unless the person wants to see the whole schedule. For early payoff use payoff_quote.")]
+    public async Task<string> LoanSummaryAsync(
+        CancellationToken ct,
+        [Description("Only this loan (a GUID from this tool). Leave out for all loans.")] Guid? loanId = null,
+        [Description("Also give the amounts of this installment number.")] int? installmentNumber = null) =>
+        LoanFigures.Summarize(
+            await bank.GetAsync($"/api/lending/loans?customerId={bank.CustomerId}", ct),
+            LoanFigures.BusinessDate(await bank.GetAsync("/api/operations/business-days/current", ct)),
+            loanId, installmentNumber);
+
     [McpServerTool(Name = "loans_list", ReadOnly = true)]
-    [Description("The customer's loans: principal, outstanding principal, overdue amount, days past due, status, classification (Current, Overdue, Default) and the full schedule of installments with what is due and what is paid.")]
+    [Description("The customer's loans with the full schedule of every installment. It is long, so use it only when the person wants to see the whole schedule; otherwise use loan_summary.")]
     public Task<string> LoansAsync(CancellationToken ct) =>
         bank.GetAsync($"/api/lending/loans?customerId={bank.CustomerId}", ct);
 

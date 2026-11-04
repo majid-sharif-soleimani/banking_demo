@@ -34,7 +34,12 @@ public static class FakeBank
                             {"date":"2026-02-27","description":"Groceries","amount":{"amount":"-1254.33","currency":"SEK"} }],
                  "closing":{"amount":"36645.67","currency":"SEK"} }
                 """, "account_statement", "The statement of one account between two business dates."),
-            Read("loans_list", "The customer's loans with schedule and classification.", () => """
+            Read("loan_summary", "The customer's loans as numbers only, without the schedule. Use it for every question about a loan.", () => """
+                [{"id":"0b3c0000-0000-4000-8000-00000000e001","productCode":"CAR","principal":{"amount":"200000.00","currency":"SEK"},
+                  "outstandingPrincipal":{"amount":"184210.40","currency":"SEK"},"overdueAmount":{"amount":"0.00","currency":"SEK"},
+                  "classification":"Current","oldestOpen":{"number":3,"dueDate":"2026-03-15","unpaid":{"total":{"amount":"6170.85","currency":"SEK"}}}}]
+                """),
+            Read("loans_list", "The customer's loans with the full schedule. It is long: use it only to show the whole schedule.", () => """
                 [{"id":"0b3c0000-0000-4000-8000-00000000e001","productCode":"CAR","principal":{"amount":"200000.00","currency":"SEK"},
                   "outstandingPrincipal":{"amount":"184210.40","currency":"SEK"},"overdueAmount":{"amount":"0.00","currency":"SEK"},
                   "classification":"Current","nextInstallment":{"dueDate":"2026-03-15","amount":{"amount":"6170.85","currency":"SEK"}}}]

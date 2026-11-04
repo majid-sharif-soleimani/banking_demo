@@ -56,7 +56,7 @@ public sealed class CustomerChangeTools(BankApi bank)
         bank.ChangeAsync(HttpMethod.Delete, $"/api/accounts/standing-orders/{standingOrderId}", null, ct);
 
     [McpServerTool(Name = "card_payment", ReadOnly = false, Destructive = false)]
-    [Description("Pays a loan installment with one of the bank's test cards. Ask the customer for the card number and the amount with a form; take the installment number from loans_list. The amount is the customer's choice and may be less than the installment. Leave the installment number out when the amount is more than that installment: the bank then pays the oldest items first and uses the rest for later ones.")]
+    [Description("Pays a loan installment with one of the bank's test cards. Ask the customer for the card number and the amount with a form; take the installment number from loan_summary. The amount is the customer's choice and may be less than the installment. Leave the installment number out when the amount is more than that installment: the bank then pays the oldest items first and uses the rest for later ones.")]
     public Task<string> CardPaymentAsync(
         [Description("The test card number the customer typed.")] string cardNumber,
         Guid loanId,

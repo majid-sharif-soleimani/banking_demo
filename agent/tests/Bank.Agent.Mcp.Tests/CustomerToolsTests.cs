@@ -23,7 +23,7 @@ public class CustomerToolsTests
 
         tools.Where(t => t.ProtocolTool.Annotations!.ReadOnlyHint == true).Select(t => t.Name).Order().ShouldBe([
             "account_statement", "accounts_list", "appointment_slots", "appointments_list", "business_date", "loan_applications_list",
-            "loan_products_list", "loan_simulation", "loans_list", "payoff_quote", "standing_orders_list"]);
+            "loan_products_list", "loan_simulation", "loan_summary", "loans_list", "payoff_quote", "standing_orders_list"]);
         tools.Where(t => t.ProtocolTool.Annotations!.ReadOnlyHint == false).Select(t => t.Name).Order().ShouldBe([
             "appointment_book", "appointment_cancel", "card_payment", "host_document_upload", "loan_application_submit", "payoff_request",
             "standing_order_cancel", "standing_order_create", "transfer_create"]);

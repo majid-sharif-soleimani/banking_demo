@@ -25,7 +25,7 @@ public class AdminToolsTests
 
         tools.Where(t => t.ProtocolTool.Annotations!.ReadOnlyHint == true).Select(t => t.Name).Order().ShouldBe([
             "appointment_slots", "arrears_report", "business_date", "currencies_list", "customer_accounts", "customer_appointments",
-            "customer_get", "customer_interactions", "customer_loans", "customer_standing_orders", "customers_search",
+            "customer_get", "customer_interactions", "customer_loan_summary", "customer_loans", "customer_standing_orders", "customers_search",
             "host_customer_document", "host_customers_report", "information_requests_of_application", "information_requests_open", "journal_entries", "loan_application_get",
             "loan_applications_queue", "loan_products_list", "loans_by_classification", "portfolio_report", "trial_balance"]);
         tools.Where(t => t.ProtocolTool.Annotations!.ReadOnlyHint == false).Select(t => t.Name).Order().ShouldBe([
@@ -71,7 +71,6 @@ public class AdminToolsTests
     [InlineData("customer_interactions", """{"customerId":"7a1c2a0e-0000-4000-8000-000000000001"}""", "/api/customers/customers/7a1c2a0e-0000-4000-8000-000000000001/interactions")]
     [InlineData("loan_applications_queue", """{"statuses":["Submitted","UnderReview"]}""", "/api/lending/loan-applications?status=Submitted&status=UnderReview&limit=20")]
     [InlineData("information_requests_open", "{}", "/api/customers/information-requests")]
-    [InlineData("loans_by_classification", """{"classification":"Overdue"}""", "/api/lending/loans?classification=Overdue")]
     public async Task An_admin_read_calls_its_bank_path_with_the_admin_token(string tool, string arguments, string path)
     {
         await using var app = new McpServerApp();

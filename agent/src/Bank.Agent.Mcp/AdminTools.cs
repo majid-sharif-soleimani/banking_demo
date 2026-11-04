@@ -72,8 +72,20 @@ public sealed class AdminTools(BankApi bank)
     public Task<string> AccountsAsync(Guid customerId, CancellationToken ct) =>
         bank.GetAsync($"/api/accounts/accounts?customerId={customerId}", ct);
 
+    [McpServerTool(Name = "customer_loan_summary", ReadOnly = true)]
+    [Description("One customer's loans as numbers only, without the schedule: status, classification, outstanding principal, overdue amount, days past due, how many installments are paid, open and overdue, what is paid so far, what is unpaid on the schedule, the oldest open installment and the next one not yet due. Use this for every question about a customer's loan, unless the admin wants to see the whole schedule.")]
+    public async Task<string> CustomerLoanSummaryAsync(
+        Guid customerId,
+        CancellationToken ct,
+        [Description("Only this loan. Leave out for all of the customer's loans.")] Guid? loanId = null,
+        [Description("Also give the amounts of this installment number.")] int? installmentNumber = null) =>
+        LoanFigures.Summarize(
+            await bank.GetAsync($"/api/lending/loans?customerId={customerId}", ct),
+            LoanFigures.BusinessDate(await bank.GetAsync("/api/operations/business-days/current", ct)),
+            loanId, installmentNumber);
+
     [McpServerTool(Name = "customer_loans", ReadOnly = true)]
-    [Description("One customer's loans with outstanding principal, overdue amount, classification and schedule.")]
+    [Description("One customer's loans with the full schedule of every installment. It is long, so use it only when the admin wants to see the whole schedule; otherwise use customer_loan_summary.")]
     public Task<string> LoansAsync(Guid customerId, CancellationToken ct) =>
         bank.GetAsync($"/api/lending/loans?customerId={customerId}", ct);
 
@@ -121,9 +133,11 @@ public sealed class AdminTools(BankApi bank)
         bank.GetAsync($"/api/customers/information-requests?applicationId={applicationId}", ct);
 
     [McpServerTool(Name = "loans_by_classification", ReadOnly = true)]
-    [Description("Running loans of one classification (Current, Overdue or Default), oldest first, at most 100: customer id, overdue amount, days past due and schedule. Use it to follow up the customers behind the arrears report.")]
-    public Task<string> LoansByClassificationAsync([Description("Current, Overdue or Default.")] string classification, CancellationToken ct) =>
-        bank.GetAsync($"/api/lending/loans?classification={Uri.EscapeDataString(classification)}", ct);
+    [Description("Running loans of one classification (Current, Overdue or Default), oldest first, at most 100, as numbers only, without the schedules: customer id, overdue amount, days past due, installment counts and the oldest open installment. Use it to follow up the customers behind the arrears report.")]
+    public async Task<string> LoansByClassificationAsync([Description("Current, Overdue or Default.")] string classification, CancellationToken ct) =>
+        LoanFigures.Summarize(
+            await bank.GetAsync($"/api/lending/loans?classification={Uri.EscapeDataString(classification)}", ct),
+            LoanFigures.BusinessDate(await bank.GetAsync("/api/operations/business-days/current", ct)));
 
     /// <summary>
     /// The name of the document tool. Only the agent host calls it (to read a document in isolation); the model does not

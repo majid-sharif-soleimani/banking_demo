@@ -29,7 +29,8 @@
     "role": "customer",
     "messages": ["قسط بعدی وام من کی است و چقدر است؟"],
     "why": "Loan status from the bank, in Persian.",
-    "toolsCalled": ["loans_list"],
+    "toolsCalled": ["loan_summary"],
+    "toolsNotCalled": ["loans_list"],
     "answerMatches": ["6[ ,.٬]?170|۶[ ,.٬]?۱۷۰"],
     "language": "fa"
   },
